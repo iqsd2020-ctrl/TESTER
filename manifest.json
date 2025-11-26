@@ -1,0 +1,22 @@
+{
+  "name": "من وحي أهل البيت (ع)",
+  "short_name": "وحي أهل البيت",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#064E3B",
+  "description": "مسابقات عقائدية وتاريخية في تراث أهل البيت (عليهم السلام)",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
