@@ -1243,7 +1243,6 @@ bind('btn-confirm-logout-action', 'click', () => {
 
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
-
 bind('nav-about', 'click', () => openModal('about-modal'));
 
 bind('user-profile-btn', 'click', () => {
