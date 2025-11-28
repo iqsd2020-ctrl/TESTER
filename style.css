@@ -1,5 +1,22 @@
-:root { --font-heading: 'Reem Kufi', sans-serif; --font-body: 'Amiri', serif; --base-size: 16px; --gold: #fbbf24; --gold-dark: #b45309; }
-body { font-family: var(--font-body); font-size: var(--base-size); line-height: 1.8; user-select: none; background: radial-gradient(circle at top, #0f172a 0%, #064E3B 100%); background-attachment: fixed; color: #f8fafc; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
+:root { 
+    --font-heading: 'Reem Kufi', sans-serif; 
+    --font-body: 'Amiri', serif; 
+    --base-size: 16px; 
+    --gold: #fbbf24; 
+    --gold-dark: #b45309; 
+}
+body { 
+    font-family: var(--font-body); 
+    font-size: var(--base-size); 
+    line-height: 1.8; 
+    user-select: none; 
+    background: radial-gradient(circle at top, #0f172a 0%, #064E3B 100%); 
+    background-attachment: fixed; 
+    color: #f8fafc; 
+    min-height: 100vh; 
+    min-height: 100dvh; 
+    overflow-x: hidden; 
+}
 h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 #question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
 .glass-card { background: rgba(15, 23, 42, 0.90); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(251, 191, 36, 0.15); border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
@@ -58,3 +75,5 @@ select.input-glass { appearance: none; background-image: url("data:image/svg+xml
 .selection-item:hover { background: rgba(251, 191, 36, 0.1); color: var(--gold); padding-right: 1.5rem; }
 .selection-item:last-child { border-bottom: none; }
 .trigger-icon { color: var(--gold); font-size: 1.2rem; transition: 0.3s; }
+#toggle-enrichment-btn { transition: all 0.3s ease; }
+#toggle-enrichment-btn:hover { transform: scale(1.1); }

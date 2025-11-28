@@ -2,275 +2,423 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>من وحي أهل البيت (ع)</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#064E3B">
+    <meta name="theme-color" content="#0f172a">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
     <link rel="stylesheet" href="style.css">
+    <style>
+        .header-pill { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(8px); border: 1px solid rgba(148, 163, 184, 0.1); }
+        .bg-glass-deep { background: rgba(15, 23, 42, 0.8); }
+        .helper-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            color: #94a3b8;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            transition: all 0.2s;
+        }
+        .helper-btn:hover:not(:disabled) {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: #fbbf24;
+            color: #fbbf24;
+            transform: translateY(-2px);
+        }
+        .helper-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+    </style>
 </head>
-<body class="flex flex-col items-center justify-center p-4">
+<body class="flex flex-col items-center justify-center p-4 min-h-screen">
 
-    <div class="w-full max-w-2xl flex justify-between items-center mb-4 z-20 relative">
-        <div class="flex items-center gap-3">
-            <button id="menu-btn" class="text-white p-2 hover:bg-white/10 rounded-full transition"><span class="material-symbols-rounded text-3xl">menu</span></button>
-            <div id="user-profile-container" class="hidden flex items-center gap-3">
-                <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-amber-500/30 shadow-lg">
-                    <span id="header-score" class="text-amber-400 font-bold font-heading text-sm pt-1">0</span>
-                    <span class="material-symbols-rounded text-amber-500 text-sm">military_tech</span>
+    <div class="w-full max-w-2xl flex justify-between items-center mb-6 z-20 relative select-none">
+        <button id="menu-btn" class="text-slate-300 p-2 hover:bg-white/10 rounded-full transition shrink-0 active:scale-95">
+            <span class="material-symbols-rounded text-3xl">menu</span>
+        </button>
+        
+        <div id="user-profile-container" class="hidden flex-1 flex justify-end items-center gap-3">
+            <div class="header-pill flex items-center rounded-full pl-1 pr-4 py-1 gap-3 shadow-lg">
+                <div class="flex flex-col items-end leading-none">
+                    <span class="text-[10px] text-slate-400 font-bold tracking-wide">الرصيد</span>
+                    <span id="header-score" class="text-amber-400 font-mono font-bold text-sm">0</span>
                 </div>
-                <div id="user-profile-btn" class="flex items-center gap-2 bg-slate-800/60 pl-4 pr-1.5 py-1.5 rounded-full cursor-pointer border border-white/10 hover:bg-slate-700/80 transition relative overflow-hidden group">
-                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-amber-400/50 overflow-hidden">
-                        <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
-                        <span id="user-avatar-icon" class="material-symbols-rounded text-amber-400 text-xl">account_circle</span>
-                    </div>
-                    <span id="username-display" class="text-sm text-white font-heading max-w-[80px] truncate">...</span>
+                <div class="relative w-9 h-9 flex items-center justify-center">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-indigo-600 to-blue-500 rounded-full opacity-90 border border-white/10"></div>
+                    <span id="header-level" class="relative text-white font-mono font-bold text-sm z-10">1</span>
+                    <div class="absolute -bottom-1 -right-2 bg-slate-900 text-[8px] text-slate-300 px-1 rounded border border-slate-700 z-20">LVL</div>
                 </div>
+            </div>
+
+            <div id="user-profile-btn" class="relative cursor-pointer group shrink-0 transition-transform active:scale-95">
+                <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center border-2 border-amber-500/30 overflow-hidden shadow-xl group-hover:border-amber-400 transition">
+                    <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
+                    <span id="user-avatar-icon" class="material-symbols-rounded text-amber-500/80 text-3xl">account_circle</span>
+                </div>
+                <span class="absolute top-0 right-0 flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-slate-900"></span>
+                </span>
             </div>
         </div>
     </div>
 
     <div id="side-menu-overlay"></div>
     <div id="side-menu">
-        <div class="p-6 border-b border-slate-700 text-center"><h2 class="text-xl font-bold text-amber-400 font-heading">القائمة</h2></div>
-        <div class="flex-grow overflow-y-auto p-2">
+        <div class="p-6 border-b border-slate-700 bg-slate-900/50">
+            <h2 class="text-xl font-bold text-amber-400 font-heading text-center">القائمة الرئيسية</h2>
+        </div>
+        <div class="flex-grow overflow-y-auto p-2 space-y-1">
             <div class="menu-item" id="nav-home"><span class="material-symbols-rounded text-amber-500">home</span> الرئيسية</div>
             <div class="menu-item" id="nav-badges"><span class="material-symbols-rounded text-purple-400">military_tech</span> الأوسمة</div>
             <div class="menu-item" id="nav-leaderboard"><span class="material-symbols-rounded text-yellow-400">trophy</span> المتصدرون</div>
             <div class="menu-item" id="nav-favs"><span class="material-symbols-rounded text-red-400">favorite</span> المفضلة</div>
             <div class="menu-item" id="nav-mistakes"><span class="material-symbols-rounded text-orange-400">history_edu</span> مراجعة الأخطاء</div>
             <div class="menu-item" id="nav-settings"><span class="material-symbols-rounded text-gray-400">settings</span> الإعدادات</div>
-            <div class="menu-item" id="nav-about"><span class="material-symbols-rounded text-slate-400">info</span> عن التطبيق</div>
+            <div class="menu-item" id="nav-about"><span class="material-symbols-rounded text-blue-400">info</span> عن التطبيق</div>
         </div>
-        <div class="p-4 border-t border-slate-700"><button id="logout-btn-menu" class="w-full py-2 bg-red-900/50 text-red-300 rounded-lg flex justify-center gap-2 hover:bg-red-900 transition"><span class="material-symbols-rounded">logout</span> خروج</button></div>
+        <div class="p-4 border-t border-slate-700 bg-slate-900/50">
+            <button id="logout-btn-menu" class="w-full py-2.5 bg-red-900/30 text-red-300 rounded-xl flex items-center justify-center gap-2 hover:bg-red-900/50 transition border border-red-900/50 font-bold text-sm">
+                <span class="material-symbols-rounded">logout</span> تسجيل خروج
+            </button>
+        </div>
     </div>
 
-    <div id="main-container" class="glass-card w-full max-w-2xl p-6 min-h-[500px] relative z-10 transition-all duration-300">
-        <div id="auth-loading" class="text-center py-10">
-             <span class="material-symbols-rounded animate-spin text-4xl text-amber-500">autorenew</span>
-             <p class="text-slate-400 mt-2 font-heading">جاري التحميل...</p>
+    <div id="main-container" class="glass-card w-full max-w-2xl p-6 relative z-10 transition-all duration-300 flex flex-col min-h-[500px]">
+        
+        <div id="auth-loading" class="flex-1 flex flex-col items-center justify-center py-10">
+             <div class="w-12 h-12 border-4 border-slate-700 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+             <p class="text-slate-400 font-heading animate-pulse">جاري الاتصال...</p>
         </div>
 
-        <div id="login-area" class="hidden fade-in">
+        <div id="login-area" class="hidden fade-in flex-1">
             <div id="login-view">
-                <div class="text-center mb-8">
-                    <span class="material-symbols-rounded text-6xl text-amber-400 mb-2 pulse-slow">mosque</span>
+                <div class="text-center mb-8 pt-4">
+                    <div class="inline-block p-4 rounded-full bg-amber-500/10 mb-4 border border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                        <span class="material-symbols-rounded text-6xl text-amber-400">mosque</span>
+                    </div>
                     <h1 class="text-3xl font-bold text-white font-heading">من وحي أهل البيت (ع)</h1>
-                    <p class="text-slate-400 text-sm mt-2">مسابقات عقائدية وتاريخية</p>
+                    <p class="text-slate-400 text-sm mt-2 font-body opacity-80">رحلة معرفية في العقيدة والتاريخ</p>
                 </div>
                 <div class="space-y-4">
-                    <input type="text" id="login-username-input" class="input-glass" placeholder="اسم المستخدم">
-                    <input type="password" id="login-password-input" class="input-glass" placeholder="كلمة المرور">
-                    <p id="login-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                    <button id="login-btn" class="btn-gold-action">دخول</button>
-                    <div class="text-center mt-4"><button id="show-register-btn" class="text-amber-400 text-sm hover:underline">إنشاء حساب جديد</button></div>
+                    <div class="relative">
+                        <span class="material-symbols-rounded absolute right-3 top-3.5 text-slate-500">person</span>
+                        <input type="text" id="login-username-input" class="input-glass pr-10" placeholder="اسم المستخدم">
+                    </div>
+                    <div class="relative">
+                        <span class="material-symbols-rounded absolute right-3 top-3.5 text-slate-500">lock</span>
+                        <input type="password" id="login-password-input" class="input-glass pr-10" placeholder="كلمة المرور">
+                    </div>
+                    <p id="login-error-message" class="text-red-400 text-center text-xs font-bold min-h-[1.5rem]"></p>
+                    <button id="login-btn" class="btn-gold-action shadow-lg shadow-amber-900/20">تسجيل الدخول</button>
+                    <div class="text-center mt-6">
+                        <span class="text-slate-500 text-sm">ليس لديك حساب؟</span>
+                        <button id="show-register-btn" class="text-amber-400 text-sm font-bold hover:underline pr-1">إنشاء حساب جديد</button>
+                    </div>
                 </div>
             </div>
 
             <div id="register-view" class="hidden">
-                <h2 class="text-2xl text-center text-white mb-6 font-heading">حساب جديد</h2>
+                <h2 class="text-2xl text-center text-white mb-6 font-heading">إنشاء حساب جديد</h2>
                 <div class="space-y-4">
-                    <input type="text" id="reg-username-input" class="input-glass" placeholder="اسم المستخدم (فريد)">
+                    <input type="text" id="reg-username-input" class="input-glass" placeholder="اسم المستخدم (يكون فريداً)">
                     <input type="password" id="reg-password-input" class="input-glass" placeholder="كلمة المرور">
                     <input type="password" id="reg-confirm-password-input" class="input-glass" placeholder="تأكيد كلمة المرور">
-                    <p id="register-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                    <button id="register-btn" class="btn-gold-action bg-gradient-to-r from-green-600 to-green-500">تسجيل</button>
-                    <div class="text-center mt-4"><button id="show-login-btn" class="text-slate-400 text-sm hover:underline">عودة للدخول</button></div>
+                    <p id="register-error-message" class="text-red-400 text-center text-xs font-bold min-h-[1.5rem]"></p>
+                    <button id="register-btn" class="btn-gold-action bg-gradient-to-r from-emerald-600 to-emerald-500 border-emerald-400/30">إتمام التسجيل</button>
+                    <div class="text-center mt-4">
+                        <button id="show-login-btn" class="text-slate-400 text-sm hover:text-white transition">العودة لتسجيل الدخول</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="welcome-area" class="hidden fade-in">
-            <div class="bg-slate-800/50 p-4 rounded-xl border border-amber-500/20 mb-6 text-center relative group">
-                <div class="absolute top-0 right-0 bg-amber-500 text-black text-xs px-2 rounded-bl font-bold">رسالة اليوم</div>
-                <p id="wisdom-text" class="text-slate-200 text-sm italic leading-relaxed pt-2">...</p>
+        <div id="welcome-area" class="hidden fade-in space-y-6">
+            <div class="bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 relative overflow-hidden group">
+                <div class="absolute top-0 right-0 bg-amber-500 text-slate-900 text-[10px] px-3 py-1 rounded-bl-xl font-bold font-heading">حكمة اليوم</div>
+                <div class="absolute -left-4 -bottom-4 text-slate-700/20 opacity-20 transform rotate-12">
+                    <span class="material-symbols-rounded text-8xl">format_quote</span>
+                </div>
+                <p id="wisdom-text" class="text-slate-200 text-sm italic leading-loose text-center pt-3 relative z-10 font-medium">...</p>
             </div>
 
-            <div class="text-center mb-8">
-                <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
-                <h1 class="text-3xl font-bold text-amber-400 font-heading tracking-wide drop-shadow-md">من وحي أهل البيت (ع)</h1>
+            <div class="text-center">
+                <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-20 h-20 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow object-contain" alt="App Logo">
+                <h1 class="text-2xl font-bold text-amber-400 font-heading tracking-wide drop-shadow-md">من وحي أهل البيت (ع)</h1>
             </div>
-            
-            <button id="review-mistakes-btn" class="hidden w-full bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/30 text-orange-200 font-bold py-2 px-4 rounded-lg mb-4 flex items-center justify-center gap-2 transition">
-                <span class="material-symbols-rounded">history_edu</span> <span id="review-mistakes-text">مراجعة أخطائي</span>
-            </button>
 
-            <div class="space-y-4">
+            <div id="action-zone" class="min-h-[90px]">
+                <div id="daily-challenge-card" class="glass-card p-0 cursor-pointer transform active:scale-95 transition relative overflow-hidden group border border-amber-500/30 bg-gradient-to-br from-slate-800 to-amber-900/10">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full z-0 transition group-hover:bg-amber-500/20"></div>
+                    <div class="relative z-10 flex items-center justify-between p-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-lg">
+                                <span class="material-symbols-rounded text-2xl animate-pulse">event_available</span>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-bold font-heading text-lg flex items-center gap-2">
+                                    التحدي اليومي
+                                    <span class="text-[10px] bg-amber-500 text-slate-900 px-1.5 py-0.5 rounded font-bold shadow-sm">x20 نقطة</span>
+                                </h3>
+                                <p id="daily-status-text" class="text-slate-400 text-xs mt-1 font-bold">5 أسئلة • فرصة واحدة كل 24 ساعة</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded text-slate-500 text-3xl group-hover:text-amber-400 transition">play_circle</span>
+                    </div>
+                    <div id="daily-completed-overlay" class="absolute inset-0 bg-slate-900/95 z-20 hidden flex-col items-center justify-center text-center backdrop-blur-sm">
+                        <span class="material-symbols-rounded text-green-500 text-4xl mb-1">check_circle</span>
+                        <p class="text-white font-bold text-sm">تم إنجاز التحدي</p>
+                        <p class="text-slate-500 text-xs">عد غداً للمزيد</p>
+                    </div>
+                </div>
+                <button id="review-mistakes-btn" class="hidden w-full h-[90px] bg-orange-900/20 hover:bg-orange-900/30 border border-orange-500/30 text-orange-200 font-bold rounded-2xl flex flex-col items-center justify-center gap-1 transition group">
+                    <span class="material-symbols-rounded text-3xl text-orange-400 group-hover:scale-110 transition">history_edu</span> 
+                    <span id="review-mistakes-text">مراجعة أخطائي</span>
+                </button>
+            </div>
+
+            <div class="space-y-3 pt-2">
                 <div class="relative">
                     <button id="btn-category-trigger" class="custom-select-trigger">
-                        <span id="txt-category-display">-- تصفح المكتبة --</span>
+                        <span id="txt-category-display">-- تصفح المكتبة الشاملة --</span>
                         <span class="material-symbols-rounded trigger-icon">expand_more</span>
                     </button>
                     <input type="hidden" id="category-select" value="">
                 </div>
                 <div class="relative">
-                    <button id="btn-topic-trigger" class="custom-select-trigger" disabled>
+                    <button id="btn-topic-trigger" class="custom-select-trigger opacity-50 cursor-not-allowed" disabled>
                         <span id="txt-topic-display">-- اختر الموضوع --</span>
                         <span class="material-symbols-rounded trigger-icon">expand_more</span>
                     </button>
                     <input type="hidden" id="topic-select" value="">
                 </div>
-                <div class="flex gap-2">
-                    <select id="ai-question-count" class="input-glass text-center w-1/2 font-body"><option value="5">5 أسئلة</option><option value="10" selected>10 أسئلة</option><option value="15">15 سؤال</option></select>
+                
+                <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-xl border border-slate-700/50">
+                    <span class="text-xs text-slate-400 mr-2">عدد الأسئلة:</span>
+                    <select id="ai-question-count" class="bg-transparent text-amber-400 font-bold text-sm outline-none text-center w-full">
+                        <option value="5">5 أسئلة (سريع)</option>
+                        <option value="10" selected>10 أسئلة (متوازن)</option>
+                        <option value="15">15 سؤال (تحدي)</option>
+                    </select>
                 </div>
-                <button id="ai-generate-btn" class="btn-gold-action mt-2">
-                    <span class="text-lg">ابدأ التحدي</span> 
-                    <span class="material-symbols-rounded">play_circle</span>
+
+                <button id="ai-generate-btn" class="btn-gold-action mt-4 shadow-lg shadow-amber-600/20">
+                    <span class="text-lg">ابدأ الجولة</span> 
+                    <span class="material-symbols-rounded">play_arrow</span>
                 </button>
-                <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem]"></div>
+                <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem] font-bold"></div>
             </div>
         </div>
 
-        <div id="quiz-proper" class="hidden">
-            <div id="quiz-topic-display" class="text-center text-amber-300/90 text-sm font-heading mb-2 tracking-wide bg-white/5 py-1 rounded-lg mx-auto w-fit px-4 border border-white/5"></div>
-            <div class="flex justify-between items-center text-sm text-slate-400 font-heading mb-2">
-                <div class="flex items-center gap-2">
-                    <button id="quit-quiz-btn" class="text-slate-500 hover:text-red-400 transition p-1" title="خروج"><span class="material-symbols-rounded">close</span></button>
-                    <button id="toggle-timer-btn" class="text-amber-400 hover:text-white transition p-1" title="إيقاف/تشغيل المؤقت"><span class="material-symbols-rounded">timer</span></button>
-                    <span id="question-counter-text" class="bg-slate-800 px-2 py-1 rounded-lg text-xs">1/10</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <span id="streak-icon" class="material-symbols-rounded text-orange-500 streak-fire text-2xl">local_fire_department</span>
-                    <span id="streak-count" class="text-orange-400 font-bold text-lg opacity-0 transition">x0</span>
-                    <div id="lives-display" class="flex items-center gap-1 mx-2"></div>
-                </div>
-                <span id="live-score-text" class="text-amber-400 font-bold text-lg transition-all">0</span>
+        <div id="quiz-proper" class="hidden flex flex-col h-full">
+            <div class="flex justify-between items-center mb-4">
+                <span id="question-counter-text" class="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs font-bold text-slate-300">1 / 10</span>
+                <div id="quiz-topic-display" class="text-amber-400 text-xs font-bold truncate max-w-[150px]"></div>
+                <button id="quit-quiz-btn" class="text-slate-500 hover:text-red-400 p-1"><span class="material-symbols-rounded">close</span></button>
             </div>
-            <div id="timer-bar-container" class="timer-container"><div id="timer-bar" class="timer-bar"></div></div>
-            <div class="flex justify-center gap-1 mb-4 opacity-50"><div id="progress-dots" class="flex gap-1"></div></div>
-            <div class="min-h-[100px] flex items-center justify-center text-center mb-6 bg-slate-800/40 rounded-2xl p-5 border border-slate-700/50 relative shadow-inner">
-                 <h2 id="question-text" class="text-xl font-bold text-white leading-relaxed">...</h2>
+
+            <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 mb-4">
+                <div class="flex items-center gap-3">
+                    <button id="toggle-timer-btn" class="text-slate-500 hover:text-amber-400 transition" title="المؤقت"><span class="material-symbols-rounded">timer</span></button>
+                    <button id="toggle-enrichment-btn" class="text-amber-400 hover:text-white transition" title="الإثراء"><span class="material-symbols-rounded">lightbulb</span></button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1">
+                        <span id="streak-icon" class="material-symbols-rounded text-slate-600 streak-fire text-xl">local_fire_department</span>
+                        <span id="streak-count" class="text-slate-500 font-bold text-sm opacity-0 transition">x0</span>
+                    </div>
+                    <div id="lives-display" class="flex items-center gap-1"></div>
+                </div>
+                <span id="live-score-text" class="text-amber-400 font-bold font-mono text-lg transition-all">0</span>
             </div>
+
+            <div id="timer-bar-container" class="timer-container mb-4"><div id="timer-bar" class="timer-bar"></div></div>
+            
+            <div class="flex-grow flex items-center justify-center mb-6">
+                <div class="w-full bg-gradient-to-b from-slate-800/80 to-slate-900/80 p-6 rounded-2xl border border-slate-600/50 shadow-inner min-h-[140px] flex items-center justify-center text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-slate-500/20 to-transparent"></div>
+                    <h2 id="question-text" class="text-xl md:text-2xl font-bold text-white leading-relaxed font-body drop-shadow-sm">...</h2>
+                </div>
+            </div>
+            
+            <div id="progress-dots" class="flex justify-center gap-1 mb-4"></div>
+
             <div id="options-container" class="space-y-3 mb-6"></div>
-            <div class="flex justify-center gap-4 border-t border-slate-700 pt-4" id="helper-bar">
-                <button id="helper-fifty-fifty" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">percent</span>50/50</button>
-                <button id="helper-hint" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">lightbulb</span>تلميح</button>
-                <button id="helper-skip" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">skip_next</span>تخطي</button>
-                <button id="action-fav" class="text-slate-500 hover:text-red-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-red-400 transition">favorite_border</span>حفظ</button>
-                <button id="helper-report" class="text-slate-500 hover:text-red-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-red-400 transition">flag</span>إبلاغ</button>
-            </div>
-            <p id="feedback-text" class="text-center mt-2 font-bold h-6"></p>
-        </div>
 
-        <div id="results-area" class="hidden text-center fade-in">
-            <h2 class="text-3xl font-bold text-white mb-6 font-heading">النتيجة النهائية</h2>
+            <p id="feedback-text" class="text-center mb-2 font-bold h-6 text-sm"></p>
+
+            <div class="grid grid-cols-5 gap-2 border-t border-slate-700/50 pt-3" id="helper-bar">
+                <button id="helper-fifty-fifty" class="helper-btn group"><span class="material-symbols-rounded">percent</span><span class="text-[9px]">50/50</span></button>
+                <button id="helper-hint" class="helper-btn group"><span class="material-symbols-rounded">lightbulb</span><span class="text-[9px]">تلميح</span></button>
+                <button id="helper-skip" class="helper-btn group"><span class="material-symbols-rounded">skip_next</span><span class="text-[9px]">تخطي</span></button>
+                <button id="action-fav" class="helper-btn group hover:text-red-400"><span class="material-symbols-rounded">favorite</span><span class="text-[9px]">حفظ</span></button>
+                <button id="helper-report" class="helper-btn group hover:text-red-400"><span class="material-symbols-rounded">flag</span><span class="text-[9px]">إبلاغ</span></button>
+            </div>
+        </div>
+  
+        <div id="results-area" class="hidden text-center fade-in py-4">
+            <h2 class="text-2xl font-bold text-white mb-6 font-heading">نتيجة الجولة</h2>
             <div id="score-card" class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mb-6 relative overflow-hidden shadow-2xl transform hover:scale-[1.01] transition duration-500">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600"></div>
-                <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
                 <div class="flex justify-between border-b border-slate-700 pb-2 mb-4">
-                    <div class="text-right"><p class="text-slate-400 text-xs">اللاعب</p><p id="card-username" class="text-white font-bold">...</p></div>
-                    <div class="text-left"><p class="text-slate-400 text-xs">المستوى</p><p id="card-difficulty" class="text-white font-mono text-xs">موحد</p></div>
+                    <div class="text-right">
+                        <p class="text-slate-400 text-[10px]">اللاعب</p>
+                        <p id="card-username" class="text-white font-bold text-sm">...</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-slate-400 text-[10px]">النوع</p>
+                        <p id="card-difficulty" class="text-amber-400 font-mono text-xs font-bold">...</p>
+                    </div>
                 </div>
-                <div class="py-4">
-                    <span id="card-score" class="text-6xl font-bold text-white font-heading block mb-2 drop-shadow-lg">0</span>
-                    <span class="text-amber-400 text-sm font-heading uppercase tracking-widest">نقطة مكتسبة</span>
+                <div class="py-2">
+                    <span id="card-score" class="text-6xl font-bold text-white font-heading block mb-1 drop-shadow-lg tracking-tighter">0</span>
+                    <span class="text-amber-500/80 text-xs font-bold uppercase tracking-widest">نقطة مكتسبة</span>
                 </div>
-                <div class="flex justify-center gap-4 mt-2 text-xs text-slate-400">
-                    <span id="card-correct-count">✅ 0</span>
-                    <span id="card-wrong-count">❌ 0</span>
+                <div class="flex justify-center gap-6 mt-4 text-sm font-bold bg-slate-900/50 py-2 rounded-lg border border-slate-700/50">
+                    <span id="card-correct-count" class="text-green-400">✅ 0</span>
+                    <span id="card-wrong-count" class="text-red-400">❌ 0</span>
                 </div>
-                <p id="final-message" class="text-lg text-slate-300 mt-4 font-bold"></p>
-                <div id="share-footer" class="hidden mt-4 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between"><span>من تطبيق: وحي أهل البيت (ع)</span></div>
+                <p id="final-message" class="text-lg text-slate-300 mt-4 font-bold font-heading">...</p>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <button id="share-text-button" class="btn-secondary bg-slate-700 text-white py-3 rounded-xl justify-center border border-slate-600 hover:bg-slate-600 hover:border-amber-400 transition">مشاركة النتيجة</button>
-                <button id="restart-button" class="btn-gold-action">الرئيسية</button>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="share-text-button" class="btn-secondary bg-slate-700 text-white py-3 rounded-xl justify-center border border-slate-600 hover:bg-slate-600 transition text-sm font-bold">
+                        <span class="material-symbols-rounded text-lg">share</span> مشاركة
+                    </button>
+                    <button id="btn-challenge-friend" class="btn-secondary bg-purple-900/40 text-purple-200 py-3 rounded-xl justify-center border border-purple-500/30 hover:bg-purple-800/50 transition hidden text-sm font-bold">
+                        <span class="material-symbols-rounded text-lg">swords</span> تحدي صديق
+                    </button>
+                </div>
+                <button id="restart-button" class="btn-gold-action w-full">عودة للرئيسية</button>
             </div>
-            <div id="review-area" class="hidden text-right mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                 <h3 class="text-amber-400 font-bold mb-3">مراجعة الأخطاء</h3>
-                 <div id="review-items-container" class="max-h-60 overflow-y-auto space-y-3 scrollbar-thin"></div>
+            <div id="review-area" class="hidden text-right mt-8 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                 <h3 class="text-amber-400 font-bold mb-3 flex items-center gap-2">
+                    <span class="material-symbols-rounded">history_edu</span> مراجعة الأخطاء
+                 </h3>
+                 <div id="review-items-container" class="max-h-60 overflow-y-auto space-y-3 scrollbar-thin pl-1"></div>
             </div>
         </div>
     </div>
 
-    <div id="enrichment-modal" class="modal-overlay">
-        <div class="modal-box border-amber-500 border-2">
+    <div id="enrichment-modal" class="modal-overlay z-[60]">
+        <div class="modal-box border-amber-500 border-2 max-w-sm">
             <div class="text-center">
-                <span class="material-symbols-rounded text-amber-400 text-5xl mb-4 animate-bounce">lightbulb</span>
-                <h3 class="text-2xl font-bold text-white font-heading mb-4">معلومة إثرائية</h3>
-                <p id="enrichment-content" class="text-slate-200 text-lg leading-loose font-body">...</p>
-                <p class="text-xs text-slate-500 mt-6">اضغط في أي مكان للمتابعة</p>
+                <div class="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-rounded text-amber-400 text-4xl animate-bounce">lightbulb</span>
+                </div>
+                <h3 class="text-xl font-bold text-white font-heading mb-4">إضاءة معرفية</h3>
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                    <p id="enrichment-content" class="text-slate-200 text-lg leading-loose font-body text-justify">...</p>
+                </div>
+                <p class="text-xs text-slate-500 mt-4 animate-pulse">اضغط في أي مكان للمتابعة</p>
             </div>
         </div>
     </div>
 
     <div id="badges-modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-amber-400 font-heading">مكتبة الأوسمة</h3>
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="text-lg font-bold text-purple-400 font-heading">مكتبة الأوسمة</h3>
                 <button class="close-modal text-slate-400 hover:text-white">✕</button>
             </div>
-            <div id="badges-list" class="badges-grid"></div>
-            <div class="mt-6 p-3 bg-slate-800/80 rounded-lg border border-slate-700 min-h-[4rem] flex items-center justify-center">
-                <p id="badge-desc-display" class="text-sm text-slate-300 text-center leading-relaxed">اضغط على أي وسام لمعرفة تفاصيل وشروط الحصول عليه.</p>
+            <div id="badges-list" class="badges-grid grid grid-cols-3 gap-2 max-h-[50vh] overflow-y-auto p-1"></div>
+            <div class="mt-4 p-3 bg-slate-800/80 rounded-lg border border-slate-700 min-h-[4rem] flex items-center justify-center">
+                <p id="badge-desc-display" class="text-xs text-slate-300 text-center leading-relaxed">اضغط على أي وسام لمعرفة التفاصيل.</p>
             </div>
         </div>
     </div>
     
     <div id="leaderboard-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-yellow-400 font-heading">لوحة الشرف</h3>
+        <div class="modal-box h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 shrink-0">
+                <h3 class="text-lg font-bold text-yellow-400 font-heading">لوحة المتصدرين</h3>
                 <button class="close-modal text-slate-400 hover:text-white">✕</button>
             </div>
-            <div id="leaderboard-loading" class="text-center text-amber-500">جاري التحميل...</div>
-            <div id="leaderboard-list" class="space-y-2 hidden"></div>
-            <p class="text-xs text-slate-500 text-center mt-3">اضغط على اسم اللاعب لعرض ملفه</p>
+            <div id="leaderboard-loading" class="text-center text-amber-500 py-10">جاري التحميل...</div>
+            <div id="leaderboard-list" class="space-y-2 overflow-y-auto flex-1 pr-1 hidden"></div>
         </div>
     </div>
     
     <div id="player-profile-modal" class="modal-overlay">
         <div class="modal-box border border-amber-500/30">
             <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
-            <div class="text-center mb-6 relative">
+            <div class="text-center mb-6 relative pt-4">
                  <div class="w-24 h-24 rounded-full mx-auto border-4 border-amber-500 shadow-lg overflow-hidden relative bg-slate-800 flex items-center justify-center">
                      <img id="popup-player-img" src="" class="w-full h-full object-cover hidden" alt="">
                      <span id="popup-player-icon" class="material-symbols-rounded text-6xl text-slate-500">account_circle</span>
+                     <div class="absolute -bottom-0 -right-0 bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-md font-bold font-mono text-sm z-10" id="popup-player-level-badge">1</div>
                  </div>
                  <h3 id="popup-player-name" class="text-2xl font-bold text-white mt-4 font-heading">...</h3>
                  <div class="flex justify-center gap-2 mt-2">
-                     <span id="popup-player-score" class="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-sm font-bold border border-amber-500/30">0 نقطة</span>
+                     <span id="popup-player-score" class="bg-amber-500/20 text-amber-400 px-4 py-1 rounded-full text-sm font-bold border border-amber-500/30 font-mono">0</span>
                  </div>
             </div>
             <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                <h4 class="text-sm text-slate-400 mb-3 border-b border-slate-700 pb-2">الأوسمة المكتسبة</h4>
+                <h4 class="text-xs text-slate-400 mb-3 uppercase tracking-wider font-bold">الأوسمة المكتسبة</h4>
                 <div id="popup-player-badges" class="flex flex-wrap gap-2 justify-center min-h-[50px]"></div>
             </div>
         </div>
     </div>
 
     <div id="fav-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-red-400 font-heading">المفضلة</h3>
+        <div class="modal-box max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="text-lg font-bold text-red-400 font-heading">الأسئلة المحفوظة</h3>
                 <button class="close-modal text-slate-400 hover:text-white">✕</button>
             </div>
-            <div id="fav-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1"></div>
+            <div id="fav-list" class="space-y-3 overflow-y-auto flex-1 pr-1"></div>
         </div>
     </div>
     
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3 class="text-xl font-bold text-gray-300 mb-6 font-heading">الإعدادات</h3>  
-            <div class="flex justify-between items-center mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-rounded text-amber-400">volume_up</span>
-                    <span class="text-slate-300 text-sm">المؤثرات الصوتية</span>
+            <h3 class="text-lg font-bold text-slate-200 mb-6 font-heading border-b border-slate-700 pb-2">إعدادات التطبيق</h3>  
+            <div class="flex justify-between items-center mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-rounded text-amber-400 bg-slate-900 p-2 rounded-lg">volume_up</span>
+                    <span class="text-slate-300 text-sm font-bold">المؤثرات الصوتية</span>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="mute-toggle" class="sr-only peer" checked>
                     <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
             </div>
-            <label class="block text-slate-400 mb-2">حجم الخط</label>
-            <input type="range" id="font-size-slider" min="14" max="24" value="16" class="w-full accent-amber-500 mb-6">
-            <label class="block text-slate-400 mb-2">سرعة الانتقال (ثواني): <span id="delay-val" class="text-amber-400">2</span></label>
-            <input type="range" id="delay-slider" min="1" max="5" step="1" value="2" class="w-full accent-amber-500 mb-6">
-            <button id="clear-cache-btn" class="text-red-400 text-sm border border-red-900/50 px-4 py-2 rounded hover:bg-red-900/20 w-full transition">مسح البيانات المحلية</button>
+            
+            <div class="space-y-6">
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-xs text-slate-400 font-bold">حجم النصوص</label>
+                        <span class="text-xs text-amber-400 font-mono">Aa</span>
+                    </div>
+                    <input type="range" id="font-size-slider" min="14" max="22" value="16" class="w-full accent-amber-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-xs text-slate-400 font-bold">سرعة التنقل</label>
+                        <span class="text-xs text-amber-400 font-mono"><span id="delay-val">2</span>s</span>
+                    </div>
+                    <input type="range" id="delay-slider" min="1" max="5" step="1" value="2" class="w-full accent-amber-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-slate-700">
+                <button id="clear-cache-btn" class="w-full text-red-400 text-xs border border-red-900/30 bg-red-900/10 px-4 py-3 rounded-lg hover:bg-red-900/20 transition flex items-center justify-center gap-2">
+                    <span class="material-symbols-rounded text-sm">delete_history</span>
+                    مسح البيانات المحلية وإعادة التعيين
+                </button>
+            </div>
             <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
         </div>
     </div>
@@ -278,17 +426,20 @@
     <div id="about-modal" class="modal-overlay">
         <div class="modal-box text-right">
             <div class="text-center mb-6">
-                <span class="material-symbols-rounded text-amber-400 text-6xl">auto_stories</span>
-                <h3 class="text-2xl font-bold text-amber-400 mt-2 font-heading">من وحي أهل البيت (ع)</h3>
+                <span class="material-symbols-rounded text-amber-400 text-6xl opacity-80">auto_stories</span>
+                <h3 class="text-xl font-bold text-amber-400 mt-2 font-heading">من وحي أهل البيت (ع)</h3>
+                <p class="text-[10px] text-slate-500">الإصدار 3.0 (Ultimate)</p>
             </div>
-            <div id="about-content" class="text-slate-300 text-sm leading-relaxed space-y-4">
-                <p>تطبيق تفاعلي يجمع بين التراث والتقنية الحديثة.</p>
-                <ul class="list-disc list-inside space-y-2">
-                    <li><strong>نظام النقاط التراكمي:</strong> جهدك محفوظ دائماً؛ فالنقاط تضاف لرصيدك المستمر لبناء ثروة معرفية.</li>
-                    <li><strong>المنافسة والصدارة:</strong> نافس الآخرين عبر "لوحة المتصدرين" للوصول للمراكز الأولى.</li>
-                    <li><strong>التحكم:</strong> إمكانية التحكم بالمؤقت والأصوات من الإعدادات.</li>
-                    <li><strong>قيمة التطبيق:</strong> أداة تعليمية تُرسخ المعلومات التاريخية والعقائدية عبر التحدي والشرح.</li>
-                </ul>
+            <div id="about-content" class="text-slate-300 text-sm leading-relaxed space-y-4 font-body text-justify">
+                <p>منصة تفاعلية تهدف لترسيخ الثقافة الإسلامية الأصيلة المستمدة من سيرة النبي الأكرم وأهل بيته الطاهرين (عليهم السلام) بأسلوب عصري وشيق.</p>
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <strong class="text-white block mb-2 text-xs">مميزات التطبيق:</strong>
+                    <ul class="list-disc list-inside space-y-1 text-xs text-slate-400">
+                        <li>نظام مستويات متطور لتتبع تقدمك.</li>
+                        <li>تحديات يومية متجددة.</li>
+                        <li>مكتبة أسئلة مدققة بعناية.</li>
+                    </ul>
+                </div>
             </div>
             <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
         </div>
@@ -296,41 +447,94 @@
 
     <div id="user-modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="flex justify-between mb-6"><h3 class="text-xl font-bold text-amber-400 font-heading">الملف الشخصي</h3><button id="close-user-modal" class="close-modal text-slate-400 hover:text-white">✕</button></div>
+            <button id="close-user-modal" class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
+            <h3 class="text-lg font-bold text-slate-300 mb-6 font-heading text-center">تعديل الملف الشخصي</h3>
+            
             <div class="text-center mb-6">
                 <div class="relative w-24 h-24 mx-auto mb-4 group">
                     <img id="profile-img-preview" src="" class="w-full h-full rounded-full object-cover border-2 border-amber-500 hidden bg-slate-800">
                     <div id="profile-icon-preview" class="w-full h-full rounded-full bg-slate-700 flex items-center justify-center border-2 border-slate-600">
                         <span class="material-symbols-rounded text-4xl text-slate-400">account_circle</span>
                     </div>
-                    <label for="avatar-upload" class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition">
+                    <label for="avatar-upload" class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition z-10">
                         <span class="material-symbols-rounded text-white">photo_camera</span>
                     </label>
                     <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                    
+                    <div class="absolute -bottom-0 -right-0 bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-md font-bold font-mono text-sm z-20" id="modal-level-badge">1</div>
                 </div>
-                <div class="flex justify-center gap-2 mb-4">
-                     <button id="delete-custom-avatar" class="text-xs text-red-400 hover:text-red-300 hidden border border-red-900/50 px-2 py-1 rounded bg-red-900/20">حذف الصورة</button>
+                
+                <div class="flex justify-center gap-2 mb-4 h-6">
+                     <button id="delete-custom-avatar" class="text-[10px] text-red-300 hover:text-white bg-red-900/30 hover:bg-red-900/50 border border-red-900/50 px-3 py-1 rounded-full transition hidden">حذف الصورة</button>
+                </div>
+            
+                <div class="px-2 mb-2">
+                    <div class="flex justify-between text-[10px] text-slate-400 mb-1 font-bold">
+                        <span id="current-lvl-txt">مستوى 1</span>
+                        <span id="next-lvl-txt">مستوى 2</span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600 relative">
+                        <div id="level-progress-bar" class="bg-gradient-to-r from-indigo-500 to-blue-500 h-full rounded-full transition-all duration-500 relative" style="width: 0%">
+                            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-2 text-center">
+                        متبقي <span id="xp-needed" class="text-amber-400 font-bold font-mono">1000</span> نقطة
+                    </p>
                 </div>
             </div>
-            <div class="space-y-3">
-                <input type="text" id="edit-username" class="input-glass" placeholder="تغيير الاسم">
-                <button id="save-user-btn" class="btn-gold-action py-2 text-base">حفظ التغييرات</button>
-                <button id="logout-btn" class="w-full py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition">تسجيل خروج</button>
-            </div>
-            <div id="user-stats" class="mt-6 pt-4 border-t border-slate-700 text-sm text-slate-300 grid grid-cols-2 gap-4 hidden">
-                <div><span class="text-slate-500 block text-xs">الرصيد</span><span id="stat-score" class="text-amber-400 font-bold text-lg"></span></div>
-                <div><span class="text-slate-500 block text-xs">لعبت</span><span id="stat-played" class="text-white font-bold text-lg"></span></div>
+
+            <div class="space-y-4 border-t border-slate-700 pt-4">
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block font-bold">الاسم الظاهر</label>
+                    <input type="text" id="edit-username" class="input-glass text-center font-bold" placeholder="الاسم">
+                </div>
+                
+                <div id="user-stats" class="hidden grid grid-cols-2 gap-3 text-center mb-2">
+                    <div class="bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-wider">الرصيد</span>
+                        <span id="stat-score" class="text-amber-400 font-bold font-mono text-lg">0</span>
+                    </div>
+                    <div class="bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-wider">المسابقات</span>
+                        <span id="stat-played" class="text-white font-bold font-mono text-lg">0</span>
+                    </div>
+                </div>
+
+                <button id="save-user-btn" class="btn-gold-action shadow-md">حفظ التغييرات</button>
             </div>
         </div>
     </div>
-    
+
     <div id="selection-modal" class="modal-overlay">
         <div class="modal-box border border-amber-500/50" style="max-height: 70vh;">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                <h3 id="selection-title" class="text-xl font-bold text-amber-400 font-heading">اختر القائمة</h3>
+                <h3 id="selection-title" class="text-lg font-bold text-amber-400 font-heading">القائمة</h3>
                 <button class="close-modal text-slate-400 hover:text-white">✕</button>
             </div>
-            <div id="selection-list-container" class="flex flex-col"></div>
+            <div id="selection-list-container" class="flex flex-col space-y-1 overflow-y-auto max-h-[50vh]"></div>
+        </div>
+    </div>
+
+    <div id="whats-new-modal" class="modal-overlay z-[70]">
+        <div class="modal-box border-2 border-amber-500/50 relative overflow-hidden max-w-sm">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full -mr-16 -mt-16 z-0 pointer-events-none"></div>
+            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white z-10">✕</button>
+            <div class="text-center mb-6 relative z-10 pt-4">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 border border-amber-500/30 mb-3 shadow-lg shadow-amber-900/20">
+                    <span class="material-symbols-rounded text-4xl text-amber-400 animate-pulse">campaign</span>
+                </div>
+                <h3 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 font-heading drop-shadow-sm">
+                    ما الجديد
+                </h3>
+            </div>
+            <div id="whats-new-content" class="text-slate-200 text-base leading-loose font-body text-center space-y-4 min-h-[80px] flex items-center justify-center relative z-10 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+            </div>
+            <div class="mt-6 relative z-10">
+                <button class="btn-gold-action close-modal w-full shadow-amber-900/20 text-sm">
+                    علم، شكراً
+                </button>
+            </div>
         </div>
     </div>
 
