@@ -15,6 +15,9 @@ let effectiveUserId = null;
 let userProfile = null;
 const initialTimerState = localStorage.getItem('timerEnabled') === 'false' ? false : true;
 
+const STORAGE_KEY_DATA = 'offline_questions_full';
+const STORAGE_KEY_DATE = 'last_full_update_timestamp';
+const EXPIRY_DAYS = 5; // عدد الأيام قبل التحديث الإجباري
 // حالة الاختبار
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
@@ -1399,9 +1402,7 @@ window.cancelRevive = function() {
 // ⚡ نظام الأوفلاين الذكي (خطة الـ 5 أيام)
 // ==========================================
 
-const STORAGE_KEY_DATA = 'offline_questions_full';
-const STORAGE_KEY_DATE = 'last_full_update_timestamp';
-const EXPIRY_DAYS = 5; // عدد الأيام قبل التحديث الإجباري
+
 
 async function getQuestionsManager() {
     const now = Date.now();
