@@ -525,9 +525,18 @@ bind('review-mistakes-btn', 'click', () => {
     startQuiz();
 });
 
+// ✅ الكود الجديد: يفتح النافذة المخصصة
 bind('quit-quiz-btn', 'click', () => {
-    if(confirm("هل تريد الخروج؟")) { navToHome(); }
+    // فتح النافذة الجميلة بدلاً من نافذة المتصفح
+    document.getElementById('quit-confirm-modal').classList.add('active');
 });
+
+// ✅ تفعيل زر "نعم خروج" داخل النافذة
+bind('btn-confirm-quit-action', 'click', () => {
+    document.getElementById('quit-confirm-modal').classList.remove('active');
+    navToHome(); // العودة للرئيسية
+});
+
 
 bind('toggle-timer-btn', 'click', () => {
     quizState.timerEnabled = !quizState.timerEnabled;
@@ -1224,12 +1233,11 @@ bind('nav-settings', 'click', () => openModal('settings-modal'));
 bind('font-size-slider', 'input', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
 bind('delay-slider', 'input', (e) => { const v = e.target.value; transitionDelay = v * 1000; getEl('delay-val').textContent = v; });
 
-const handleLogout = () => { 
-    if(confirm("هل تريد تسجيل الخروج؟")) {
-        localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
-        location.reload(); 
-    }
-};
+bind('btn-confirm-logout-action', 'click', () => {
+    localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
+    location.reload(); 
+}); // <--- تم إضافة إغلاق الدالة هنا
+
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
 
