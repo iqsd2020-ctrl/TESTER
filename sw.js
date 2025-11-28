@@ -1,5 +1,5 @@
 // اسم الكاش (قم بتغيير الرقم v1 عند كل تحديث كبير للكود)
-const CACHE_NAME = 'ahlulbayt-shell-v1';
+const CACHE_NAME = 'ahlulbayt-shell-v2';
 
 // قائمة الملفات الضرورية لتشغيل "هيكل" التطبيق
 const ASSETS = [
