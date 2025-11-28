@@ -95,7 +95,7 @@ function updateEnrichmentUI() {
     }
 }
 
-// دالة التحقق من رسائل المطور (تم تصحيح الاسم)
+// دالة التحقق من رسائل المطور (النسخة المحسنة)
 async function checkSystemMessage() {
     if (!navigator.onLine) return;
 
@@ -107,16 +107,13 @@ async function checkSystemMessage() {
             const data = docSnap.data();
             const lastMsg = localStorage.getItem('last_seen_msg_content');
             
+            // إذا كانت الرسالة مفعلة وجديدة (لم يراها المستخدم من قبل)
             if (data.isActive && data.message && data.message !== lastMsg) {
                 const contentEl = getEl('whats-new-content');
                 if(contentEl) {
-                    contentEl.innerHTML = `
-                        <div class="text-center">
-                            <p class="text-amber-400 font-bold text-lg mb-2">📢 تنبيه من المطور</p>
-                            <p class="text-white leading-relaxed">${data.message.replace(/\n/g, '<br>')}</p>
-                            <p class="text-xs text-slate-400 mt-4">اضغط على الزر أدناه لإغلاق النافذة.</p>
-                        </div>
-                    `;
+                    // نضع النص فقط (مع دعم الأسطر الجديدة)
+                    contentEl.innerHTML = data.message.replace(/\n/g, '<br>');
+                    
                     openModal('whats-new-modal');
                     localStorage.setItem('last_seen_msg_content', data.message);
                 }
@@ -126,6 +123,7 @@ async function checkSystemMessage() {
         console.log("No system messages"); 
     }
 }
+
 
 function playSound(type) { 
     if(isMuted) return; 
