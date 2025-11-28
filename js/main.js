@@ -34,9 +34,6 @@ let audioContext = null;
 let wisdomInterval = null;
 let currentSelectionMode = null; 
 
-// *جديد* متغير لتخزين الأسئلة العشوائية وتوفير القراءات
-let cachedQuestions = []; 
-
 // دوال المساعدة للواجهة (UI Helpers)
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
@@ -60,14 +57,12 @@ function calculateLevelInfo(score) {
     return { level, progressPercent, needed };
 }
 
-// *مصحح* دالة الصوت المحسنة
+// دالة الصوت المحسنة
 function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     if (isMuted) return;
-    // التأكد من إنشاء السياق الصوتي مرة واحدة
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
-    // استئناف الصوت إذا كان معلقاً (حل مشكلة المتصفحات)
     if (audioContext.state === 'suspended') {
         audioContext.resume();
     }
@@ -100,25 +95,36 @@ function updateEnrichmentUI() {
     }
 }
 
-async function checkWhatsNew() {
-    const today = new Date().toISOString().slice(0, 10);
-    const lastSeen = localStorage.getItem('ahlulbayt_whatsNew_date');
-    if (lastSeen === today) return;
+// دالة التحقق من رسائل المطور (تم تصحيح الاسم)
+async function checkSystemMessage() {
+    if (!navigator.onLine) return;
+
     try {
         const docRef = doc(db, "system", "whats_new");
         const docSnap = await getDoc(docRef);
+
         if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data.isActive && data.message && data.message.trim() !== "") {
-                const contentEl = document.getElementById('whats-new-content');
+            const lastMsg = localStorage.getItem('last_seen_msg_content');
+            
+            if (data.isActive && data.message && data.message !== lastMsg) {
+                const contentEl = getEl('whats-new-content');
                 if(contentEl) {
-                    contentEl.innerHTML = data.message.replace(/\n/g, '<br>');
+                    contentEl.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-amber-400 font-bold text-lg mb-2">📢 تنبيه من المطور</p>
+                            <p class="text-white leading-relaxed">${data.message.replace(/\n/g, '<br>')}</p>
+                            <p class="text-xs text-slate-400 mt-4">اضغط على الزر أدناه لإغلاق النافذة.</p>
+                        </div>
+                    `;
                     openModal('whats-new-modal');
-                    localStorage.setItem('ahlulbayt_whatsNew_date', today);
+                    localStorage.setItem('last_seen_msg_content', data.message);
                 }
             }
         }
-    } catch (error) { console.error("Error fetching news:", error); }
+    } catch (error) { 
+        console.log("No system messages"); 
+    }
 }
 
 function playSound(type) { 
@@ -163,7 +169,6 @@ async function handleLogin() {
         const snap = await getDocs(q);
         if(snap.empty) { err.textContent = "مستخدم غير موجود"; getEl('login-btn').disabled = false; return; }
         const d = snap.docs[0];
-        // ملاحظة: تخزين كلمة المرور نصاً ليس آمناً للإنتاج الفعلي
         if(d.data().password === p) {
             effectiveUserId = d.id;
             localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
@@ -264,7 +269,6 @@ function updateProfileUI() {
     if (xpNeed) xpNeed.textContent = lvlInfo.needed;
 }
 
-
 function updateDashboardState() {
     const today = new Date().toISOString().slice(0, 10);
     const lastPlayed = userProfile.stats?.lastDailyDate;
@@ -308,7 +312,7 @@ function navToHome() {
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     initDropdowns();
-    setTimeout(checkWhatsNew, 1500);
+    setTimeout(checkSystemMessage, 1500); // تم تصحيح الاسم هنا
     updateDashboardState();
 
     const toggleBtn = getEl('toggle-timer-btn');
@@ -440,11 +444,10 @@ function handleSelection(text, value) {
     modal.classList.remove('active');
 }
 
-// *مصحح* تحسين دالة رفع الصورة
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    toast("جاري معالجة الصورة...", "info"); // مؤشر للمستخدم
+    toast("جاري معالجة الصورة...", "info"); 
     
     if (file.size > 2 * 1024 * 1024) { toast("الصورة كبيرة جداً، اختر صورة أصغر", "error"); return; }
     const reader = new FileReader();
@@ -476,85 +479,70 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-// *مصحح* جلب الأسئلة مع التخزين المؤقت (Caching)
+// **زر ابدأ الجولة (نسخة واحدة مصححة وتستخدم getQuestionsManager)**
 bind('ai-generate-btn', 'click', async () => {
     quizState.isDaily = false; 
-    const cat = getEl('category-select').value;
-    const count = parseInt(getEl('ai-question-count').value);
-    quizState.difficulty = 'موحد';
-    const topicValue = getEl('topic-select').value;
-    let topic = cat === 'random' || !cat ? "عام" : (topicValue || cat); 
-    quizState.contextTopic = topic;
-    const btn = getEl('ai-generate-btn');
-    btn.disabled = true; btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري جلب الأسئلة...`;
     
-    let qs = [];
-    if(userProfile.wrongQuestionsBank.length > 0) {
-        shuffleArray(userProfile.wrongQuestionsBank);
-        qs = userProfile.wrongQuestionsBank.slice(0, Math.floor(count * 0.2)); 
-    }
+    const btn = getEl('ai-generate-btn');
+    btn.disabled = true; 
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التجهيز...`;
 
     try {
-        let allFetchedQs = [];
+        // 1. استدعاء المدير الذكي (هو يقرر: من النت أم من الجهاز؟)
+        let allQuestions = await getQuestionsManager();
 
-        // استخدام الذاكرة المؤقتة للأسئلة العشوائية
-        if (cat === 'random' && cachedQuestions.length > 50) {
-             allFetchedQs = [...cachedQuestions];
-        } else {
-            let qQuery;
-            if(cat === 'random' || !cat) {
-                // تقليل الحد من 300 إلى 50
-                qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(50)); 
-            } else {
-                qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true));
-            }
-            
-            const snap = await getDocs(qQuery);
-            if (cat !== 'random' && cat !== '' && snap.empty) {
-                toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
-                btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
-                return;
-            }
-
-            snap.forEach(d => allFetchedQs.push({ id: d.id, ...d.data() }));
-            
-            // حفظ نسخة للمرة القادمة
-            if(cat === 'random' || !cat) cachedQuestions = allFetchedQs;
+        if (!allQuestions || allQuestions.length === 0) {
+            throw new Error("لا توجد بيانات أسئلة. تأكد من الاتصال بالإنترنت.");
         }
 
+        // 2. الفلترة محلياً (Local Filtering)
+        let filteredQs = [];
+        const cat = getEl('category-select').value;
+        const topicVal = getEl('topic-select').value;
+        
+        // منطق الفلترة حسب اختيار المستخدم
+        if (cat === 'random' || !cat) {
+            filteredQs = allQuestions; // الكل
+        } else {
+            const targetTopic = topicVal || cat;
+            filteredQs = allQuestions.filter(q => q.topic === targetTopic);
+        }
+
+        // 3. التحقق من وجود أسئلة في القسم المختار
+        if(filteredQs.length === 0) {
+            throw new Error("عذراً، لا توجد أسئلة محفوظة لهذا التصنيف حالياً.");
+        }
+        
+        // 4. اختيار العدد المطلوب عشوائياً
+        shuffleArray(filteredQs);
+        const count = parseInt(getEl('ai-question-count').value);
+        
+        // تجنب تكرار الأسئلة التي رآها المستخدم سابقاً (اختياري، محلياً)
         const seenIds = userProfile.seenQuestions || [];
-        let freshQuestions = allFetchedQs.filter(q => !seenIds.includes(q.id));
-        let usedQuestionsPool = allFetchedQs.filter(q => seenIds.includes(q.id));
-
-        shuffleArray(freshQuestions);
-        shuffleArray(usedQuestionsPool);
-
-        const needed = count - qs.length; 
+        let freshQuestions = filteredQs.filter(q => !seenIds.includes(q.id));
+        let usedQuestions = filteredQs.filter(q => seenIds.includes(q.id));
         
-        if (freshQuestions.length >= needed) {
-            qs = [...qs, ...freshQuestions.slice(0, needed)];
+        let finalSelection = [];
+        if (freshQuestions.length >= count) {
+            finalSelection = freshQuestions.slice(0, count);
         } else {
-            qs = [...qs, ...freshQuestions];
-            const remaining = needed - freshQuestions.length;
-            qs = [...qs, ...usedQuestionsPool.slice(0, remaining)];
+            finalSelection = [...freshQuestions, ...usedQuestions.slice(0, count - freshQuestions.length)];
         }
 
-        const uniqueMap = new Map();
-        qs.forEach(item => uniqueMap.set(item.question, item));
-        quizState.questions = Array.from(uniqueMap.values()).slice(0, count);
+        quizState.questions = finalSelection;
+        quizState.difficulty = 'موحد';
+        quizState.contextTopic = topicVal || cat || "عام";
 
-        if(quizState.questions.length === 0) throw new Error("No questions");
-        
-        shuffleArray(quizState.questions); 
         startQuiz();
 
-    } catch(e) {
+    } catch (e) {
         console.error(e);
-        if (e.message !== "No questions") toast("حدث خطأ في تحميل الأسئلة", "error");
+        toast(e.message || "حدث خطأ", "error");
     }
-    btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
+    
+    btn.disabled = false; 
+    btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
 });
-
 
 bind('review-mistakes-btn', 'click', () => {
     if(userProfile.wrongQuestionsBank.length === 0) return;
@@ -568,9 +556,7 @@ bind('review-mistakes-btn', 'click', () => {
 });
 
 bind('quit-quiz-btn', 'click', () => {
-    if(confirm("هل تريد الخروج من الاختبار؟ ستفقد النقاط الحالية.")) {
-        navToHome();
-    }
+    if(confirm("هل تريد الخروج؟")) { navToHome(); }
 });
 
 bind('toggle-timer-btn', 'click', () => {
@@ -604,6 +590,42 @@ function renderLives() {
         </div>
     `;
 }
+
+// 1. عند ضغط زر "مسح البيانات" في الإعدادات -> نفتح النافذة الجميلة
+bind('clear-cache-btn', 'click', () => {
+    // إغلاق نافذة الإعدادات أولاً
+    document.getElementById('settings-modal').classList.remove('active');
+    // فتح نافذة التأكيد الجديدة
+    document.getElementById('reset-confirm-modal').classList.add('active');
+});
+
+// 2. عند ضغط زر "نعم، احذف" داخل النافذة الجديدة
+bind('btn-confirm-reset-action', 'click', async () => {
+    const btn = getEl('btn-confirm-reset-action');
+    btn.innerHTML = '<span class="material-symbols-rounded animate-spin">sync</span> جاري التنفيذ...';
+    btn.disabled = true;
+
+    // --- عمليات الحذف ---
+    localStorage.removeItem('offline_questions_full');
+    localStorage.removeItem('last_full_update_timestamp');
+    
+    // إلغاء تسجيل Service Worker
+    if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for(let registration of registrations) {
+            await registration.unregister();
+        }
+    }
+
+    toast("تم المسح! جاري إعادة التشغيل...", "success");
+    
+    // إعادة تحميل الصفحة
+    setTimeout(() => {
+        window.location.reload(true); 
+    }, 1500);
+});
+
+
 
 function startQuiz() {
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
@@ -660,7 +682,7 @@ function renderQuestion() {
     getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
     getEl('live-score-text').textContent = quizState.score;
     const dots = getEl('progress-dots'); 
-    if(dots) { // Safety check
+    if(dots) {
         dots.innerHTML = '';
         for(let i=0; i<quizState.questions.length; i++) {
             let cls = "w-2 h-2 rounded-full bg-slate-700";
@@ -1236,7 +1258,6 @@ const handleLogout = () => {
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
 
-bind('clear-cache-btn', 'click', () => { if(confirm('هل أنت متأكد؟ سيتم تسجيل الخروج ومسح البيانات المحلية.')) { localStorage.clear(); location.reload(); } });
 bind('nav-about', 'click', () => openModal('about-modal'));
 
 bind('user-profile-btn', 'click', () => {
@@ -1390,3 +1411,71 @@ window.cancelRevive = function() {
     document.getElementById('revive-modal').classList.remove('active');
     endQuiz();
 };
+
+// ==========================================
+// ⚡ نظام الأوفلاين الذكي (خطة الـ 5 أيام)
+// ==========================================
+
+const STORAGE_KEY_DATA = 'offline_questions_full';
+const STORAGE_KEY_DATE = 'last_full_update_timestamp';
+const EXPIRY_DAYS = 5; // عدد الأيام قبل التحديث الإجباري
+
+async function getQuestionsManager() {
+    const now = Date.now();
+    const lastUpdate = localStorage.getItem(STORAGE_KEY_DATE);
+    const localData = localStorage.getItem(STORAGE_KEY_DATA);
+    
+    const expiryTime = EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+    const isExpired = lastUpdate && (now - parseInt(lastUpdate) > expiryTime);
+    const hasData = !!localData;
+
+    if (!hasData || isExpired) {
+        if (navigator.onLine) {
+            console.log(!hasData ? "مستخدم جديد: جاري التحميل الكامل..." : "تحديث دوري: انتهاء مدة 5 أيام...");
+            
+            if(!hasData) toast("جاري تحميل بنك الأسئلة لأول مرة... ⏳", "info");
+            else toast("جاري تحديث الأسئلة... 🔄", "info");
+
+            try {
+                const qQuery = query(collection(db, "questions")); 
+                const snapshot = await getDocs(qQuery);
+                
+                let allQuestions = [];
+                snapshot.forEach(doc => {
+                    allQuestions.push({ id: doc.id, ...doc.data() });
+                });
+
+                localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(allQuestions));
+                localStorage.setItem(STORAGE_KEY_DATE, now.toString());
+                
+                console.log(`تم تخزين ${allQuestions.length} سؤال بنجاح.`);
+                toast("تم تحميل البيانات بنجاح! ✅");
+                
+                return allQuestions;
+
+            } catch (e) {
+                console.error("فشل التحديث:", e);
+                toast("فشل الاتصال، سنستخدم النسخة المحفوظة ⚠️", "error");
+                if (hasData) return JSON.parse(localData);
+                return []; 
+            }
+        } else {
+            console.log("انتهت المدة ولكن لا يوجد إنترنت. استخدام المحلي.");
+            if (hasData) return JSON.parse(localData);
+            toast("تحتاج لاتصال إنترنت للتشغيل لأول مرة", "error");
+            return [];
+        }
+    }
+
+    console.log("🚀 استخدام البيانات المحلية (الأوفلاين) - التكلفة 0");
+    return JSON.parse(localData);
+}
+
+// تسجيل Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('../sw.js')
+            .then(() => console.log('Service Worker Registered ✅'))
+            .catch(err => console.log('Service Worker Failed ❌', err));
+    });
+}
