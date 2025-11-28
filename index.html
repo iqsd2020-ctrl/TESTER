@@ -575,5 +575,51 @@
     <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50"></canvas>
 
     <script type="module" src="js/main.js"></script>
+    
+    <div id="quit-confirm-modal" class="modal-overlay z-[80]">
+    <div class="modal-box border-2 border-amber-500/30 text-center max-w-sm">
+        <div class="mb-4">
+            <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-600 shadow-lg">
+                <span class="material-symbols-rounded text-4xl text-amber-500">logout</span>
+            </div>
+            <h3 class="text-xl font-bold text-white font-heading">مغادرة الجولة؟</h3>
+            <p class="text-slate-400 text-sm mt-2 leading-relaxed px-4">
+                هل أنت متأكد؟ سيتم إلغاء الجولة الحالية ولن يتم احتساب النقاط.
+            </p>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button id="btn-confirm-quit-action" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl shadow-lg transition text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-rounded text-lg">check</span> نعم، خروج
+            </button>
+            <button onclick="document.getElementById('quit-confirm-modal').classList.remove('active')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2.5 rounded-xl transition text-sm">
+                تراجع
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="logout-confirm-modal" class="modal-overlay z-[80]">
+    <div class="modal-box border-2 border-red-500/30 text-center max-w-sm">
+        <div class="mb-4">
+            <div class="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-lg">
+                <span class="material-symbols-rounded text-4xl text-red-500">logout</span>
+            </div>
+            <h3 class="text-xl font-bold text-white font-heading">تسجيل الخروج؟</h3>
+            <p class="text-slate-400 text-sm mt-2 leading-relaxed px-4">
+                هل تريد حقاً تسجيل الخروج من حسابك الحالي؟
+            </p>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button id="btn-confirm-logout-action" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl shadow-lg transition text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-rounded text-lg">door_open</span> نعم، خروج
+            </button>
+            <button onclick="document.getElementById('logout-confirm-modal').classList.remove('active')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2.5 rounded-xl transition text-sm">
+                إلغاء
+            </button>
+        </div>
+    </div>
+</div>
+
+    
 </body>
 </html>
