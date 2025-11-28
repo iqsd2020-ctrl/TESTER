@@ -3,21 +3,29 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
 
+// إعدادات Firebase
 const firebaseConfig = { apiKey: "AIzaSyDY1FNxvECtaV_dflCzkRH4pHQi_HQ4fwA", authDomain: "all-in-b0422.firebaseapp.com", projectId: "all-in-b0422", storageBucket: "all-in-b0422.firebasestorage.app", messagingSenderId: "347315641241", appId: "1:347315641241:web:c9ed240a0a0e5d2c5031108" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// المتغيرات العامة
 let currentUser = null;
 let effectiveUserId = null;
 let userProfile = null;
 const initialTimerState = localStorage.getItem('timerEnabled') === 'false' ? false : true;
 
+// حالة الاختبار
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
     difficulty: 'موحد', history: [], contextTopic: '', streak: 0,
-    timerEnabled: initialTimerState, usedHelpers: false, fastAnswers: 0 
+    timerEnabled: initialTimerState, usedHelpers: false, fastAnswers: 0,
+    enrichmentEnabled: true,
+    lives: 3,
+    isDaily: false
 };
+
+// أدوات المساعدة
 let helpers = { fifty: false, hint: false, skip: false };
 let transitionDelay = 2000;
 let isMuted = false;
@@ -26,24 +34,91 @@ let audioContext = null;
 let wisdomInterval = null;
 let currentSelectionMode = null; 
 
+// *جديد* متغير لتخزين الأسئلة العشوائية وتوفير القراءات
+let cachedQuestions = []; 
+
+// دوال المساعدة للواجهة (UI Helpers)
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
 const hide = (id) => getEl(id)?.classList.add('hidden');
-const toast = (msg, type='success') => { const t=getEl('toast-notification'); t.textContent=msg; t.className = type==='error'?'bg-red-900 border-red-500':'bg-green-900 border-green-500'; t.classList.add('show'); t.classList.remove('hidden'); setTimeout(()=>{t.classList.remove('show');t.classList.add('hidden')},3000); };
+const toast = (msg, type='success') => { 
+    const t=getEl('toast-notification'); 
+    t.textContent=msg; 
+    t.className = type==='error'?'bg-red-900 border-red-500':'bg-green-900 border-green-500'; 
+    t.classList.add('show'); 
+    t.classList.remove('hidden'); 
+    setTimeout(()=>{t.classList.remove('show');t.classList.add('hidden')},3000); 
+};
 
+function calculateLevelInfo(score) {
+    const xpPerLevel = 1000; 
+    const level = Math.floor(score / xpPerLevel) + 1;
+    const currentLevelXp = score % xpPerLevel;
+    const nextLevelXp = xpPerLevel;
+    const progressPercent = (currentLevelXp / nextLevelXp) * 100;
+    const needed = nextLevelXp - currentLevelXp;
+    return { level, progressPercent, needed };
+}
+
+// *مصحح* دالة الصوت المحسنة
 function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     if (isMuted) return;
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // التأكد من إنشاء السياق الصوتي مرة واحدة
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // استئناف الصوت إذا كان معلقاً (حل مشكلة المتصفحات)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
+    
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
     gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+    
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
+    
     oscillator.start();
     gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
     oscillator.stop(audioContext.currentTime + duration);
+}
+
+function updateEnrichmentUI() {
+    const btn = getEl('toggle-enrichment-btn');
+    if(quizState.enrichmentEnabled) {
+        btn.classList.add('text-amber-400');
+        btn.classList.remove('text-slate-500');
+        btn.querySelector('span').textContent = 'lightbulb';
+    } else {
+        btn.classList.remove('text-amber-400');
+        btn.classList.add('text-slate-500');
+        btn.querySelector('span').textContent = 'lightbulb_outline';
+    }
+}
+
+async function checkWhatsNew() {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastSeen = localStorage.getItem('ahlulbayt_whatsNew_date');
+    if (lastSeen === today) return;
+    try {
+        const docRef = doc(db, "system", "whats_new");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.isActive && data.message && data.message.trim() !== "") {
+                const contentEl = document.getElementById('whats-new-content');
+                if(contentEl) {
+                    contentEl.innerHTML = data.message.replace(/\n/g, '<br>');
+                    openModal('whats-new-modal');
+                    localStorage.setItem('ahlulbayt_whatsNew_date', today);
+                }
+            }
+        }
+    } catch (error) { console.error("Error fetching news:", error); }
 }
 
 function playSound(type) { 
@@ -58,6 +133,7 @@ function playSound(type) {
 
 const muteToggle = getEl('mute-toggle');
 if(muteToggle) muteToggle.onchange = () => { isMuted = !muteToggle.checked; };
+
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -87,6 +163,7 @@ async function handleLogin() {
         const snap = await getDocs(q);
         if(snap.empty) { err.textContent = "مستخدم غير موجود"; getEl('login-btn').disabled = false; return; }
         const d = snap.docs[0];
+        // ملاحظة: تخزين كلمة المرور نصاً ليس آمناً للإنتاج الفعلي
         if(d.data().password === p) {
             effectiveUserId = d.id;
             localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
@@ -118,7 +195,7 @@ async function handleReg() {
             username: u, password: p, highScore: 0, createdAt: serverTimestamp(), 
             avatar: 'account_circle', customAvatar: null, badges: ['beginner'], favorites: [],
             seenQuestions: [], 
-            stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
+            stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0, lastDailyDate: null }, 
             wrongQuestionsBank: []
         };
         await setDoc(doc(db, "users", effectiveUserId), data);
@@ -137,23 +214,23 @@ async function loadProfile(uid) {
             if(!userProfile.badges) userProfile.badges = ['beginner'];
             if(!userProfile.favorites) userProfile.favorites = [];
             if(!userProfile.stats) userProfile.stats = {};
+            if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
+            if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
             userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
             userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
-            if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
             if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
-            if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
         } else {
             userProfile = { 
                 username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
-                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }
+                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0, lastDailyDate: null }
             };
         }
         updateProfileUI();
+        updateDashboardState();
     } catch(e) { console.error(e); }
 }
 
 function updateProfileUI() {
-    getEl('username-display').textContent = userProfile.username;
     const imgEl = getEl('user-avatar-img');
     const iconEl = getEl('user-avatar-icon');
     if (userProfile.customAvatar) {
@@ -165,12 +242,60 @@ function updateProfileUI() {
         hide('user-avatar-img');
         show('user-avatar-icon');
     }
-    getEl('header-score').textContent = userProfile.highScore || 0;
-    if(userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
-        show('review-mistakes-btn');
-        getEl('review-mistakes-text').textContent = `مراجعة أخطائي (${userProfile.wrongQuestionsBank.length})`;
+    
+    const score = userProfile.highScore || 0;
+    getEl('header-score').textContent = score;
+    
+    const lvlInfo = calculateLevelInfo(score);
+    
+    const headerLvl = getEl('header-level');
+    if(headerLvl) headerLvl.textContent = lvlInfo.level;
+
+    const modalBadge = getEl('modal-level-badge');
+    const curLvlTxt = getEl('current-lvl-txt');
+    const nxtLvlTxt = getEl('next-lvl-txt');
+    const bar = getEl('level-progress-bar');
+    const xpNeed = getEl('xp-needed');
+
+    if (modalBadge) modalBadge.textContent = lvlInfo.level;
+    if (curLvlTxt) curLvlTxt.textContent = `مستوى ${lvlInfo.level}`;
+    if (nxtLvlTxt) nxtLvlTxt.textContent = `مستوى ${lvlInfo.level + 1}`;
+    if (bar) bar.style.width = `${lvlInfo.progressPercent}%`;
+    if (xpNeed) xpNeed.textContent = lvlInfo.needed;
+}
+
+
+function updateDashboardState() {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastPlayed = userProfile.stats?.lastDailyDate;
+    
+    const dailyCard = getEl('daily-challenge-card');
+    const reviewBtn = getEl('review-mistakes-btn');
+    const dailyOverlay = getEl('daily-completed-overlay');
+
+    if (!dailyCard || !reviewBtn) return;
+
+    if (lastPlayed === today) {
+        if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
+            dailyCard.classList.add('hidden');
+            reviewBtn.classList.remove('hidden');
+            getEl('review-mistakes-text').textContent = `مراجعة أخطائي (${userProfile.wrongQuestionsBank.length})`;
+        } else {
+            reviewBtn.classList.add('hidden');
+            dailyCard.classList.remove('hidden');
+            dailyOverlay.classList.remove('hidden');
+            dailyOverlay.classList.add('flex');
+            dailyCard.style.pointerEvents = 'none';
+            dailyCard.classList.add('opacity-80');
+        }
     } else {
-        hide('review-mistakes-btn');
+        dailyCard.classList.remove('hidden');
+        reviewBtn.classList.add('hidden');
+        dailyOverlay.classList.add('hidden');
+        dailyOverlay.classList.remove('flex');
+        dailyCard.style.pointerEvents = 'auto';
+        dailyCard.classList.remove('opacity-80');
+        dailyCard.onclick = startDailyQuiz;
     }
 }
 
@@ -183,6 +308,9 @@ function navToHome() {
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     initDropdowns();
+    setTimeout(checkWhatsNew, 1500);
+    updateDashboardState();
+
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
         toggleBtn.classList.add('text-amber-400');
@@ -190,6 +318,58 @@ function navToHome() {
     } else {
         toggleBtn.classList.remove('text-amber-400');
         toggleBtn.classList.add('text-slate-500');
+    }
+}
+
+async function startDailyQuiz() {
+    const btn = getEl('daily-challenge-card');
+    btn.style.pointerEvents = 'none'; 
+    
+    try {
+        toast("جاري التحقق...", "info");
+        
+        const freshProfileSnap = await getDoc(doc(db, "users", effectiveUserId));
+        if (freshProfileSnap.exists()) {
+            const freshStats = freshProfileSnap.data().stats || {};
+            const today = new Date().toISOString().slice(0, 10);
+            if (freshStats.lastDailyDate === today) {
+                toast("لقد أكملت التحدي اليوم بالفعل!", "error");
+                userProfile.stats.lastDailyDate = today;
+                updateDashboardState();
+                return;
+            }
+        }
+
+        const qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(50));
+        const snap = await getDocs(qQuery);
+        let pool = [];
+        snap.forEach(d => pool.push({ id: d.id, ...d.data() }));
+        
+        const seenIds = userProfile.seenQuestions || [];
+        let freshPool = pool.filter(q => !seenIds.includes(q.id));
+        
+        let questions = [];
+        if (freshPool.length >= 5) {
+            shuffleArray(freshPool);
+            questions = freshPool.slice(0, 5);
+        } else {
+            shuffleArray(pool);
+            questions = pool.slice(0, 5);
+        }
+
+        if (questions.length === 0) throw new Error("No questions available");
+
+        quizState.questions = questions;
+        quizState.difficulty = 'تحدي يومي 🔥';
+        quizState.contextTopic = 'التحدي اليومي';
+        quizState.isDaily = true;
+        
+        startQuiz();
+
+    } catch (e) {
+        console.error(e);
+        toast("حدث خطأ في بدء التحدي", "error");
+        btn.style.pointerEvents = 'auto';
     }
 }
 
@@ -260,9 +440,12 @@ function handleSelection(text, value) {
     modal.classList.remove('active');
 }
 
+// *مصحح* تحسين دالة رفع الصورة
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+    toast("جاري معالجة الصورة...", "info"); // مؤشر للمستخدم
+    
     if (file.size > 2 * 1024 * 1024) { toast("الصورة كبيرة جداً، اختر صورة أصغر", "error"); return; }
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -293,7 +476,9 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
+// *مصحح* جلب الأسئلة مع التخزين المؤقت (Caching)
 bind('ai-generate-btn', 'click', async () => {
+    quizState.isDaily = false; 
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
     quizState.difficulty = 'موحد';
@@ -302,59 +487,78 @@ bind('ai-generate-btn', 'click', async () => {
     quizState.contextTopic = topic;
     const btn = getEl('ai-generate-btn');
     btn.disabled = true; btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري جلب الأسئلة...`;
+    
     let qs = [];
     if(userProfile.wrongQuestionsBank.length > 0) {
         shuffleArray(userProfile.wrongQuestionsBank);
-        qs = userProfile.wrongQuestionsBank.slice(0, Math.floor(count * 0.3));
+        qs = userProfile.wrongQuestionsBank.slice(0, Math.floor(count * 0.2)); 
     }
+
     try {
-        let firebaseQs = [];
-        let qQuery;
-        if(cat === 'random' || !cat) {
-            qQuery = query(collection(db, "questions"), limit(500)); 
+        let allFetchedQs = [];
+
+        // استخدام الذاكرة المؤقتة للأسئلة العشوائية
+        if (cat === 'random' && cachedQuestions.length > 50) {
+             allFetchedQs = [...cachedQuestions];
         } else {
-            qQuery = query(collection(db, "questions"), where("topic", "==", topic));
+            let qQuery;
+            if(cat === 'random' || !cat) {
+                // تقليل الحد من 300 إلى 50
+                qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(50)); 
+            } else {
+                qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true));
+            }
+            
+            const snap = await getDocs(qQuery);
+            if (cat !== 'random' && cat !== '' && snap.empty) {
+                toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
+                btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
+                return;
+            }
+
+            snap.forEach(d => allFetchedQs.push({ id: d.id, ...d.data() }));
+            
+            // حفظ نسخة للمرة القادمة
+            if(cat === 'random' || !cat) cachedQuestions = allFetchedQs;
         }
-        const snap = await getDocs(qQuery);
-        if (cat !== 'random' && cat !== '' && snap.empty) {
-            toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
-            btn.disabled = false; 
-            btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
-            return;
-        }
-        snap.forEach(d => firebaseQs.push({ id: d.id, ...d.data() }));
-        let allAvailableQuestions = firebaseQs;
+
         const seenIds = userProfile.seenQuestions || [];
-        let freshQuestions = allAvailableQuestions.filter(q => !seenIds.includes(q.id));
-        let seenQuestionsPool = allAvailableQuestions.filter(q => seenIds.includes(q.id));
+        let freshQuestions = allFetchedQs.filter(q => !seenIds.includes(q.id));
+        let usedQuestionsPool = allFetchedQs.filter(q => seenIds.includes(q.id));
+
         shuffleArray(freshQuestions);
-        shuffleArray(seenQuestionsPool);
+        shuffleArray(usedQuestionsPool);
+
         const needed = count - qs.length; 
-        let selectedFromFirebase = [];
+        
         if (freshQuestions.length >= needed) {
-            selectedFromFirebase = freshQuestions.slice(0, needed);
+            qs = [...qs, ...freshQuestions.slice(0, needed)];
         } else {
-            selectedFromFirebase = [...freshQuestions]; 
+            qs = [...qs, ...freshQuestions];
             const remaining = needed - freshQuestions.length;
-            selectedFromFirebase = [...selectedFromFirebase, ...seenQuestionsPool.slice(0, remaining)];
+            qs = [...qs, ...usedQuestionsPool.slice(0, remaining)];
         }
+
         const uniqueMap = new Map();
-        qs.forEach(item => { if (item && item.question) uniqueMap.set(item.question.trim(), item); });
-        selectedFromFirebase.forEach(item => { if (item && item.question && !uniqueMap.has(item.question.trim())) uniqueMap.set(item.question.trim(), item); });
-        let allUniqueQs = Array.from(uniqueMap.values());
-        quizState.questions = allUniqueQs.slice(0, count);
-        if(quizState.questions.length === 0) { toast("لا توجد أسئلة كافية لبدء الجولة.", "error"); throw new Error("No questions"); }
+        qs.forEach(item => uniqueMap.set(item.question, item));
+        quizState.questions = Array.from(uniqueMap.values()).slice(0, count);
+
+        if(quizState.questions.length === 0) throw new Error("No questions");
+        
         shuffleArray(quizState.questions); 
         startQuiz();
+
     } catch(e) {
         console.error(e);
         if (e.message !== "No questions") toast("حدث خطأ في تحميل الأسئلة", "error");
     }
-    btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
+    btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
 });
+
 
 bind('review-mistakes-btn', 'click', () => {
     if(userProfile.wrongQuestionsBank.length === 0) return;
+    quizState.isDaily = false;
     quizState.contextTopic = "مراجعة الأخطاء";
     quizState.difficulty = "موحد"; 
     const qs = [...userProfile.wrongQuestionsBank];
@@ -393,16 +597,20 @@ function updateTimerUI() {
 
 function renderLives() {
     const el = getEl('lives-display');
-    el.innerHTML = '';
-    for(let i=0; i<3; i++) {
-        if(i < quizState.lives) el.innerHTML += '<span class="material-symbols-rounded text-red-500 text-xl drop-shadow-sm">favorite</span>';
-        else el.innerHTML += '<span class="material-symbols-rounded text-slate-600 text-xl opacity-50">favorite_border</span>';
-    }
+    el.innerHTML = `
+        <div class="flex items-center gap-1 transition-all duration-300">
+            <span class="material-symbols-rounded text-red-500 text-2xl drop-shadow-sm ${quizState.lives <= 1 ? 'animate-pulse' : ''}">favorite</span>
+            <span class="text-red-400 font-bold text-xl font-heading pt-1" dir="ltr">x${quizState.lives}</span>
+        </div>
+    `;
 }
 
 function startQuiz() {
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
-    quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; quizState.history = []; quizState.streak = 0; quizState.lives = 3; quizState.timerEnabled = false;
+    quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
+    quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
+    quizState.timerEnabled = false;
+    quizState.enrichmentEnabled = true;
     helpers = { fifty: false, hint: false, skip: false };
     quizState.usedHelpers = false; 
     quizState.fastAnswers = 0; 
@@ -410,6 +618,7 @@ function startQuiz() {
     getEl('quiz-topic-display').textContent = quizState.contextTopic || 'مسابقة متنوعة';
     updateHelpersUI();
     updateStreakUI();
+    updateEnrichmentUI(); 
     renderLives();
     updateTimerUI(); 
     renderQuestion();
@@ -450,12 +659,15 @@ function renderQuestion() {
     getEl('question-text').textContent = q.question;
     getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
     getEl('live-score-text').textContent = quizState.score;
-    const dots = getEl('progress-dots'); dots.innerHTML = '';
-    for(let i=0; i<quizState.questions.length; i++) {
-        let cls = "w-2 h-2 rounded-full bg-slate-700";
-        if(i < quizState.idx) cls = "w-2 h-2 rounded-full bg-amber-500";
-        else if(i === quizState.idx) cls = "w-2 h-2 rounded-full bg-white scale-125";
-        dots.innerHTML += `<div class="${cls}"></div>`;
+    const dots = getEl('progress-dots'); 
+    if(dots) { // Safety check
+        dots.innerHTML = '';
+        for(let i=0; i<quizState.questions.length; i++) {
+            let cls = "w-2 h-2 rounded-full bg-slate-700";
+            if(i < quizState.idx) cls = "w-2 h-2 rounded-full bg-amber-500";
+            else if(i === quizState.idx) cls = "w-2 h-2 rounded-full bg-white scale-125";
+            dots.innerHTML += `<div class="${cls}"></div>`;
+        }
     }
     const box = getEl('options-container'); box.innerHTML = '';
     q.options.forEach((o, i) => {
@@ -530,14 +742,23 @@ function selectAnswer(idx, btn) {
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
         quizState.streak++;
         if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
-        const basePoints = 2; 
-        let multiplier = 1;
+        
+        let pointsAdded = 0;
         let multiplierText = "";
-        if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
-        else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
-        else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
-        else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
-        let pointsAdded = Math.floor(basePoints * multiplier);
+
+        if (quizState.isDaily) {
+            pointsAdded = 20; 
+            multiplierText = "🌟";
+        } else {
+            const basePoints = 2; 
+            let multiplier = 1;
+            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
+            else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
+            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
+            else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
+            pointsAdded = Math.floor(basePoints * multiplier);
+        }
+        
         quizState.score += pointsAdded; 
         quizState.correctCount++;
         const scoreEl = getEl('live-score-text');
@@ -551,7 +772,7 @@ function selectAnswer(idx, btn) {
         }
         getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${pointsAdded})</span> <span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>`;
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
-        if(q.explanation && Math.random() > -1) {
+        if(q.explanation && quizState.enrichmentEnabled && Math.random() > -1) {
             setTimeout(() => showEnrichment(q.explanation), transitionDelay);
             return; 
         }
@@ -566,17 +787,20 @@ function selectAnswer(idx, btn) {
         if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); } 
         else if (quizState.streak >= 5) { quizState.streak = 2; } 
         else { quizState.streak = 0; }
+        
         quizState.lives--;
         renderLives();
         playSound('lose');
         getEl('quiz-proper').classList.add('shake'); setTimeout(()=>getEl('quiz-proper').classList.remove('shake'),500);
         if(qBankIdx === -1) userProfile.wrongQuestionsBank.push(q);
+        
         if (quizState.lives <= 0) {
             getEl('feedback-text').textContent = "نفدت المحاولات! 💔"; 
             getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-500";
-            setTimeout(endQuiz, transitionDelay);
+            setTimeout(showReviveModal, transitionDelay); 
             return; 
         } 
+
         getEl('feedback-text').textContent = "إجابة خاطئة (+0)"; 
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-400";
         updateStreakUI();
@@ -617,13 +841,30 @@ bind('share-text-button', 'click', () => {
     }
 });
 
+bind('btn-challenge-friend', 'click', () => {
+    const message = `⚔️ أتحداك في مسابقة أهل البيت!\n` + `حاولت الإجابة على هذه الأسئلة وحصلت على ${quizState.score} نقطة.\n` + `هل يمكنك هزيمتي؟ 💪\n\n` + `(الميزة قيد التطوير - قريباً ستتمكن من اللعب عبر الرابط المباشر)`;
+    if (navigator.share) {
+        navigator.share({ title: 'تحدي صديق', text: message });
+    } else {
+        navigator.clipboard.writeText(message).then(() => toast('تم نسخ رسالة التحدي!'));
+    }
+});
+
 async function endQuiz() {
     hide('quiz-proper'); show('results-area');
     getEl('card-score').textContent = quizState.score;
     getEl('card-username').textContent = userProfile.username;
     getEl('card-difficulty').textContent = quizState.difficulty;
-    const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
+    
     const today = new Date().toISOString().slice(0, 10);
+    if (quizState.isDaily) {
+        userProfile.stats.lastDailyDate = today; 
+        quizState.isDaily = false; 
+    }
+    
+    show('btn-challenge-friend');
+
+    const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
     getEl('card-correct-count').textContent = `✅ ${quizState.correctCount}`;
     getEl('card-wrong-count').textContent = `❌ ${quizState.questions.length - quizState.correctCount}`;
     let msg = "حاول مرة أخرى";
@@ -631,7 +872,10 @@ async function endQuiz() {
     else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
     getEl('final-message').textContent = msg;
+    
+    // حساب النقاط الجديدة
     const newHigh = (userProfile.highScore || 0) + quizState.score;
+    
     const stats = userProfile.stats || {};
     if (quizState.fastAnswers >= 10) { stats.fastAnswerCount++; }
     if (!quizState.usedHelpers) { stats.noHelperQuizzesCount++; }
@@ -648,8 +892,11 @@ async function endQuiz() {
         totalHardQuizzes: stats.totalHardQuizzes,
         noHelperQuizzesCount: stats.noHelperQuizzesCount,
         maxStreak: stats.maxStreak,
-        fastAnswerCount: stats.fastAnswerCount
+        fastAnswerCount: stats.fastAnswerCount,
+        lastDailyDate: stats.lastDailyDate
     };
+    
+    // منطق الأوسمة
     let newBadges = [];
     let loverBadgesEarned = 0;
     const requiredCorrectLover = 200;
@@ -702,26 +949,31 @@ async function endQuiz() {
     if(hour >= 0 && hour <= 4 && !userProfile.badges.includes('night')) newBadges.push('night');
     if(userProfile.favorites.length >= 20 && !userProfile.badges.includes('dedicated')) newBadges.push('dedicated');
     if(userProfile.wrongQuestionsBank.length <= 0 && (stats.totalQuestions - stats.totalCorrect) >= 15 && !userProfile.badges.includes('fixer')) newBadges.push('fixer'); 
+    
+    // تحديث البيانات
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
-    let updatedSeenQuestions = new Set([...(userProfile.seenQuestions || []), ...playedIds]);
-    let seenArray = Array.from(updatedSeenQuestions);
-    if (seenArray.length > 1000) seenArray = seenArray.slice(seenArray.length - 1000);
+    let updatedSeenQuestions = Array.from(new Set([...(userProfile.seenQuestions || []), ...playedIds]));
+    if (updatedSeenQuestions.length > 1000) updatedSeenQuestions = updatedSeenQuestions.slice(updatedSeenQuestions.length - 1000);
+    
     let updatedWrongQuestionsBank = userProfile.wrongQuestionsBank;
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(updatedWrongQuestionsBank.length - 15);
-    userProfile.seenQuestions = seenArray;
+    userProfile.seenQuestions = updatedSeenQuestions;
     userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
+    
     const firestoreUpdates = {
         highScore: newHigh, stats: newStats, wrongQuestionsBank: updatedWrongQuestionsBank, 
-        seenQuestions: seenArray, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
+        seenQuestions: updatedSeenQuestions, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
         'stats.quizzesPlayed': newStats.quizzesPlayed, 'stats.totalCorrect': newStats.totalCorrect, 'stats.totalQuestions': newStats.totalQuestions,
         'stats.bestRoundScore': newStats.bestRoundScore, 'stats.lastPlayedDates': newStats.lastPlayedDates, 'stats.totalHardQuizzes': newStats.totalHardQuizzes,
-        'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount
+        'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount,
+        'stats.lastDailyDate': newStats.lastDailyDate
     };
     Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
     await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
     userProfile.highScore = newHigh; userProfile.stats = newStats;
     if(newBadges.length > 0) { userProfile.badges.push(...newBadges); toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); }
     updateProfileUI();
+    updateDashboardState(); 
     renderReviewArea();
 }
 
@@ -792,6 +1044,17 @@ bind('helper-hint', 'click', () => {
     });
     updateHelpersUI();
     toast(`تم خصم ${cost} نقطة (تلميح)`, "info");
+});
+
+bind('toggle-enrichment-btn', 'click', () => {
+    quizState.enrichmentEnabled = !quizState.enrichmentEnabled;
+    updateEnrichmentUI();
+    
+    if(quizState.enrichmentEnabled) {
+        toast("تم تفعيل المعلومات الإثرائية");
+    } else {
+        toast("تم إيقاف المعلومات الإثرائية");
+    }
 });
 
 bind('helper-skip', 'click', () => {
@@ -875,9 +1138,26 @@ bind('nav-leaderboard', 'click', async () => {
             let avatarHtml = '';
             if (data.customAvatar) avatarHtml = `<img src="${data.customAvatar}" class="w-10 h-10 object-cover rounded-full border border-slate-600">`;
             else avatarHtml = `<div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center"><span class="material-symbols-rounded text-slate-200 text-2xl">account_circle</span></div>`;
+            
+            const lvl = calculateLevelInfo(data.highScore || 0).level;
+            
             const row = document.createElement('div');
             row.className = `flex justify-between items-center p-3 ${bgClass} rounded-xl border-2 ${borderClass} mb-3 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700`;
-            row.innerHTML = `<div class="flex items-center gap-3"><div class="flex items-center justify-center min-w-[40px]">${medalIcon}</div><div class="w-10 h-10 rounded-full relative">${avatarHtml}</div><div class="flex flex-col"><span class="text-white text-lg font-bold group-hover:text-amber-400 transition" style="font-family: 'Amiri', serif;">${data.username}</span></div></div><div class="text-center pl-2"><span class="text-amber-400 font-mono font-bold text-lg block leading-none text-shadow">${data.highScore}</span></div>`;
+            row.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center min-w-[40px]">${medalIcon}</div>
+                    <div class="w-10 h-10 rounded-full relative">
+                        ${avatarHtml}
+                        <div class="absolute -bottom-1 -right-1 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center border border-slate-900 text-[9px] font-bold shadow-md">${lvl}</div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-white text-lg font-bold group-hover:text-amber-400 transition" style="font-family: 'Amiri', serif;">${data.username}</span>
+                    </div>
+                </div>
+                <div class="text-center pl-2">
+                    <span class="text-amber-400 font-mono font-bold text-lg block leading-none text-shadow">${data.highScore}</span>
+                </div>
+            `;
             row.onclick = () => showPlayerProfile(data);
             l.appendChild(row);
             r++;
@@ -898,6 +1178,11 @@ function showPlayerProfile(data) {
         hide('popup-player-img');
         show('popup-player-icon');
     }
+    
+    const lvl = calculateLevelInfo(data.highScore || 0).level;
+    const lvlBadge = getEl('popup-player-level-badge');
+    if(lvlBadge) lvlBadge.textContent = lvl;
+
     const bContainer = getEl('popup-player-badges');
     bContainer.innerHTML = '';
     if (data.badges && data.badges.length > 0) {
@@ -1031,3 +1316,77 @@ bind('login-btn', 'click', handleLogin);
 bind('register-btn', 'click', handleReg);
 bind('show-register-btn', 'click', () => { hide('login-view'); show('register-view'); getEl('login-error-message').textContent=''; });
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
+
+function showReviveModal() {
+    let modal = document.getElementById('revive-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'revive-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-box border-2 border-red-500/50">
+                <div class="text-center mb-6">
+                    <span class="material-symbols-rounded text-red-500 text-6xl animate-pulse">heart_broken</span>
+                    <h3 class="text-2xl font-bold text-white mt-2 font-heading">نفدت القلوب!</h3>
+                    <p class="text-slate-400 text-sm mt-2">لا تفقد تقدمك.. اشترِ قلوباً لإكمال هذه الجولة.</p>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl mb-6 text-center border border-slate-700">
+                    <span class="text-xs text-slate-400 block">رصيدك الحالي</span>
+                    <span class="text-amber-400 font-bold text-xl font-heading flex justify-center items-center gap-1">
+                        ${userProfile.highScore} <span class="material-symbols-rounded text-sm">monetization_on</span>
+                    </span>
+                </div>
+                <div class="space-y-3">
+                    <button onclick="window.buyLives(1, 50)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                        <div class="flex items-center gap-2"><span class="material-symbols-rounded text-red-500">favorite</span><span class="text-white font-bold">1 قلب</span></div>
+                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">50 نقطة</span>
+                    </button>
+                    <button onclick="window.buyLives(2, 90)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                        <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">2 قلب</span></div>
+                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">90 نقطة <span class="text-[10px] text-green-400">(وفر 10)</span></span>
+                    </button>
+                    <button onclick="window.buyLives(3, 120)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                        <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">3 قلوب</span></div>
+                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">120 نقطة <span class="text-[10px] text-green-400">(وفر 30)</span></span>
+                    </button>
+                </div>
+                <div class="mt-6 border-t border-slate-700 pt-4">
+                    <button onclick="window.cancelRevive()" class="w-full text-slate-500 hover:text-red-400 text-sm transition">لا شكراً، إنهاء الجولة</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        const balanceDisplay = modal.querySelector('.text-amber-400.font-bold.text-xl');
+        if(balanceDisplay) balanceDisplay.innerHTML = `${userProfile.highScore} <span class="material-symbols-rounded text-sm">monetization_on</span>`;
+    }
+    setTimeout(() => modal.classList.add('active'), 100);
+}
+
+window.buyLives = async function(amount, cost) {
+    if (userProfile.highScore < cost) {
+        toast("رصيدك غير كافٍ للشراء!", "error");
+        playSound('lose');
+        return;
+    }
+    
+    try {
+        userProfile.highScore -= cost;
+        await updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
+        updateProfileUI();
+        quizState.lives = amount;
+        renderLives();
+        document.getElementById('revive-modal').classList.remove('active');
+        toast(`تم شراء ${amount} قلب بنجاح!`, "success");
+        playSound('win');
+        nextQuestion();
+    } catch (e) {
+        console.error("Error buying lives:", e);
+        toast("حدث خطأ أثناء الشراء، حاول مرة أخرى", "error");
+    }
+};
+
+window.cancelRevive = function() {
+    document.getElementById('revive-modal').classList.remove('active');
+    endQuiz();
+};
