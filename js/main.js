@@ -107,13 +107,10 @@ async function checkSystemMessage() {
             const data = docSnap.data();
             const lastMsg = localStorage.getItem('last_seen_msg_content');
             
-            // إذا كانت الرسالة مفعلة وجديدة (لم يراها المستخدم من قبل)
             if (data.isActive && data.message && data.message !== lastMsg) {
                 const contentEl = getEl('whats-new-content');
                 if(contentEl) {
-                    // نضع النص فقط (مع دعم الأسطر الجديدة)
                     contentEl.innerHTML = data.message.replace(/\n/g, '<br>');
-                    
                     openModal('whats-new-modal');
                     localStorage.setItem('last_seen_msg_content', data.message);
                 }
@@ -123,7 +120,6 @@ async function checkSystemMessage() {
         console.log("No system messages"); 
     }
 }
-
 
 function playSound(type) { 
     if(isMuted) return; 
@@ -137,7 +133,6 @@ function playSound(type) {
 
 const muteToggle = getEl('mute-toggle');
 if(muteToggle) muteToggle.onchange = () => { isMuted = !muteToggle.checked; };
-
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -209,28 +204,43 @@ async function handleReg() {
     } catch(e) { console.error(e); err.textContent = "خطأ"; getEl('register-btn').disabled = false; }
 }
 
+// دالة تحميل الملف الشخصي (المحسنة للأوفلاين)
 async function loadProfile(uid) {
+    const localProfile = localStorage.getItem('local_user_profile_backup');
     try {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
             userProfile = snap.data();
-            if(!userProfile.badges) userProfile.badges = ['beginner'];
-            if(!userProfile.favorites) userProfile.favorites = [];
-            if(!userProfile.stats) userProfile.stats = {};
-            if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
-            if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
-            userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
-            userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
-            if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
         } else {
             userProfile = { 
                 username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
                 seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0, lastDailyDate: null }
             };
         }
-        updateProfileUI();
-        updateDashboardState();
-    } catch(e) { console.error(e); }
+        localStorage.setItem('local_user_profile_backup', JSON.stringify(userProfile));
+    } catch(e) { 
+        console.error("فشل الاتصال بالسيرفر (وضع أوفلاين):", e);
+        if (localProfile) {
+            console.log("استخدام الملف الشخصي المخزن محلياً");
+            userProfile = JSON.parse(localProfile);
+            toast("أنت في وضع الأوفلاين. النقاط ستحفظ محلياً مؤقتاً.", "warning");
+        } else {
+            userProfile = { 
+                username: "مستخدم (أوفلاين)", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
+                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0, lastDailyDate: null }
+            };
+        }
+    }
+    if(!userProfile.badges) userProfile.badges = ['beginner'];
+    if(!userProfile.favorites) userProfile.favorites = [];
+    if(!userProfile.stats) userProfile.stats = {};
+    if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
+    if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
+    userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
+    userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
+    if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
+    updateProfileUI();
+    updateDashboardState();
 }
 
 function updateProfileUI() {
@@ -245,21 +255,16 @@ function updateProfileUI() {
         hide('user-avatar-img');
         show('user-avatar-icon');
     }
-    
     const score = userProfile.highScore || 0;
     getEl('header-score').textContent = score;
-    
     const lvlInfo = calculateLevelInfo(score);
-    
     const headerLvl = getEl('header-level');
     if(headerLvl) headerLvl.textContent = lvlInfo.level;
-
     const modalBadge = getEl('modal-level-badge');
     const curLvlTxt = getEl('current-lvl-txt');
     const nxtLvlTxt = getEl('next-lvl-txt');
     const bar = getEl('level-progress-bar');
     const xpNeed = getEl('xp-needed');
-
     if (modalBadge) modalBadge.textContent = lvlInfo.level;
     if (curLvlTxt) curLvlTxt.textContent = `مستوى ${lvlInfo.level}`;
     if (nxtLvlTxt) nxtLvlTxt.textContent = `مستوى ${lvlInfo.level + 1}`;
@@ -270,13 +275,10 @@ function updateProfileUI() {
 function updateDashboardState() {
     const today = new Date().toISOString().slice(0, 10);
     const lastPlayed = userProfile.stats?.lastDailyDate;
-    
     const dailyCard = getEl('daily-challenge-card');
     const reviewBtn = getEl('review-mistakes-btn');
     const dailyOverlay = getEl('daily-completed-overlay');
-
     if (!dailyCard || !reviewBtn) return;
-
     if (lastPlayed === today) {
         if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
             dailyCard.classList.add('hidden');
@@ -310,9 +312,8 @@ function navToHome() {
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     initDropdowns();
-    setTimeout(checkSystemMessage, 1500); // تم تصحيح الاسم هنا
+    setTimeout(checkSystemMessage, 1500); 
     updateDashboardState();
-
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
         toggleBtn.classList.add('text-amber-400');
@@ -326,10 +327,8 @@ function navToHome() {
 async function startDailyQuiz() {
     const btn = getEl('daily-challenge-card');
     btn.style.pointerEvents = 'none'; 
-    
     try {
         toast("جاري التحقق...", "info");
-        
         const freshProfileSnap = await getDoc(doc(db, "users", effectiveUserId));
         if (freshProfileSnap.exists()) {
             const freshStats = freshProfileSnap.data().stats || {};
@@ -341,15 +340,12 @@ async function startDailyQuiz() {
                 return;
             }
         }
-
         const qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(50));
         const snap = await getDocs(qQuery);
         let pool = [];
         snap.forEach(d => pool.push({ id: d.id, ...d.data() }));
-        
         const seenIds = userProfile.seenQuestions || [];
         let freshPool = pool.filter(q => !seenIds.includes(q.id));
-        
         let questions = [];
         if (freshPool.length >= 5) {
             shuffleArray(freshPool);
@@ -358,16 +354,12 @@ async function startDailyQuiz() {
             shuffleArray(pool);
             questions = pool.slice(0, 5);
         }
-
         if (questions.length === 0) throw new Error("No questions available");
-
         quizState.questions = questions;
         quizState.difficulty = 'تحدي يومي 🔥';
         quizState.contextTopic = 'التحدي اليومي';
         quizState.isDaily = true;
-        
         startQuiz();
-
     } catch (e) {
         console.error(e);
         toast("حدث خطأ في بدء التحدي", "error");
@@ -446,7 +438,6 @@ function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     toast("جاري معالجة الصورة...", "info"); 
-    
     if (file.size > 2 * 1024 * 1024) { toast("الصورة كبيرة جداً، اختر صورة أصغر", "error"); return; }
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -477,67 +468,48 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-// **زر ابدأ الجولة (نسخة واحدة مصححة وتستخدم getQuestionsManager)**
+// زر ابدأ الجولة (نسخة واحدة مصححة وتستخدم getQuestionsManager)
 bind('ai-generate-btn', 'click', async () => {
     quizState.isDaily = false; 
-    
     const btn = getEl('ai-generate-btn');
     btn.disabled = true; 
     btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التجهيز...`;
-
     try {
-        // 1. استدعاء المدير الذكي (هو يقرر: من النت أم من الجهاز؟)
         let allQuestions = await getQuestionsManager();
-
         if (!allQuestions || allQuestions.length === 0) {
             throw new Error("لا توجد بيانات أسئلة. تأكد من الاتصال بالإنترنت.");
         }
-
-        // 2. الفلترة محلياً (Local Filtering)
         let filteredQs = [];
         const cat = getEl('category-select').value;
         const topicVal = getEl('topic-select').value;
-        
-        // منطق الفلترة حسب اختيار المستخدم
         if (cat === 'random' || !cat) {
-            filteredQs = allQuestions; // الكل
+            filteredQs = allQuestions; 
         } else {
             const targetTopic = topicVal || cat;
             filteredQs = allQuestions.filter(q => q.topic === targetTopic);
         }
-
-        // 3. التحقق من وجود أسئلة في القسم المختار
         if(filteredQs.length === 0) {
             throw new Error("عذراً، لا توجد أسئلة محفوظة لهذا التصنيف حالياً.");
         }
-        
-        // 4. اختيار العدد المطلوب عشوائياً
         shuffleArray(filteredQs);
         const count = parseInt(getEl('ai-question-count').value);
-        
-        // تجنب تكرار الأسئلة التي رآها المستخدم سابقاً (اختياري، محلياً)
         const seenIds = userProfile.seenQuestions || [];
         let freshQuestions = filteredQs.filter(q => !seenIds.includes(q.id));
         let usedQuestions = filteredQs.filter(q => seenIds.includes(q.id));
-        
         let finalSelection = [];
         if (freshQuestions.length >= count) {
             finalSelection = freshQuestions.slice(0, count);
         } else {
             finalSelection = [...freshQuestions, ...usedQuestions.slice(0, count - freshQuestions.length)];
         }
-
         quizState.questions = finalSelection;
         quizState.difficulty = 'موحد';
         quizState.contextTopic = topicVal || cat || "عام";
-
         startQuiz();
-
     } catch (e) {
         console.error(e);
         toast(e.message || "حدث خطأ", "error");
     }
-    
     btn.disabled = false; 
     btn.innerHTML = `<span class="text-lg">ابدأ الجولة</span> <span class="material-symbols-rounded">play_arrow</span>`;
 });
@@ -589,41 +561,29 @@ function renderLives() {
     `;
 }
 
-// 1. عند ضغط زر "مسح البيانات" في الإعدادات -> نفتح النافذة الجميلة
 bind('clear-cache-btn', 'click', () => {
-    // إغلاق نافذة الإعدادات أولاً
     document.getElementById('settings-modal').classList.remove('active');
-    // فتح نافذة التأكيد الجديدة
     document.getElementById('reset-confirm-modal').classList.add('active');
 });
 
-// 2. عند ضغط زر "نعم، احذف" داخل النافذة الجديدة
 bind('btn-confirm-reset-action', 'click', async () => {
     const btn = getEl('btn-confirm-reset-action');
     btn.innerHTML = '<span class="material-symbols-rounded animate-spin">sync</span> جاري التنفيذ...';
     btn.disabled = true;
-
-    // --- عمليات الحذف ---
     localStorage.removeItem('offline_questions_full');
     localStorage.removeItem('last_full_update_timestamp');
-    
-    // إلغاء تسجيل Service Worker
+    localStorage.removeItem('local_user_profile_backup'); 
     if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for(let registration of registrations) {
             await registration.unregister();
         }
     }
-
     toast("تم المسح! جاري إعادة التشغيل...", "success");
-    
-    // إعادة تحميل الصفحة
     setTimeout(() => {
         window.location.reload(true); 
     }, 1500);
 });
-
-
 
 function startQuiz() {
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
@@ -870,6 +830,7 @@ bind('btn-challenge-friend', 'click', () => {
     }
 });
 
+// ✅ دالة نهاية الجولة (النسخة الكاملة مع حفظ الأوفلاين)
 async function endQuiz() {
     hide('quiz-proper'); show('results-area');
     getEl('card-score').textContent = quizState.score;
@@ -893,7 +854,6 @@ async function endQuiz() {
     else if(accuracy >= 50) msg = "جيد جداً";
     getEl('final-message').textContent = msg;
     
-    // حساب النقاط الجديدة
     const newHigh = (userProfile.highScore || 0) + quizState.score;
     
     const stats = userProfile.stats || {};
@@ -916,10 +876,11 @@ async function endQuiz() {
         lastDailyDate: stats.lastDailyDate
     };
     
-    // منطق الأوسمة
+    // --- منطق الأوسمة ---
     let newBadges = [];
     let loverBadgesEarned = 0;
     const requiredCorrectLover = 200;
+    
     infallibles.forEach(person => {
         const badgeId = `lover_${person.id}`;
         const currentCorrect = userProfile.stats.topicCorrect[person.topic] || 0;
@@ -931,6 +892,7 @@ async function endQuiz() {
     if (loverBadgesEarned === infallibles.length && !userProfile.badges.includes('lover_infallibility')) {
         newBadges.push('lover_infallibility');
     }
+
     if(newStats.quizzesPlayed >= 10 && !userProfile.badges.includes('scholar')) newBadges.push('scholar');
     if(newStats.quizzesPlayed >= 50 && !userProfile.badges.includes('master')) newBadges.push('master');
     if(newStats.quizzesPlayed >= 100 && !userProfile.badges.includes('grand_master')) newBadges.push('grand_master');
@@ -954,9 +916,10 @@ async function endQuiz() {
     if(newStats.totalQuestions > 0 && (newStats.totalCorrect / newStats.totalQuestions) >= 0.9 && !userProfile.badges.includes('precise')) newBadges.push('precise');
     if(newStats.fastAnswerCount >= 10 && !userProfile.badges.includes('fast_learner')) newBadges.push('fast_learner');
     if(quizState.contextTopic === "عام" && newStats.topicCorrect["عام"] >= 50 && !userProfile.badges.includes('general_expert')) newBadges.push('general_expert');
+    
     const specialistBadges = [
         { key: "تاريخ ومعارك", id: 'master_history' }, { key: "عقائد وفقه", id: 'master_theology' },
-        { key: "الأنبياء والرسل", id: 'master_prophets' }, { key: "شخصيات (أصحاب وعلماء)", id: 'master_companions' },
+        { key: "الأنبياء والرسل", id: 'master_prophets' }, { key: "شخصيات (أصحاب وعلماء ونساء)", id: 'master_companions' },
         { key: "أدعية وزيارات", id: 'master_ziyarat' }
     ];
     specialistBadges.forEach(item => {
@@ -964,13 +927,13 @@ async function endQuiz() {
             newBadges.push(item.id);
         }
     });
+
     const hour = new Date().getHours();
     if(hour >= 5 && hour <= 8 && !userProfile.badges.includes('morning')) newBadges.push('morning');
     if(hour >= 0 && hour <= 4 && !userProfile.badges.includes('night')) newBadges.push('night');
     if(userProfile.favorites.length >= 20 && !userProfile.badges.includes('dedicated')) newBadges.push('dedicated');
     if(userProfile.wrongQuestionsBank.length <= 0 && (stats.totalQuestions - stats.totalCorrect) >= 15 && !userProfile.badges.includes('fixer')) newBadges.push('fixer'); 
     
-    // تحديث البيانات
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     let updatedSeenQuestions = Array.from(new Set([...(userProfile.seenQuestions || []), ...playedIds]));
     if (updatedSeenQuestions.length > 1000) updatedSeenQuestions = updatedSeenQuestions.slice(updatedSeenQuestions.length - 1000);
@@ -989,9 +952,23 @@ async function endQuiz() {
         'stats.lastDailyDate': newStats.lastDailyDate
     };
     Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
-    await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
-    userProfile.highScore = newHigh; userProfile.stats = newStats;
-    if(newBadges.length > 0) { userProfile.badges.push(...newBadges); toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); }
+
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
+    } catch(e) {
+        console.log("تعذر الحفظ في السحابة (أوفلاين)، سيتم الاكتفاء بالحفظ المحلي.");
+    }
+
+    userProfile.highScore = newHigh; 
+    userProfile.stats = newStats;
+    if(newBadges.length > 0) { 
+        userProfile.badges.push(...newBadges); 
+        toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); 
+    }
+
+    // ✅ التحديث في LocalStorage (ضروري للأوفلاين)
+    localStorage.setItem('local_user_profile_backup', JSON.stringify(userProfile));
+
     updateProfileUI();
     updateDashboardState(); 
     renderReviewArea();
