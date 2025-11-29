@@ -12,7 +12,7 @@ import {
     linkWithPopup,                  
     fetchSignInMethodsForEmail      
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = { apiKey: "AIzaSyDY1FNxvECtaV_dflCzkRH4pHQi_HQ4fwA", authDomain: "all-in-b0422.firebaseapp.com", projectId: "all-in-b0422", storageBucket: "all-in-b0422.firebasestorage.app", messagingSenderId: "347315641241", appId: "1:347315641241:web:c9ed240a0a0e5d2c5031108" };
@@ -114,26 +114,86 @@ async function handleLogin() {
 
     try {
         const fakeEmail = `${u}@ahlulbayt.app`;
+        // 1. محاولة الدخول بالنظام الجديد
         const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, p);
         
+        // نجح الدخول
         effectiveUserId = userCredential.user.uid;
         await loadProfile(effectiveUserId);
-        
         navToHome();
         toast(`أهلاً بك ${u}`);
 
     } catch(e) { 
-        console.error("Login Error:", e);
-        if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-            err.textContent = "اسم المستخدم أو كلمة المرور غير صحيحة";
-        } else if (e.code === 'auth/too-many-requests') {
-            err.textContent = "محاولات كثيرة جداً، انتظر قليلاً";
+        // 2. إذا فشل الدخول (المستخدم غير موجود)، نحاول البحث عنه في النظام القديم ونقله
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+            console.log("User not found in Auth, trying legacy migration...");
+            await migrateOldAccount(u, p, err);
         } else {
-            err.textContent = "حدث خطأ في الاتصال";
+            console.error("Login Error:", e);
+            if (e.code === 'auth/wrong-password') err.textContent = "كلمة المرور غير صحيحة";
+            else if (e.code === 'auth/too-many-requests') err.textContent = "محاولات كثيرة جداً، انتظر قليلاً";
+            else err.textContent = "حدث خطأ في الاتصال";
+            getEl('login-btn').disabled = false; 
         }
-        getEl('login-btn').disabled = false; 
     }
 }
+
+// دالة لنقل الحسابات القديمة للنظام الآمن الجديد
+async function migrateOldAccount(username, password, errElement) {
+    try {
+        // البحث عن الحساب في قاعدة البيانات القديمة
+        const q = query(collection(db, "users"), where("username", "==", username));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+            errElement.textContent = "اسم المستخدم غير صحيح";
+            getEl('login-btn').disabled = false;
+            return;
+        }
+
+        const oldDoc = snap.docs[0];
+        const userData = oldDoc.data();
+
+        // التحقق من كلمة المرور القديمة
+        if (userData.password === password) {
+            toast("جاري تحديث نظام حسابك للأمان الجديد...", "info");
+            
+            // إنشاء الحساب في النظام الجديد
+            const fakeEmail = `${username}@ahlulbayt.app`;
+            const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+            const newUser = userCredential.user;
+            
+            // تحديث الاسم
+            await updateProfile(newUser, { displayName: username });
+            
+            // نقل البيانات من الملف القديم للملف الجديد
+            const newId = newUser.uid;
+            const dataToKeep = { ...userData };
+            delete dataToKeep.password; // حذف كلمة المرور لأننا لا نخزنها نصاً بعد الآن
+            
+            // حفظ البيانات في المعرف الجديد
+            await setDoc(doc(db, "users", newId), dataToKeep);
+            
+            // حذف الملف القديم لمنع التكرار
+            await deleteDoc(doc(db, "users", oldDoc.id));
+            
+            // إتمام الدخول
+            effectiveUserId = newId;
+            await loadProfile(effectiveUserId);
+            navToHome();
+            toast("تم تحديث حسابك بنجاح! يمكنك الآن ربطه بجوجل.");
+            
+        } else {
+            errElement.textContent = "كلمة المرور غير صحيحة";
+            getEl('login-btn').disabled = false;
+        }
+    } catch (migrationErr) {
+        console.error("Migration Failed:", migrationErr);
+        errElement.textContent = "حدث خطأ أثناء التحديث.";
+        getEl('login-btn').disabled = false;
+    }
+}
+
 
 
 async function handleReg() {
@@ -1102,6 +1162,53 @@ async function handleGoogleLogin() {
     }
 }
 
+// دالة لربط الحساب الحالي بحساب جوجل
+async function linkGoogleAccount() {
+    // 1. التحقق: هل المستخدم مسجل دخول أصلاً؟
+    if (!auth.currentUser) {
+        toast("يجب تسجيل الدخول أولاً", "error");
+        return;
+    }
+
+    const provider = new GoogleAuthProvider();
+    getEl('link-google-btn').disabled = true;
+
+    try {
+        // 2. محاولة الربط
+        const result = await linkWithPopup(auth.currentUser, provider);
+        
+        // 3. نجاح الربط
+        const user = result.user;
+        
+        // (اختياري) تحديث الصورة الشخصية إذا لم يكن لديه صورة
+        if (!userProfile.customAvatar && user.photoURL) {
+            await updateDoc(doc(db, "users", effectiveUserId), {
+                customAvatar: user.photoURL
+            });
+            userProfile.customAvatar = user.photoURL;
+            updateProfileUI();
+        }
+
+        toast("✅ تم ربط حسابك بـ Google بنجاح!");
+        
+        // إخفاء الزر أو تغيير نصه ليعرف المستخدم أنه انتهى
+        const btn = getEl('link-google-btn');
+        btn.innerHTML = `<span class="material-symbols-rounded text-green-600">check_circle</span> <span>تم الربط</span>`;
+        btn.classList.add('bg-green-100', 'text-green-800');
+
+    } catch (error) {
+        console.error("Link Error:", error);
+        getEl('link-google-btn').disabled = false;
+
+        if (error.code === 'auth/credential-already-in-use') {
+            // هذا الخطأ يحدث إذا كنت قد دخلت بحساب جوجل هذا سابقاً بشكل منفصل
+            toast("هذا الإيميل مرتبط بحساب آخر بالفعل!", "error");
+        } else {
+            toast("فشل عملية الربط", "error");
+        }
+    }
+}
+
 
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
@@ -1306,3 +1413,5 @@ async function checkWhatsNew() {
 }
 // ربط زر جوجل بالدالة الخاصة به
 bind('google-login-btn', 'click', handleGoogleLogin);
+bind('link-google-btn', 'click', linkGoogleAccount);
+
