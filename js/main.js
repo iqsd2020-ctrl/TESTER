@@ -222,23 +222,6 @@ async function migrateOldAccount(username, password, errElement) {
 
 
 
-// ==========================================
-// 1. دالة مساعدة لتحويل الاسم إلى إيميل صالح (يقبل العربي)
-// ==========================================
-function getSafeEmail(username) {
-    // نفحص هل الاسم يحتوي فقط على حروف إنجليزية وأرقام
-    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
-    
-    if (isEnglish) {
-        // إذا كان إنجليزياً، نستخدمه كما هو
-        return `${username}@ahlulbayt.app`;
-    } else {
-        // إذا كان عربياً أو يحتوي رموزاً، نقوم بتشفيره ليكون مقبولاً كإيميل
-        // btoa يحول النص إلى حروف Base64 اللاتينية
-        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
-        return `u_${safeId}@ahlulbayt.app`;
-    }
-}
 
 // ==========================================
 // 2. دالة إنشاء الحساب الجديدة (handleReg)
