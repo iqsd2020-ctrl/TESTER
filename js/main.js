@@ -346,6 +346,7 @@ function updateProfileUI() {
 }
 
 function navToHome() {
+    show('main-header');
     stopTimer(); 
     if(wisdomInterval) clearInterval(wisdomInterval);
     loadAIWisdom();
@@ -577,6 +578,7 @@ function renderLives() {
 }
 
 function startQuiz() {
+    hide('main-header');
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
