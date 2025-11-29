@@ -18,7 +18,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 // ⚡ تحسين: إضافة نظام التخزين المؤقت الذكي
 const CACHE_STRATEGY = {
     QUESTIONS: 'questions_cache_v3',
