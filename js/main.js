@@ -86,22 +86,29 @@ function playSound(type) {
 const muteToggle = getEl('mute-toggle');
 if(muteToggle) muteToggle.onchange = () => { isMuted = !muteToggle.checked; };
 
+// استبدل كود onAuthStateChanged القديم بهذا الجديد
 onAuthStateChanged(auth, async (user) => {
     if (user) {
+        // إذا وجدنا مستخدماً (سواء دخل بجوجل أو إيميل سابقاً)
+        console.log("User session found:", user.uid);
         currentUser = user;
-        const storedId = localStorage.getItem('ahlulbaytQuiz_UserId_v2.7');
-        if (storedId) {
-            effectiveUserId = storedId;
-            await loadProfile(storedId);
-            navToHome();
-        } else {
-            hide('auth-loading'); show('login-area');
-        }
+        effectiveUserId = user.uid; // نعتمد على معرف فايربيس مباشرة
+
+        // إذا كان المستخدم مجهولاً (Anonymous) ولم يقم بإنشاء حساب، قد ترغب بإبقائه في الدخول
+        // ولكن بما أن تطبيقك يسمح باللعب، سنقوم بتحميل ملفه
+        await loadProfile(effectiveUserId);
+        navToHome();
     } else {
-        show('auth-loading');
-        signInAnonymously(auth).catch(e => console.error(e));
+        // لا يوجد مستخدم مسجل دخول -> نأخذه لشاشة الدخول
+        console.log("No user session, showing login");
+        hide('auth-loading');
+        show('login-area');
+        
+        // ملاحظة: قمت بإزالة signInAnonymously التلقائي 
+        // لأنك الآن تملك شاشة دخول رسمية، ولا نريد إنشاء حسابات وهمية في الخلفية
     }
 });
+
 
 // دالة لتوليد إيميل آمن يقبله Firebase حتى لو كان الاسم عربياً
 function getSafeEmail(username) {
