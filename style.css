@@ -1,79 +1,1291 @@
-:root { 
-    --font-heading: 'Reem Kufi', sans-serif; 
-    --font-body: 'Amiri', serif; 
-    --base-size: 16px; 
-    --gold: #fbbf24; 
-    --gold-dark: #b45309; 
+/* ==========================================================================
+   0. إعدادات الأداء والتجهيز المسبق
+   ========================================================================== */
+/* Preload وتحسينات الخطوط */
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: local('Amiri'), url('https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUp.woff2') format('woff2');
 }
+
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: local('Amiri Bold'), url('https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUp.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Reem Kufi';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: local('Reem Kufi'), url('https://fonts.gstatic.com/s/reemkufi/v21/2sDcZGJLip7W2J7v7wQzHEk.woff2') format('woff2');
+}
+
+/* تحسينات الأداء العامة */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+*:focus {
+    outline: 2px solid rgba(251, 191, 36, 0.5);
+    outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ==========================================================================
+   1. المتغيرات العامة (THEME VARIABLES) المحسنة
+   ========================================================================== */
+:root { 
+    /* الخطوط المستخدمة في التطبيق */
+    --font-heading: 'Reem Kufi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-body: 'Amiri', 'Times New Roman', Georgia, serif;
+    
+    /* الحجم الأساسي للنصوص */
+    --base-size: 16px;
+    --scale-ratio: 1.2;
+
+    /* الألوان الرئيسية (السمة الذهبية) */
+    --gold-50: #fffbeb;
+    --gold-100: #fef3c7;
+    --gold-200: #fde68a;
+    --gold-300: #fcd34d;
+    --gold-400: #fbbf24;
+    --gold-500: #f59e0b;
+    --gold-600: #d97706;
+    --gold-700: #b45309;
+    --gold-800: #92400e;
+    --gold-900: #78350f;
+
+    /* ألوان التصميم الأساسية */
+    --primary-bg: #0f172a;
+    --secondary-bg: #1e293b;
+    --accent-bg: #064E3B;
+    
+    /* ألوان الحالة */
+    --success: #10b981;
+    --success-dark: #047857;
+    --error: #ef4444;
+    --error-dark: #dc2626;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    
+    /* ألوان النص */
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    
+    /* تأثيرات الظل المحسنة */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    
+    /* الأنيميشن والتوقيت */
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 300ms ease-in-out;
+    --transition-slow: 500ms ease-in-out;
+    
+    /* الزوايا والحدود */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+}
+
+/* ==========================================================================
+   2. إعدادات الصفحة الأساسية المحسنة
+   ========================================================================== */
 body { 
     font-family: var(--font-body); 
     font-size: var(--base-size); 
-    line-height: 1.8; 
-    user-select: none; 
-    background: radial-gradient(circle at top, #0f172a 0%, #064E3B 100%); 
-    background-attachment: fixed; 
-    color: #f8fafc; 
-    min-height: 100vh; 
-    min-height: 100dvh; 
-    overflow-x: hidden; 
+    line-height: 1.7; 
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    
+    /* خلفية التطبيق محسنة للأداء */
+    background: radial-gradient(ellipse at top, var(--primary-bg) 0%, var(--accent-bg) 100%) fixed;
+    background-attachment: fixed;
+    
+    color: var(--text-primary);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    
+    /* تحسينات الأداء */
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'kern' 1;
 }
-h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
-#question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-.glass-card { background: rgba(15, 23, 42, 0.90); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(251, 191, 36, 0.15); border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
-.input-glass { width: 100%; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); color: white; border-radius: 0.75rem; padding: 0.75rem 1rem; transition: 0.3s; font-family: var(--font-body); font-size: 1rem; }
-.input-glass:focus { border-color: var(--gold); outline: none; background: rgba(30, 41, 59, 0.9); box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2); }
-select.input-glass { appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23fbbf24' stroke-width='2' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-position: left 0.75rem center; background-repeat: no-repeat; background-size: 1.25em; }
-.btn-gold-action { width: 100%; padding-block: 1rem; background: linear-gradient(135deg, #d97706 0%, #ca8a04 100%); color: white; border-radius: 1rem; font-family: var(--font-heading); font-weight: 700; font-size: 1.1em; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(217, 119, 6, 0.3); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; position: relative; overflow: hidden; }
-.btn-gold-action::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(255,255,255,0.2), transparent); opacity: 0; transition: 0.2s; }
-.btn-gold-action:hover { transform: translateY(-2px); box-shadow: 8px 20px rgba(217, 119, 6, 0.5); }
-.btn-gold-action:hover::after { opacity: 1; }
-.btn-gold-action:active { transform: scale(0.98); }
-.btn-gold-action:disabled { filter: grayscale(1); opacity: 0.6; cursor: not-allowed; transform: none; }
-.btn-secondary { background: transparent; color: #94a3b8; font-family: var(--font-heading); transition: 0.3s; display: flex; align-items: center; gap: 0.25rem; cursor: pointer; }
-.btn-secondary:hover { color: var(--gold); }
-.option-btn { width: 100%; background: rgba(51, 65, 85, 0.4); border: 1px solid rgba(148, 163, 184, 0.1); border-radius: 0.75rem; padding: 1rem; color: #e2e8f0; font-size: 1.1em; text-align: right; transition: all 0.2s; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; position: relative; overflow: hidden; }
-.option-btn:hover { background: rgba(51, 65, 85, 0.7); border-color: rgba(148, 163, 184, 0.3); transform: translateX(-4px); }
-.btn-correct { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; border-color: #34d399 !important; color: white !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
-.btn-incorrect { background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important; border-color: #f87171 !important; color: white !important; }
-.option-number { width: 32px; height: 32px; background: rgba(0,0,0,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--gold); font-family: var(--font-heading); flex-shrink: 0; border: 1px solid rgba(251, 191, 36, 0.2); }
-.option-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-#side-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; opacity: 0; pointer-events: none; transition: 0.3s; backdrop-filter: blur(4px); }
-#side-menu-overlay.open { opacity: 1; pointer-events: auto; }
-#side-menu { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: #0f172a; border-left: 1px solid #334155; z-index: 50; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.5); overflow-y: auto; display: flex; flex-direction: column; }
-#side-menu.open { right: 0; }
-.menu-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; color: #cbd5e1; cursor: pointer; border-bottom: 1px solid #1e293b; font-family: var(--font-heading); transition: 0.2s; }
-.menu-item:hover { background: #1e293b; color: var(--gold); padding-right: 2rem; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; }
-.modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal-box { background: #1e293b; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; border-radius: 1.5rem; padding: 1.5rem; transform: scale(0.95); transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); border: 1px solid var(--gold); position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-.modal-overlay.active .modal-box { transform: scale(1); }
-.fade-in { animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; } @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; } @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-.pulse-slow { animation: pulse-slow 3s infinite; } @keyframes pulse-slow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.05)} }
-.score-pop { animation: scorePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } @keyframes scorePop { 0% { transform: scale(1); } 50% { transform: scale(1.5); color: var(--gold); } 100% { transform: scale(1); } }
-.streak-fire { transition: 0.3s; opacity: 0; transform: translateY(10px) scale(0.8); filter: grayscale(1); }
-.streak-fire.active { opacity: 1; transform: translateY(0) scale(1); filter: grayscale(0); animation: burn 1s infinite alternate; }
-@keyframes burn { from { text-shadow: 0 0 4px #ef4444, 0 -5px 10px #f59e0b; } to { text-shadow: 0 0 8px #ef4444, 0 -10px 20px #f59e0b; transform: scale(1.1); } }
-.timer-container { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 1rem; transition: opacity 0.3s; }
-.timer-container.disabled { opacity: 0.3; pointer-events: none; display: none; }
-.timer-bar { height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); width: 100%; transition: width 1s linear; transform-origin: right; }
-#toast-notification { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(150%); background: #064e3b; border: 1px solid #34d399; color: white; padding: 1rem 2rem; border-radius: 1rem; z-index: 100; transition: 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-#toast-notification.show { transform: translateX(-50%) translateY(0); }
-.badges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-height: 50vh; overflow-y: auto; padding-right: 4px; }
-.badge-item { background: rgba(255,255,255,0.05); border-radius: 1rem; padding: 0.75rem 0.5rem; text-align: center; opacity: 0.5; filter: grayscale(1); transition: all 0.2s; cursor: pointer; position: relative; overflow: hidden; border: 1px solid transparent; }
-.badge-item:hover { transform: scale(1.05); background: rgba(255,255,255,0.1); }
-.badge-item.unlocked { opacity: 1; filter: grayscale(0); background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); box-shadow: 0 0 15px rgba(251, 191, 36, 0.1); }
-.badge-item.selected-info { border-color: var(--gold); background: rgba(251, 191, 36, 0.2); }
-.custom-avatar-preview { width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--gold); object-fit: cover; margin: 0 auto 1rem auto; box-shadow: 0 0 20px rgba(251, 191, 36, 0.2); }
-.upload-area { border: 2px dashed rgba(255,255,255,0.2); border-radius: 1rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
-.upload-area:hover { background: rgba(255,255,255,0.05); border-color: var(--gold); }
-::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); } ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
-.custom-select-trigger { width: 100%; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); color: #e2e8f0; border-radius: 0.75rem; padding: 0.75rem 1rem; font-family: 'Amiri', serif; font-size: 1.1rem; text-align: right; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.3s; }
-.custom-select-trigger:hover { border-color: var(--gold); background: rgba(30, 41, 59, 0.8); }
-.custom-select-trigger:disabled { opacity: 0.5; cursor: not-allowed; border-color: rgba(255, 255, 255, 0.05); }
-.selection-item { background: rgba(255, 255, 255, 0.05); padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cbd5e1; font-family: 'Amiri', serif; font-size: 1.2rem; cursor: pointer; transition: 0.2s; text-align: right; display: flex; align-items: center; justify-content: space-between; }
-.selection-item:hover { background: rgba(251, 191, 36, 0.1); color: var(--gold); padding-right: 1.5rem; }
-.selection-item:last-child { border-bottom: none; }
-.trigger-icon { color: var(--gold); font-size: 1.2rem; transition: 0.3s; }
-#toggle-enrichment-btn { transition: all 0.3s ease; }
-#toggle-enrichment-btn:hover { transform: scale(1.1); }
+
+/* تحسينات التحميل التدريجي */
+.critical-hidden { 
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.critical-visible { 
+    opacity: 1;
+    visibility: visible;
+}
+
+/* تحسينات العناوين */
+h1, h2, h3, h4, h5, h6,
+.font-heading { 
+    font-family: var(--font-heading); 
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 0.5em;
+}
+
+/* تنسيق نص السؤال الكبير */
+#question-text { 
+    font-family: var(--font-body) !important; 
+    line-height: 1.8; 
+    text-shadow: var(--shadow-md);
+    font-weight: 700;
+    font-size: clamp(1.25rem, 4vw, 1.5rem);
+}
+
+/* ==========================================================================
+   3. البطاقات والعناصر الزجاجية المحسنة
+   ========================================================================== */
+.glass-card { 
+    /* خلفية شبه شفافة محسنة */
+    background: linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.9) 0%,
+        rgba(30, 41, 59, 0.8) 100%
+    );
+    
+    /* تأثير الضبابية خلف العنصر (الزجاج) */
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    
+    /* حدود ذهبية خفيفة */
+    border: 1px solid rgba(251, 191, 36, 0.15);
+    border-radius: var(--radius-2xl);
+    
+    /* ظل قوي لإبراز البطاقة */
+    box-shadow: var(--shadow-2xl);
+    
+    /* تحسينات الأداء */
+    transform: translateZ(0);
+    will-change: transform;
+    isolation: isolate;
+}
+
+/* تأثير hover محسن */
+.glass-card:hover {
+    border-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 
+        var(--shadow-2xl),
+        0 0 40px rgba(251, 191, 36, 0.1);
+}
+
+/* ==========================================================================
+   4. حقول الإدخال المحسنة
+   ========================================================================== */
+.input-glass { 
+    width: 100%; 
+    background: rgba(30, 41, 59, 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.1); 
+    color: var(--text-primary);
+    border-radius: var(--radius-lg); 
+    padding: 0.875rem 1rem; 
+    transition: all var(--transition-normal); 
+    font-family: var(--font-body); 
+    font-size: 1rem; 
+    backdrop-filter: blur(8px);
+}
+
+.input-glass::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* تأثير عند الضغط داخل الحقل */
+.input-glass:focus { 
+    border-color: var(--gold-400);
+    background: rgba(30, 41, 59, 0.9); 
+    box-shadow: 
+        0 0 0 3px rgba(251, 191, 36, 0.1),
+        var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+/* تخصيص القائمة المنسدلة (Select) */
+select.input-glass { 
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23fbbf24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: left 1rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em;
+    padding-right: 1rem;
+}
+
+/* ==========================================================================
+   5. الأزرار المحسنة
+   ========================================================================== */
+
+/* الزر الذهبي الرئيسي */
+.btn-gold-action { 
+    width: 100%; 
+    padding: 1.125rem 1.5rem;
+    background: linear-gradient(135deg, var(--gold-600) 0%, var(--gold-500) 50%, var(--gold-400) 100%); 
+    color: white; 
+    border-radius: var(--radius-xl);
+    font-family: var(--font-heading); 
+    font-weight: 700; 
+    font-size: 1.125rem; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 0.75rem; 
+    box-shadow: 
+        var(--shadow-lg),
+        0 4px 14px 0 rgba(245, 158, 11, 0.4);
+    transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1); 
+    border: 1px solid rgba(255, 255, 255, 0.15); 
+    cursor: pointer; 
+    position: relative; 
+    overflow: hidden;
+    min-height: 56px;
+}
+
+/* تأثير لمعان عند مرور الماوس */
+.btn-gold-action::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: left var(--transition-slow);
+}
+
+.btn-gold-action:hover::before {
+    left: 100%;
+}
+
+.btn-gold-action:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 
+        var(--shadow-xl),
+        0 8px 25px rgba(245, 158, 11, 0.5);
+}
+
+.btn-gold-action:active { 
+    transform: scale(0.98); 
+    box-shadow: var(--shadow-md);
+}
+
+.btn-gold-action:disabled { 
+    filter: grayscale(0.8); 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+    transform: none; 
+}
+
+/* الأزرار الثانوية (الشفافة) */
+.btn-secondary { 
+    background: transparent; 
+    color: var(--text-muted); 
+    font-family: var(--font-heading); 
+    transition: all var(--transition-normal); 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem; 
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid transparent;
+}
+
+.btn-secondary:hover { 
+    color: var(--gold-400); 
+    background: rgba(251, 191, 36, 0.05);
+    border-color: rgba(251, 191, 36, 0.1);
+}
+
+/* أزرار الخيارات (أجوبة المسابقة) */
+.option-btn { 
+    width: 100%; 
+    background: linear-gradient(
+        135deg,
+        rgba(51, 65, 85, 0.4) 0%,
+        rgba(71, 85, 105, 0.3) 100%
+    );
+    border: 1.5px solid rgba(148, 163, 184, 0.1); 
+    border-radius: var(--radius-lg); 
+    padding: 1.125rem 1rem; 
+    color: var(--text-secondary); 
+    font-size: 1.1em; 
+    text-align: right; 
+    transition: all var(--transition-normal); 
+    display: flex; 
+    align-items: center; 
+    gap: 0.875rem; 
+    cursor: pointer; 
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
+
+.option-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.option-btn:hover { 
+    background: linear-gradient(
+        135deg,
+        rgba(51, 65, 85, 0.6) 0%,
+        rgba(71, 85, 105, 0.5) 100%
+    );
+    border-color: rgba(148, 163, 184, 0.3); 
+    transform: translateX(-4px);
+    color: var(--text-primary);
+}
+
+.option-btn:hover::before {
+    opacity: 1;
+}
+
+/* حالة الإجابة الصحيحة (أخضر) */
+.btn-correct { 
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%) !important; 
+    border-color: #34d399 !important; 
+    color: white !important; 
+    box-shadow: 
+        0 0 20px rgba(16, 185, 129, 0.4),
+        var(--shadow-md);
+    transform: scale(1.02);
+}
+
+/* حالة الإجابة الخاطئة (أحمر) */
+.btn-incorrect { 
+    background: linear-gradient(135deg, var(--error) 0%, var(--error-dark) 100%) !important; 
+    border-color: #f87171 !important; 
+    color: white !important; 
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+/* دائرة الرقم بجانب الخيار */
+.option-number { 
+    width: 36px; 
+    height: 36px; 
+    background: rgba(15, 23, 42, 0.6); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: var(--gold-400); 
+    font-family: var(--font-heading); 
+    font-weight: 600;
+    flex-shrink: 0; 
+    border: 1.5px solid rgba(251, 191, 36, 0.3); 
+    backdrop-filter: blur(8px);
+    transition: all var(--transition-normal);
+}
+
+.option-btn:hover .option-number {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: var(--gold-400);
+    transform: scale(1.1);
+}
+
+/* فئة لإخفاء الخيارات */
+.option-hidden { 
+    opacity: 0; 
+    visibility: hidden; 
+    pointer-events: none;
+    transform: scale(0.8);
+    transition: all var(--transition-normal);
+}
+
+/* ==========================================================================
+   6. القائمة الجانبية المحسنة
+   ========================================================================== */
+#side-menu-overlay { 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0, 0, 0, 0.7); 
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 40; 
+    opacity: 0; 
+    pointer-events: none; 
+    transition: opacity var(--transition-normal); 
+}
+
+#side-menu-overlay.open { 
+    opacity: 1; 
+    pointer-events: auto; 
+}
+
+#side-menu { 
+    position: fixed; 
+    top: 0; 
+    right: -320px; 
+    width: 300px; 
+    height: 100%; 
+    background: linear-gradient(
+        180deg,
+        var(--primary-bg) 0%,
+        rgba(15, 23, 42, 0.95) 100%
+    );
+    border-left: 1px solid rgba(51, 65, 85, 0.5); 
+    z-index: 50; 
+    transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1); 
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5); 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    backdrop-filter: blur(20px);
+}
+
+#side-menu.open { 
+    transform: translateX(-320px); 
+}
+
+.menu-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 1rem; 
+    padding: 1.125rem 1.5rem; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    border-bottom: 1px solid rgba(30, 41, 59, 0.5); 
+    font-family: var(--font-heading); 
+    font-weight: 500;
+    transition: all var(--transition-normal); 
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.1), transparent);
+    transition: right var(--transition-slow);
+}
+
+.menu-item:hover { 
+    background: rgba(30, 41, 59, 0.8); 
+    color: var(--gold-400); 
+    padding-right: 2rem;
+}
+
+.menu-item:hover::before {
+    right: 100%;
+}
+
+/* ==========================================================================
+   7. النوافذ المنبثقة المحسنة
+   ========================================================================== */
+.modal-overlay { 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0, 0, 0, 0.85); 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 60; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    opacity: 0; 
+    pointer-events: none; 
+    transition: opacity var(--transition-normal); 
+    padding: 1rem;
+}
+
+.modal-overlay.active { 
+    opacity: 1; 
+    pointer-events: auto; 
+}
+
+.modal-box { 
+    background: linear-gradient(
+        135deg,
+        var(--secondary-bg) 0%,
+        rgba(30, 41, 59, 0.95) 100%
+    );
+    width: 90%; 
+    max-width: 500px; 
+    max-height: 85vh; 
+    overflow-y: auto; 
+    border-radius: var(--radius-2xl); 
+    padding: 2rem; 
+    transform: scale(0.95) translateY(20px); 
+    transition: all var(--transition-normal) cubic-bezier(0.34, 1.56, 0.64, 1); 
+    border: 1px solid var(--gold-400); 
+    position: relative; 
+    box-shadow: var(--shadow-2xl);
+    backdrop-filter: blur(20px);
+}
+
+.modal-overlay.active .modal-box { 
+    transform: scale(1) translateY(0); 
+}
+
+/* ==========================================================================
+   8. المؤثرات الحركية المحسنة
+   ========================================================================== */
+.fade-in { 
+    animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; 
+}
+
+@keyframes fadeInUp { 
+    from { 
+        opacity: 0; 
+        transform: translateY(30px); 
+    } 
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    } 
+}
+
+/* اهتزاز الشاشة عند الخطأ */
+.shake { 
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; 
+}
+
+@keyframes shake { 
+    0%, 100% { transform: translateX(0); } 
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); } 
+    20%, 40%, 60%, 80% { transform: translateX(6px); } 
+}
+
+.pulse-slow { 
+    animation: pulseSlow 3s ease-in-out infinite; 
+}
+
+@keyframes pulseSlow { 
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    } 
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    } 
+}
+
+/* تكبير النقاط عند الفوز */
+.score-pop { 
+    animation: scorePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+}
+
+@keyframes scorePop { 
+    0% { 
+        transform: scale(1); 
+        color: var(--text-primary);
+    } 
+    50% { 
+        transform: scale(1.4); 
+        color: var(--gold-400); 
+        text-shadow: 0 0 20px var(--gold-400);
+    } 
+    100% { 
+        transform: scale(1); 
+        color: var(--gold-400);
+    } 
+}
+
+/* أيقونة النار (الستريك) */
+.streak-fire { 
+    transition: all var(--transition-normal); 
+    opacity: 0; 
+    transform: translateY(10px) scale(0.8); 
+    filter: grayscale(1); 
+}
+
+.streak-fire.active { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+    filter: grayscale(0); 
+    animation: burn 1.5s ease-in-out infinite alternate; 
+}
+
+@keyframes burn { 
+    from { 
+        text-shadow: 
+            0 0 4px #ef4444, 
+            0 -2px 8px #f59e0b,
+            0 -4px 12px #fbbf24;
+    } 
+    to { 
+        text-shadow: 
+            0 0 8px #ef4444, 
+            0 -4px 16px #f59e0b,
+            0 -6px 20px #fbbf24; 
+        transform: scale(1.1); 
+    } 
+}
+
+/* ==========================================================================
+   9. شريط المؤقت والتنبيهات المحسنة
+   ========================================================================== */
+.timer-container { 
+    height: 6px; 
+    background: rgba(255, 255, 255, 0.1); 
+    border-radius: 3px; 
+    overflow: hidden; 
+    margin-bottom: 1.5rem; 
+    transition: opacity var(--transition-normal); 
+    position: relative;
+}
+
+.timer-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 2s infinite;
+}
+
+.timer-container.disabled { 
+    opacity: 0.3; 
+    pointer-events: none; 
+    display: none; 
+}
+
+/* لون شريط الوقت (تدرج من الأخضر للأحمر) */
+.timer-bar { 
+    height: 100%; 
+    background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); 
+    width: 100%; 
+    transition: width 1s linear; 
+    transform-origin: right; 
+    border-radius: 3px;
+    position: relative;
+}
+
+.timer-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* الإشعار المنبثق (التوست) */
+#toast-notification { 
+    position: fixed; 
+    bottom: 2rem; 
+    left: 50%; 
+    transform: translateX(-50%) translateY(150%); 
+    background: var(--accent-bg); 
+    border: 1px solid #34d399; 
+    color: white; 
+    padding: 1rem 2rem; 
+    border-radius: var(--radius-xl); 
+    z-index: 100; 
+    transition: transform var(--transition-normal) cubic-bezier(0.68, -0.55, 0.27, 1.55); 
+    box-shadow: var(--shadow-2xl);
+    backdrop-filter: blur(20px);
+    max-width: 90vw;
+    text-align: center;
+}
+
+#toast-notification.show { 
+    transform: translateX(-50%) translateY(0); 
+}
+
+/* ==========================================================================
+   10. الأوسمة والملف الشخصي المحسن
+   ========================================================================== */
+.badges-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); 
+    gap: 0.75rem; 
+    max-height: 50vh; 
+    overflow-y: auto; 
+    padding: 0.5rem;
+}
+
+.badge-item { 
+    background: rgba(255, 255, 255, 0.05); 
+    border-radius: var(--radius-lg); 
+    padding: 1rem 0.5rem; 
+    text-align: center; 
+    opacity: 0.5; 
+    filter: grayscale(1); 
+    transition: all var(--transition-normal); 
+    cursor: pointer; 
+    position: relative; 
+    overflow: hidden; 
+    border: 1px solid transparent; 
+    backdrop-filter: blur(8px);
+}
+
+.badge-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.badge-item:hover { 
+    transform: scale(1.05); 
+    background: rgba(255, 255, 255, 0.1); 
+}
+
+.badge-item:hover::before {
+    opacity: 1;
+}
+
+/* الوسام المكتسب */
+.badge-item.unlocked { 
+    opacity: 1; 
+    filter: grayscale(0); 
+    background: rgba(251, 191, 36, 0.1); 
+    border: 1px solid rgba(251, 191, 36, 0.3); 
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.1); 
+}
+
+.badge-item.selected-info { 
+    border-color: var(--gold-400); 
+    background: rgba(251, 191, 36, 0.2); 
+    transform: scale(1.05);
+}
+
+.custom-avatar-preview { 
+    width: 100px; 
+    height: 100px; 
+    border-radius: 50%; 
+    border: 3px solid var(--gold-400); 
+    object-fit: cover; 
+    margin: 0 auto 1rem auto; 
+    box-shadow: 
+        0 0 30px rgba(251, 191, 36, 0.3),
+        var(--shadow-lg);
+    transition: all var(--transition-normal);
+}
+
+.custom-avatar-preview:hover {
+    transform: scale(1.05);
+    box-shadow: 
+        0 0 40px rgba(251, 191, 36, 0.4),
+        var(--shadow-xl);
+}
+
+/* منطقة رفع الصور */
+.upload-area { 
+    border: 2px dashed rgba(255, 255, 255, 0.2); 
+    border-radius: var(--radius-xl); 
+    padding: 2rem; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: all var(--transition-normal); 
+    position: relative; 
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.upload-area::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.upload-area:hover { 
+    background: rgba(255, 255, 255, 0.05); 
+    border-color: var(--gold-400); 
+}
+
+.upload-area:hover::before {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   11. تخصيص شريط التمرير والقوائم المخصصة المحسن
+   ========================================================================== */
+::-webkit-scrollbar { 
+    width: 8px; 
+} 
+
+::-webkit-scrollbar-track { 
+    background: rgba(15, 23, 42, 0.3); 
+    border-radius: 10px;
+} 
+
+::-webkit-scrollbar-thumb { 
+    background: linear-gradient(135deg, var(--gold-600), var(--gold-400)); 
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover { 
+    background: linear-gradient(135deg, var(--gold-500), var(--gold-300)); 
+}
+
+/* أزرار القائمة المنسدلة المخصصة (Custom Select) */
+.custom-select-trigger { 
+    width: 100%; 
+    background: rgba(30, 41, 59, 0.6); 
+    border: 1.5px solid rgba(255, 255, 255, 0.1); 
+    color: var(--text-secondary); 
+    border-radius: var(--radius-lg); 
+    padding: 1rem 1.125rem; 
+    font-family: var(--font-body); 
+    font-size: 1.1rem; 
+    text-align: right; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    cursor: pointer; 
+    transition: all var(--transition-normal); 
+    backdrop-filter: blur(8px);
+}
+
+.custom-select-trigger:hover { 
+    border-color: var(--gold-400); 
+    background: rgba(30, 41, 59, 0.8); 
+    color: var(--text-primary);
+}
+
+.custom-select-trigger:disabled { 
+    opacity: 0.5; 
+    cursor: not-allowed; 
+    border-color: rgba(255, 255, 255, 0.05); 
+}
+
+/* عناصر القائمة المنسدلة */
+.selection-item { 
+    background: rgba(255, 255, 255, 0.05); 
+    padding: 1.125rem 1rem; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+    color: var(--text-secondary); 
+    font-family: var(--font-body); 
+    font-size: 1.2rem; 
+    cursor: pointer; 
+    transition: all var(--transition-normal); 
+    text-align: right; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    position: relative;
+    overflow: hidden;
+}
+
+.selection-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.1), transparent);
+    transition: right var(--transition-normal);
+}
+
+.selection-item:hover { 
+    background: rgba(251, 191, 36, 0.1); 
+    color: var(--gold-400); 
+    padding-right: 1.5rem; 
+}
+
+.selection-item:hover::before {
+    right: 100%;
+}
+
+.selection-item:last-child { 
+    border-bottom: none; 
+}
+
+.trigger-icon { 
+    color: var(--gold-400); 
+    font-size: 1.2rem; 
+    transition: transform var(--transition-normal); 
+}
+
+.custom-select-trigger:hover .trigger-icon {
+    transform: rotate(180deg);
+}
+
+/* زر الإثراء (المصباح) */
+#toggle-enrichment-btn { 
+    transition: all var(--transition-normal) ease; 
+}
+
+#toggle-enrichment-btn:hover { 
+    transform: scale(1.1); 
+}
+
+/* ==========================================================================
+   12. تحسينات تجربة الهاتف
+   ========================================================================== */
+@media (max-width: 768px) {
+    :root {
+        --base-size: 15px;
+    }
+    
+    body {
+        padding: 0.75rem;
+        line-height: 1.6;
+    }
+    
+    .glass-card {
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+    }
+    
+    /* تحسينات للأزرار على الهواتف */
+    .btn-gold-action,
+    .option-btn {
+        min-height: 52px;
+        padding: 1rem;
+        font-size: 1rem;
+    }
+    
+    .option-btn {
+        padding: 1rem 0.875rem;
+    }
+    
+    /* تحسينات للشريط الجانبي على الهواتف */
+    #side-menu {
+        width: 85vw;
+        max-width: 280px;
+    }
+    
+    /* تحسينات للنوافذ المنبثقة */
+    .modal-box {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    
+    /* تحسينات للعناوين */
+    #question-text {
+        font-size: 1.25rem;
+        line-height: 1.6;
+    }
+    
+    /* تحسينات شريط الأدوات */
+    #helper-bar {
+        gap: 0.5rem;
+    }
+    
+    .helper-btn {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* ==========================================================================
+   13. تحسينات الوصول والأداء
+   ========================================================================== */
+/* للأجهزة التي تفضل الحركات المخففة */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* للشاشات عالية الدقة */
+@media (min-resolution: 192dpi) {
+    .glass-card {
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+    }
+}
+
+/* تحسينات حالة التركيز للوصول */
+.btn-gold-action:focus-visible,
+.option-btn:focus-visible,
+.helper-btn:focus-visible,
+.custom-select-trigger:focus-visible {
+    outline: 3px solid var(--gold-400);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.2);
+}
+
+/* تحسينات النصوص المحددة */
+::selection {
+    background: rgba(251, 191, 36, 0.3);
+    color: white;
+    text-shadow: none;
+}
+
+::-moz-selection {
+    background: rgba(251, 191, 36, 0.3);
+    color: white;
+    text-shadow: none;
+}
+
+/* ==========================================================================
+   14. تحسينات خاصة بالطباعة
+   ========================================================================== */
+@media print {
+    .glass-card {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        backdrop-filter: none !important;
+    }
+    
+    .btn-gold-action,
+    .helper-btn,
+    #side-menu,
+    .modal-overlay {
+        display: none !important;
+    }
+    
+    #question-text {
+        color: black !important;
+        text-shadow: none !important;
+    }
+}
+
+/* ==========================================================================
+   15. تحسينات الأدوات المساعدة الإضافية
+   ========================================================================== */
+/* حالة التحميل */
+.skeleton-loader {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+    animation: loading 2s infinite ease-in-out;
+    border-radius: var(--radius-md);
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* مؤشرات الاتصال */
+.online-indicator::before {
+    content: '🟢 متصل';
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: var(--success);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1000;
+    animation: slideInDown 0.3s ease-out;
+    box-shadow: var(--shadow-md);
+}
+
+.offline-indicator::before {
+    content: '🔴 غير متصل';
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: var(--error);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1000;
+    animation: slideInDown 0.3s ease-out;
+    box-shadow: var(--shadow-md);
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* تأثيرات دخول محسنة */
+.slide-in-right {
+    animation: slideInRight 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ==========================================================================
+   16. تحسينات الاستجابة للشاشات الكبيرة
+   ========================================================================== */
+@media (min-width: 1400px) {
+    .glass-card {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    
+    #side-menu {
+        width: 350px;
+    }
+    
+    .modal-box {
+        max-width: 600px;
+    }
+}
+
+/* ==========================================================================
+   17. تحسينات الأداء النهائية
+   ========================================================================== */
+.performance-critical {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    will-change: transform;
+}
+
+/* تحسينات للشبكات البطيئة */
+@media (prefers-reduced-data: reduce) {
+    .glass-card {
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    
+    .material-symbols-rounded {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+}
+
+/* تحسينات التحميل المتدرج */
+.lazy-load {
+    opacity: 0;
+    transition: opacity var(--transition-normal) ease-in;
+}
+
+.lazy-load.loaded {
+    opacity: 1;
+}
+
+/* إصلاحات لمشاكل محددة */
+.hidden {
+    display: none !important;
+}
+
+.pointer-events-none {
+    pointer-events: none;
+}
+
+/* تحسينات للشريط العلوي */
+.header-pill {
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* تحسينات نهائية للعرض */
+@media (max-width: 360px) {
+    :root {
+        --base-size: 14px;
+    }
+    
+    body {
+        padding: 0.5rem;
+    }
+    
+    .glass-card {
+        padding: 1rem;
+    }
+    
+    .btn-gold-action,
+    .option-btn {
+        min-height: 48px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ضمان التوافق مع جميع المتصفحات */
+@supports not (backdrop-filter: blur(12px)) {
+    .glass-card {
+        background: rgba(15, 23, 42, 0.95);
+    }
+    
+    #side-menu {
+        background: var(--primary-bg);
+    }
+}
