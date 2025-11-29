@@ -103,6 +103,22 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
+// دالة لتوليد إيميل آمن يقبله Firebase حتى لو كان الاسم عربياً
+function getSafeEmail(username) {
+    // هذا التعبير النمطي يفحص هل الاسم يحتوي فقط على حروف إنجليزية وأرقام ونقاط
+    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
+    
+    if (isEnglish) {
+        return `${username}@ahlulbayt.app`;
+    } else {
+        // إذا كان عربياً أو به مسافات، نولد إيميلاً رقمياً فريداً بناءً على الاسم
+        // (نقوم بتحويل الاسم إلى كود Base64 ليكون فريداً وآمناً)
+        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
+        return `u_${safeId}@ahlulbayt.app`;
+    }
+}
+
+
 async function handleLogin() {
     const u = getEl('login-username-input').value.trim();
     const p = getEl('login-password-input').value.trim();
@@ -113,9 +129,11 @@ async function handleLogin() {
     getEl('login-btn').disabled = true;
 
     try {
-        const fakeEmail = `${u}@ahlulbayt.app`;
+        // نستخدم الدالة الآمنة الجديدة
+        const safeEmail = getSafeEmail(u);
+        
         // 1. محاولة الدخول بالنظام الجديد
-        const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, p);
+        const userCredential = await signInWithEmailAndPassword(auth, safeEmail, p);
         
         // نجح الدخول
         effectiveUserId = userCredential.user.uid;
@@ -124,9 +142,9 @@ async function handleLogin() {
         toast(`أهلاً بك ${u}`);
 
     } catch(e) { 
-        // 2. إذا فشل الدخول (المستخدم غير موجود)، نحاول البحث عنه في النظام القديم ونقله
-        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-            console.log("User not found in Auth, trying legacy migration...");
+        // التعديل هنا: أضفنا auth/invalid-email للقائمة
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
+            console.log("Migration needed or user not found...");
             await migrateOldAccount(u, p, err);
         } else {
             console.error("Login Error:", e);
@@ -138,10 +156,8 @@ async function handleLogin() {
     }
 }
 
-// دالة لنقل الحسابات القديمة للنظام الآمن الجديد
 async function migrateOldAccount(username, password, errElement) {
     try {
-        // البحث عن الحساب في قاعدة البيانات القديمة
         const q = query(collection(db, "users"), where("username", "==", username));
         const snap = await getDocs(q);
 
@@ -154,62 +170,96 @@ async function migrateOldAccount(username, password, errElement) {
         const oldDoc = snap.docs[0];
         const userData = oldDoc.data();
 
-        // التحقق من كلمة المرور القديمة
         if (userData.password === password) {
             toast("جاري تحديث نظام حسابك للأمان الجديد...", "info");
             
-            // إنشاء الحساب في النظام الجديد
-            const fakeEmail = `${username}@ahlulbayt.app`;
-            const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+            // التعديل هنا: استخدام الإيميل الآمن بدلاً من الاسم المباشر
+            const safeEmail = getSafeEmail(username);
+            
+            const userCredential = await createUserWithEmailAndPassword(auth, safeEmail, password);
             const newUser = userCredential.user;
             
-            // تحديث الاسم
             await updateProfile(newUser, { displayName: username });
             
-            // نقل البيانات من الملف القديم للملف الجديد
             const newId = newUser.uid;
             const dataToKeep = { ...userData };
-            delete dataToKeep.password; // حذف كلمة المرور لأننا لا نخزنها نصاً بعد الآن
+            delete dataToKeep.password; 
             
-            // حفظ البيانات في المعرف الجديد
             await setDoc(doc(db, "users", newId), dataToKeep);
-            
-            // حذف الملف القديم لمنع التكرار
             await deleteDoc(doc(db, "users", oldDoc.id));
             
-            // إتمام الدخول
             effectiveUserId = newId;
             await loadProfile(effectiveUserId);
             navToHome();
-            toast("تم تحديث حسابك بنجاح! يمكنك الآن ربطه بجوجل.");
+            toast("تم تحديث حسابك بنجاح!");
             
         } else {
             errElement.textContent = "كلمة المرور غير صحيحة";
             getEl('login-btn').disabled = false;
         }
     } catch (migrationErr) {
-        console.error("Migration Failed:", migrationErr);
-        errElement.textContent = "حدث خطأ أثناء التحديث.";
-        getEl('login-btn').disabled = false;
+        // في حال كان الحساب موجوداً مسبقاً في Auth (ربما من محاولة سابقة فاشلة)، نحاول تسجيل الدخول به
+        if (migrationErr.code === 'auth/email-already-in-use') {
+             try {
+                const safeEmail = getSafeEmail(username);
+                const userCredential = await signInWithEmailAndPassword(auth, safeEmail, password);
+                effectiveUserId = userCredential.user.uid;
+                await loadProfile(effectiveUserId);
+                navToHome();
+             } catch(loginErr) {
+                 console.error(loginErr);
+                 errElement.textContent = "حدث خطأ، يرجى المحاولة لاحقاً";
+                 getEl('login-btn').disabled = false;
+             }
+        } else {
+            console.error("Migration Failed:", migrationErr);
+            errElement.textContent = "حدث خطأ أثناء التحديث (" + migrationErr.code + ")";
+            getEl('login-btn').disabled = false;
+        }
     }
 }
 
 
 
+
+// ==========================================
+// 1. دالة مساعدة لتحويل الاسم إلى إيميل صالح (يقبل العربي)
+// ==========================================
+function getSafeEmail(username) {
+    // نفحص هل الاسم يحتوي فقط على حروف إنجليزية وأرقام
+    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
+    
+    if (isEnglish) {
+        // إذا كان إنجليزياً، نستخدمه كما هو
+        return `${username}@ahlulbayt.app`;
+    } else {
+        // إذا كان عربياً أو يحتوي رموزاً، نقوم بتشفيره ليكون مقبولاً كإيميل
+        // btoa يحول النص إلى حروف Base64 اللاتينية
+        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
+        return `u_${safeId}@ahlulbayt.app`;
+    }
+}
+
+// ==========================================
+// 2. دالة إنشاء الحساب الجديدة (handleReg)
+// ==========================================
 async function handleReg() {
     const u = getEl('reg-username-input').value.trim();
     const p = getEl('reg-password-input').value.trim();
     const pc = getEl('reg-confirm-password-input').value.trim();
     const err = getEl('register-error-message');
 
+    // التحقق من المدخلات
     if(!u || !p) return err.textContent = "املأ الحقول";
     if(u.length < 3) return err.textContent = "الاسم قصير جداً";
     if(p !== pc) return err.textContent = "كلمة المرور غير متطابقة";
     if(p.length < 6) return err.textContent = "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
 
+    // قفل الزر لمنع التكرار
     getEl('register-btn').disabled = true;
 
     try {
+        // 1. التحقق من أن الاسم غير محجوز في قاعدة البيانات (لأننا نسمح بتكرار الإيميل الوهمي أحياناً لكن الاسم يجب أن يكون فريداً)
         const q = query(collection(db, "users"), where("username", "==", u));
         const snap = await getDocs(q);
         if(!snap.empty) { 
@@ -218,13 +268,18 @@ async function handleReg() {
             return; 
         }
 
-        const fakeEmail = `${u}@ahlulbayt.app`; 
-        const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, p);
+        // 2. توليد الإيميل الآمن (يحل مشكلة auth/invalid-email)
+        const safeEmail = getSafeEmail(u);
+
+        // 3. إنشاء المستخدم في Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, safeEmail, p);
         const newUser = userCredential.user;
 
+        // 4. تحديث اسم العرض
         await updateProfile(newUser, { displayName: u });
         effectiveUserId = newUser.uid;
 
+        // 5. تجهيز بيانات المستخدم للحفظ في Firestore
         const data = { 
             username: u, 
             highScore: 0, 
@@ -235,15 +290,21 @@ async function handleReg() {
             wrongQuestionsBank: []
         };
         
+        // حفظ الملف
         await setDoc(doc(db, "users", effectiveUserId), data);
+        
+        // الدخول للتطبيق
         navToHome();
         toast("تم إنشاء الحساب بنجاح");
 
     } catch(e) { 
         console.error("Registration Error:", e); 
-        if (e.code === 'auth/email-already-in-use') err.textContent = "الاسم محجوز مسبقاً";
+        // معالجة الأخطاء
+        if (e.code === 'auth/email-already-in-use') err.textContent = "الاسم محجوز مسبقاً (جرب اسماً آخر)";
         else if (e.code === 'auth/weak-password') err.textContent = "كلمة المرور ضعيفة جداً";
+        else if (e.code === 'auth/invalid-email') err.textContent = "الاسم يحتوي على رموز غير مقبولة";
         else err.textContent = "حدث خطأ، حاول لاحقاً"; 
+        
         getEl('register-btn').disabled = false; 
     }
 }
