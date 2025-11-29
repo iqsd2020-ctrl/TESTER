@@ -333,33 +333,48 @@
 
     <div id="user-modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="flex justify-between mb-6"><h3 class="text-xl font-bold text-amber-400 font-heading">الملف الشخصي</h3><button id="close-user-modal" class="close-modal text-slate-400 hover:text-white">✕</button></div>
-            <div class="text-center mb-6">
-                <div class="relative w-24 h-24 mx-auto mb-4 group">
-                    <img id="profile-img-preview" src="" class="w-full h-full rounded-full object-cover border-2 border-amber-500 hidden bg-slate-800">
-                    <div id="profile-icon-preview" class="w-full h-full rounded-full bg-slate-700 flex items-center justify-center border-2 border-slate-600">
-                        <span class="material-symbols-rounded text-4xl text-slate-400">account_circle</span>
+            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white" id="close-user-modal">✕</button>
+            <h3 class="text-xl font-bold text-white mb-6 font-heading text-center">الملف الشخصي</h3>
+
+            <div class="flex flex-col items-center mb-6">
+                <div class="relative w-24 h-24 mb-3">
+                    <img id="profile-img-preview" class="w-full h-full rounded-full object-cover hidden border-2 border-amber-500 shadow-lg">
+                    <div id="profile-icon-preview" class="w-full h-full bg-slate-800 rounded-full flex items-center justify-center border-2 border-dashed border-slate-600">
+                        <span class="material-symbols-rounded text-5xl text-slate-500">account_circle</span>
                     </div>
-                    <label for="avatar-upload" class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition">
-                        <span class="material-symbols-rounded text-white">photo_camera</span>
+                    <label for="avatar-upload" class="absolute bottom-0 right-0 bg-amber-500 text-black p-1.5 rounded-full cursor-pointer hover:bg-amber-400 shadow-lg transition transform hover:scale-110">
+                        <span class="material-symbols-rounded text-sm block">edit</span>
                     </label>
-                    <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                    <input type="file" id="avatar-upload" class="hidden" accept="image/*">
                 </div>
-                <div class="flex justify-center gap-2 mb-4">
-                     <button id="delete-custom-avatar" class="text-xs text-red-400 hover:text-red-300 hidden border border-red-900/50 px-2 py-1 rounded bg-red-900/20">حذف الصورة</button>
-                </div>
+                <button id="delete-custom-avatar" class="text-red-400 text-xs hidden hover:underline">حذف الصورة</button>
             </div>
+
             <div class="space-y-3">
-                <input type="text" id="edit-username" class="input-glass" placeholder="تغيير الاسم">
+                <input type="text" id="edit-username" class="input-glass text-center" placeholder="تغيير الاسم">
+                
+                <button id="link-google-btn" class="w-full bg-white text-slate-800 font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-200 transition shadow-sm">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google">
+                    <span>ربط الحساب بـ Google</span>
+                </button>
+            
                 <button id="save-user-btn" class="btn-gold-action py-2 text-base">حفظ التغييرات</button>
-                <button id="logout-btn" class="w-full py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition">تسجيل خروج</button>
+                <button id="logout-btn" class="w-full py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition border border-transparent hover:border-red-900/50">تسجيل خروج</button>
             </div>
+
             <div id="user-stats" class="mt-6 pt-4 border-t border-slate-700 text-sm text-slate-300 grid grid-cols-2 gap-4 hidden">
-                <div><span class="text-slate-500 block text-xs">الرصيد</span><span id="stat-score" class="text-amber-400 font-bold text-lg"></span></div>
-                <div><span class="text-slate-500 block text-xs">لعبت</span><span id="stat-played" class="text-white font-bold text-lg"></span></div>
+                <div class="text-center bg-slate-800 p-2 rounded-lg border border-slate-700">
+                    <span class="text-slate-500 block text-xs mb-1">الرصيد</span>
+                    <span id="stat-score" class="text-amber-400 font-bold text-lg font-mono">0</span>
+                </div>
+                <div class="text-center bg-slate-800 p-2 rounded-lg border border-slate-700">
+                    <span class="text-slate-500 block text-xs mb-1">الجولات</span>
+                    <span id="stat-played" class="text-white font-bold text-lg font-mono">0</span>
+                </div>
             </div>
         </div>
     </div>
+
     
     <div id="selection-modal" class="modal-overlay">
         <div class="modal-box border border-amber-500/50" style="max-height: 70vh;">
