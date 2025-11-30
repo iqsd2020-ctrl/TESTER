@@ -15,7 +15,16 @@ import {
     fetchSignInMethodsForEmail      
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
-
+function getSafeEmail(username) {
+    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
+    if (isEnglish) {
+        return `${username}@ahlulbayt.app`;
+    } else {
+        // تحويل الاسم العربي إلى كود Base64 آمن
+        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
+        return `u_${safeId}@ahlulbayt.app`;
+    }
+}
 const firebaseConfig = { apiKey: "AIzaSyDY1FNxvECtaV_dflCzkRH4pHQi_HQ4fwA", authDomain: "all-in-b0422.firebaseapp.com", projectId: "all-in-b0422", storageBucket: "all-in-b0422.firebasestorage.app", messagingSenderId: "347315641241", appId: "1:347315641241:web:c9ed240a0a0e5d2c5031108" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -348,17 +357,25 @@ function updateProfileUI() {
 }
 
 function navToHome() {
-    show('main-header');
-    show('menu-btn');
-    stopTimer(); 
-    if(wisdomInterval) clearInterval(wisdomInterval);
-    loadAIWisdom();
-    wisdomInterval = setInterval(loadAIWisdom, 7000);
+    show('main-header'); // إظهار شريط الرأس
+    show('menu-btn'); // إظهار زر القائمة (الحل لمشكلة الاختفاء عند الخروج)
+    stopTimer(); // إيقاف أي مؤقت قد يكون نشطاً
+    
+    if(wisdomInterval) clearInterval(wisdomInterval); // إيقاف مؤقت رسالة اليوم القديم
+    loadAIWisdom(); // تحميل رسالة اليوم
+    wisdomInterval = setInterval(loadAIWisdom, 7000); // بدء مؤقت جديد لرسالة اليوم
+    
+    // إعادة تعيين حالة المسابقة
     quizState.active = false;
     quizState.isEventMode = false;
+    
+    // إخفاء مناطق التطبيق الأخرى وعرض منطقة الترحيب
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
-    initDropdowns();
+    
+    initDropdowns(); // تهيئة قوائم اختيار القسم والموضوع
+    
+    // تحديث حالة زر المؤقت بناءً على حالة quizState.timerEnabled
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
         toggleBtn.classList.add('text-amber-400');
@@ -366,11 +383,12 @@ function navToHome() {
     } else {
         toggleBtn.classList.remove('text-amber-400');
         toggleBtn.classList.add('text-slate-500');
-        // هنا كان السطر، وسنقوم بنقله إلى الأسفل
     }
-    // ============== أضف السطر هنا ================
-    setTimeout(checkWhatsNew, 1500); // <--- تأكد من وجوده في نهاية الدالة
+    
+    // تشغيل فحص رسائل المطور بعد فترة قصيرة
+    setTimeout(checkWhatsNew, 1500);
 }
+
 
 
 function initDropdowns() {
