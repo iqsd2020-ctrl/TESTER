@@ -401,6 +401,54 @@
     <div id="toast-notification" class="hidden"></div>
     <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50"></canvas>
 
+    <div id="event-modal" class="modal-overlay z-[80]">
+        <div class="modal-box border-2 border-amber-500/50 relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800">
+            <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/arabesque.png')]"></div>
+            
+            <div class="relative z-10 text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 mb-4 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse-slow">
+                    <span class="material-symbols-rounded text-white text-5xl">emoji_events</span>
+                </div>
+                
+                <h3 class="text-amber-400 font-bold text-sm tracking-widest uppercase mb-1">مسابقة خاصة</h3>
+                <h2 id="event-modal-title" class="text-2xl md:text-3xl font-bold text-white font-heading mb-6 drop-shadow-md">...</h2>
+                
+                <div class="flex justify-center gap-3 mb-8 dir-ltr">
+                    <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-600 min-w-[60px]">
+                        <span id="timer-hours" class="block text-2xl font-mono font-bold text-white">00</span>
+                        <span class="text-[10px] text-slate-400">ساعة</span>
+                    </div>
+                    <span class="text-2xl text-slate-500 self-start mt-2">:</span>
+                    <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-600 min-w-[60px]">
+                        <span id="timer-minutes" class="block text-2xl font-mono font-bold text-white">00</span>
+                        <span class="text-[10px] text-slate-400">دقيقة</span>
+                    </div>
+                    <span class="text-2xl text-slate-500 self-start mt-2">:</span>
+                    <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-600 min-w-[60px]">
+                        <span id="timer-seconds" class="block text-2xl font-mono font-bold text-red-400">00</span>
+                        <span class="text-[10px] text-slate-400">ثانية</span>
+                    </div>
+                </div>
+
+                <div class="bg-amber-900/20 p-3 rounded-xl border border-amber-500/20 mb-6 mx-auto max-w-xs">
+                    <p class="text-amber-200 text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-rounded text-lg">monetization_on</span>
+                        فرصة لربح <span id="event-points-display" class="font-bold text-white">...</span> نقطة لكل سؤال!
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <button id="btn-enter-event" class="w-full bg-gradient-to-r from-amber-600 to-yellow-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-amber-500/20 hover:scale-[1.02] transition flex items-center justify-center gap-2 text-lg">
+                        <span>دخول التحدي الآن</span>
+                        <span class="material-symbols-rounded">rocket_launch</span>
+                    </button>
+                    <button id="btn-close-event" class="text-slate-400 text-sm hover:text-white transition">ليس الآن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
