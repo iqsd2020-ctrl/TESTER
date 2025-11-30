@@ -90,44 +90,28 @@ function playSound(type) {
 const muteToggle = getEl('mute-toggle');
 if(muteToggle) muteToggle.onchange = () => { isMuted = !muteToggle.checked; };
 
-// استبدل كود onAuthStateChanged القديم بهذا الجديد
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // إذا وجدنا مستخدماً (سواء دخل بجوجل أو إيميل سابقاً)
         console.log("User session found:", user.uid);
         currentUser = user;
-        effectiveUserId = user.uid; // نعتمد على معرف فايربيس مباشرة
-
-        // إذا كان المستخدم مجهولاً (Anonymous) ولم يقم بإنشاء حساب، قد ترغب بإبقائه في الدخول
-        // ولكن بما أن تطبيقك يسمح باللعب، سنقوم بتحميل ملفه
+        effectiveUserId = user.uid;
         await loadProfile(effectiveUserId);
-        navToHome();
+        
+        // إذا نجح تحميل البروفايل (ليس null)، ندخله للتطبيق
+        if (userProfile) {
+            navToHome();
+        }
     } else {
-        // لا يوجد مستخدم مسجل دخول -> نأخذه لشاشة الدخول
         console.log("No user session, showing login");
         hide('auth-loading');
         show('login-area');
-        
-        // ملاحظة: قمت بإزالة signInAnonymously التلقائي 
-        // لأنك الآن تملك شاشة دخول رسمية، ولا نريد إنشاء حسابات وهمية في الخلفية
+        hide('main-header'); // إخفاء الهيدر بالكامل
+        hide('side-menu'); // إخفاء القائمة الجانبية
+        // إخفاء زر القائمة تحديداً للتأكد
+        getEl('menu-btn').classList.add('hidden');
     }
 });
 
-
-// دالة لتوليد إيميل آمن يقبله Firebase حتى لو كان الاسم عربياً
-function getSafeEmail(username) {
-    // هذا التعبير النمطي يفحص هل الاسم يحتوي فقط على حروف إنجليزية وأرقام ونقاط
-    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
-    
-    if (isEnglish) {
-        return `${username}@ahlulbayt.app`;
-    } else {
-        // إذا كان عربياً أو به مسافات، نولد إيميلاً رقمياً فريداً بناءً على الاسم
-        // (نقوم بتحويل الاسم إلى كود Base64 ليكون فريداً وآمناً)
-        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
-        return `u_${safeId}@ahlulbayt.app`;
-    }
-}
 
 
 async function handleLogin() {
@@ -275,14 +259,16 @@ async function handleReg() {
 
         // 5. تجهيز بيانات المستخدم للحفظ في Firestore
         const data = { 
-            username: u, 
-            highScore: 0, 
-            createdAt: serverTimestamp(), 
-            avatar: 'account_circle', customAvatar: null, badges: ['beginner'], favorites: [],
-            seenQuestions: [], 
-            stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
-            wrongQuestionsBank: []
-        };
+    username: u, 
+    highScore: 0, 
+    createdAt: serverTimestamp(), 
+    avatar: 'account_circle', customAvatar: null, badges: ['beginner'], favorites: [],
+    seenQuestions: [], 
+    playedEvents: [], // <--- هام جداً: إضافة هذا السطر
+    stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
+    wrongQuestionsBank: []
+};
+
         
         // حفظ الملف
         await setDoc(doc(db, "users", effectiveUserId), data);
@@ -309,24 +295,35 @@ async function loadProfile(uid) {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
             userProfile = snap.data();
+            // التأكد من وجود المصفوفات لتجنب الأخطاء
             if(!userProfile.badges) userProfile.badges = ['beginner'];
             if(!userProfile.favorites) userProfile.favorites = [];
             if(!userProfile.stats) userProfile.stats = {};
             userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
             userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
             if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
+            // إصلاح المسابقة: التأكد من وجود مصفوفة الأحداث
             if(!userProfile.playedEvents) userProfile.playedEvents = [];
+            
             if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
             if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
         } else {
-            userProfile = { 
-                username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
-                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }
-            };
+            // التغيير هنا: إذا لم يوجد ملف، لا تنشئ ضيفاً، بل سجل خروج
+            console.log("No profile found for this UID, logging out...");
+            await signOut(auth);
+            userProfile = null;
+            show('login-area');
+            hide('auth-loading');
+            return; 
         }
         updateProfileUI();
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Error loading profile:", e);
+        // في حال الخطأ أيضاً نخرج المستخدم للأمان
+        await signOut(auth);
+    }
 }
+
 
 function updateProfileUI() {
     getEl('username-display').textContent = userProfile.username;
@@ -352,6 +349,7 @@ function updateProfileUI() {
 
 function navToHome() {
     show('main-header');
+    show('menu-btn');
     stopTimer(); 
     if(wisdomInterval) clearInterval(wisdomInterval);
     loadAIWisdom();
@@ -1220,19 +1218,19 @@ async function handleGoogleLogin() {
 
             effectiveUserId = user.uid;
             
-            // إعداد ملف اللاعب الجديد
-            const data = { 
-                username: finalName, 
-                highScore: 0, 
-                createdAt: serverTimestamp(), 
-                avatar: 'account_circle', 
-                // نستخدم صورة جوجل كصورة رمزية!
-                customAvatar: user.photoURL, 
-                badges: ['beginner'], favorites: [],
-                seenQuestions: [], 
-                stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
-                wrongQuestionsBank: []
-            };
+  const data = { 
+    username: finalName, 
+    highScore: 0, 
+    createdAt: serverTimestamp(), 
+    avatar: 'account_circle', 
+    customAvatar: user.photoURL, 
+    badges: ['beginner'], favorites: [],
+    seenQuestions: [], 
+    playedEvents: [], // <--- هام جداً: إضافة هذا السطر
+    stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
+    wrongQuestionsBank: []
+};
+
             
             await setDoc(doc(db, "users", effectiveUserId), data);
             await loadProfile(effectiveUserId);
