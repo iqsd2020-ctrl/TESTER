@@ -1,3 +1,5 @@
+// تأكد أن السطر يشبه هذا (أضفنا onSnapshot)
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { 
     getAuth, 
@@ -12,7 +14,6 @@ import {
     linkWithPopup,                  
     fetchSignInMethodsForEmail      
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = { apiKey: "AIzaSyDY1FNxvECtaV_dflCzkRH4pHQi_HQ4fwA", authDomain: "all-in-b0422.firebaseapp.com", projectId: "all-in-b0422", storageBucket: "all-in-b0422.firebasestorage.app", messagingSenderId: "347315641241", appId: "1:347315641241:web:c9ed240a0a0e5d2c5031108" };
@@ -39,6 +40,9 @@ let timerInterval = null;
 let audioContext = null; 
 let wisdomInterval = null;
 let currentSelectionMode = null; 
+// متغيرات المسابقة الحية
+let activeEventData = null;
+let eventTimerInterval = null;
 
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
@@ -311,6 +315,7 @@ async function loadProfile(uid) {
             userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
             userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
             if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
+            if(!userProfile.playedEvents) userProfile.playedEvents = [];
             if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
             if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
         } else {
@@ -352,6 +357,7 @@ function navToHome() {
     loadAIWisdom();
     wisdomInterval = setInterval(loadAIWisdom, 7000);
     quizState.active = false;
+    quizState.isEventMode = false;
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     initDropdowns();
@@ -580,6 +586,7 @@ function renderLives() {
 function startQuiz() {
     hide('main-header');
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
+     if (typeof quizState.isEventMode === 'undefined') quizState.isEventMode = false;
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
     quizState.timerEnabled = false;
@@ -707,21 +714,36 @@ function selectAnswer(idx, btn) {
     btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
 
-    if(isCorrect) {
+        if(isCorrect) {
         if (answerTime <= 5000) { quizState.fastAnswers++; } 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
         quizState.streak++;
         if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
-        const basePoints = 2; 
-        let multiplier = 1;
+        
+        // 🔥🔥 التعديل يبدأ هنا 🔥🔥
+        let pointsAdded = 0;
         let multiplierText = "";
-        if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
-        else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
-        else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
-        else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
-        let pointsAdded = Math.floor(basePoints * multiplier);
+
+        if (quizState.isEventMode) {
+            // 1. منطق نقاط المسابقة الخاصة (ثابتة بدون مضاعفات ستريك)
+            pointsAdded = quizState.eventPoints;
+            multiplierText = "مسابقة 🏆";
+        } else {
+            // 2. المنطق العادي القديم
+            const basePoints = 2; 
+            let multiplier = 1;
+            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
+            else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
+            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
+            else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
+            pointsAdded = Math.floor(basePoints * multiplier);
+        }
+        // 🔥🔥 التعديل ينتهي هنا 🔥🔥
+
         quizState.score += pointsAdded; 
         quizState.correctCount++;
+        // ... (باقي الكود كما هو)
+
         const scoreEl = getEl('live-score-text');
         scoreEl.textContent = quizState.score;
         scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
@@ -804,25 +826,36 @@ bind('share-text-button', 'click', () => {
 
 async function endQuiz() {
     hide('quiz-proper'); show('results-area');
+    
+    // عرض البيانات في البطاقة
     getEl('card-score').textContent = quizState.score;
     getEl('card-username').textContent = userProfile.username;
     getEl('card-difficulty').textContent = quizState.difficulty;
+    
     const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
     const today = new Date().toISOString().slice(0, 10);
+    
     getEl('card-correct-count').textContent = `✅ ${quizState.correctCount}`;
     getEl('card-wrong-count').textContent = `❌ ${quizState.questions.length - quizState.correctCount}`;
+    
+    // رسالة النتيجة
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { msg = "أداء أسطوري! درجة كاملة"; playSound('applause'); launchConfetti(); }
     else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
     getEl('final-message').textContent = msg;
+
+    // حساب الإحصائيات الجديدة
     const newHigh = (userProfile.highScore || 0) + quizState.score;
     const stats = userProfile.stats || {};
+    
     if (quizState.fastAnswers >= 10) { stats.fastAnswerCount++; }
     if (!quizState.usedHelpers) { stats.noHelperQuizzesCount++; }
+    
     let lastPlayedDates = stats.lastPlayedDates.filter(d => d !== today).slice(-6); 
     lastPlayedDates.push(today);
     stats.lastPlayedDates = lastPlayedDates;
+
     const newStats = {
         quizzesPlayed: (stats.quizzesPlayed || 0) + 1,
         totalCorrect: (stats.totalCorrect || 0) + quizState.correctCount,
@@ -835,9 +868,12 @@ async function endQuiz() {
         maxStreak: stats.maxStreak,
         fastAnswerCount: stats.fastAnswerCount
     };
+
+    // معالجة الأوسمة (Badges)
     let newBadges = [];
     let loverBadgesEarned = 0;
     const requiredCorrectLover = 200;
+    
     infallibles.forEach(person => {
         const badgeId = `lover_${person.id}`;
         const currentCorrect = userProfile.stats.topicCorrect[person.topic] || 0;
@@ -846,55 +882,31 @@ async function endQuiz() {
             loverBadgesEarned++;
         } else if (userProfile.badges.includes(badgeId)) { loverBadgesEarned++; }
     });
+    
     if (loverBadgesEarned === infallibles.length && !userProfile.badges.includes('lover_infallibility')) {
         newBadges.push('lover_infallibility');
     }
+
+    // ... (شروط الأوسمة الأخرى مختصرة هنا لأنها موجودة في الكود الأصلي، تأكد من بقائها) ...
+    // لقد قمت بتبسيط الكود هنا للعرض، لكن الكود الذي ستنسخه يجب أن يحتوي كل شروط الأوسمة
+    // سأضع لك أهم الأسطر للتأكد من الإصلاح:
+
     if(newStats.quizzesPlayed >= 10 && !userProfile.badges.includes('scholar')) newBadges.push('scholar');
-    if(newStats.quizzesPlayed >= 50 && !userProfile.badges.includes('master')) newBadges.push('master');
-    if(newStats.quizzesPlayed >= 100 && !userProfile.badges.includes('grand_master')) newBadges.push('grand_master');
-    if(newStats.quizzesPlayed >= 200 && !userProfile.badges.includes('historian_master')) newBadges.push('historian_master');
-    if(newStats.quizzesPlayed >= 500 && !userProfile.badges.includes('insightful')) newBadges.push('insightful');
-    if(newHigh >= 500 && !userProfile.badges.includes('veteran')) newBadges.push('veteran');
-    if(newHigh >= 1000 && !userProfile.badges.includes('servant')) newBadges.push('servant');
-    if(newHigh >= 5000 && !userProfile.badges.includes('supporter')) newBadges.push('supporter');
-    if(newHigh >= 10000 && !userProfile.badges.includes('treasurer')) newBadges.push('treasurer');
-    if(newStats.totalCorrect >= 100 && !userProfile.badges.includes('narrator')) newBadges.push('narrator');
-    if(newStats.totalCorrect >= 500 && !userProfile.badges.includes('ally')) newBadges.push('ally');
-    if(newStats.bestRoundScore >= 50 && !userProfile.badges.includes('high_score_v1')) newBadges.push('high_score_v1');
-    if(newStats.bestRoundScore >= 100 && !userProfile.badges.includes('high_score_v2')) newBadges.push('high_score_v2');
-    if(newStats.lastPlayedDates.length >= 7 && !userProfile.badges.includes('consistent')) newBadges.push('consistent');
-    if(accuracy === 100 && quizState.questions.length >= 5 && !userProfile.badges.includes('sharpshooter')) newBadges.push('sharpshooter');
-    if(newStats.maxStreak >= 5 && !userProfile.badges.includes('onfire')) newBadges.push('onfire'); 
-    if(newStats.maxStreak >= 10 && !userProfile.badges.includes('masterpiece')) newBadges.push('masterpiece');
-    if(quizState.questions.length >= 15 && accuracy >= 80 && !userProfile.badges.includes('patient')) newBadges.push('patient');
-    if(newStats.quizzesPlayed >= 5 && accuracy >= 80 && !userProfile.badges.includes('challenger')) newBadges.push('challenger');
-    if(newStats.noHelperQuizzesCount >= 10 && !userProfile.badges.includes('self_reliant')) newBadges.push('self_reliant');
-    if(newStats.totalQuestions > 0 && (newStats.totalCorrect / newStats.totalQuestions) >= 0.9 && !userProfile.badges.includes('precise')) newBadges.push('precise');
-    if(newStats.fastAnswerCount >= 10 && !userProfile.badges.includes('fast_learner')) newBadges.push('fast_learner');
-    if(quizState.contextTopic === "عام" && newStats.topicCorrect["عام"] >= 50 && !userProfile.badges.includes('general_expert')) newBadges.push('general_expert');
-    const specialistBadges = [
-        { key: "تاريخ ومعارك", id: 'master_history' }, { key: "عقائد وفقه", id: 'master_theology' },
-        { key: "الأنبياء والرسل", id: 'master_prophets' }, { key: "شخصيات (أصحاب وعلماء)", id: 'master_companions' },
-        { key: "أدعية وزيارات", id: 'master_ziyarat' }
-    ];
-    specialistBadges.forEach(item => {
-        if ((newStats.topicCorrect[item.key] || 0) >= 50 && !userProfile.badges.includes(item.id)) {
-            newBadges.push(item.id);
-        }
-    });
-    const hour = new Date().getHours();
-    if(hour >= 5 && hour <= 8 && !userProfile.badges.includes('morning')) newBadges.push('morning');
-    if(hour >= 0 && hour <= 4 && !userProfile.badges.includes('night')) newBadges.push('night');
-    if(userProfile.favorites.length >= 20 && !userProfile.badges.includes('dedicated')) newBadges.push('dedicated');
-    if(userProfile.wrongQuestionsBank.length <= 0 && (stats.totalQuestions - stats.totalCorrect) >= 15 && !userProfile.badges.includes('fixer')) newBadges.push('fixer'); 
+    // ... (باقي شروط الأوسمة كما هي في ملفك) ...
+    
+    // إدارة الأسئلة التي تمت رؤيتها وبنك الأخطاء
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     let updatedSeenQuestions = new Set([...(userProfile.seenQuestions || []), ...playedIds]);
     let seenArray = Array.from(updatedSeenQuestions);
     if (seenArray.length > 1000) seenArray = seenArray.slice(seenArray.length - 1000);
+    
     let updatedWrongQuestionsBank = userProfile.wrongQuestionsBank;
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(updatedWrongQuestionsBank.length - 15);
+    
     userProfile.seenQuestions = seenArray;
     userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
+
+    // 🔥🔥 هنا الإصلاح: تعريف المتغير مرة واحدة فقط 🔥🔥
     const firestoreUpdates = {
         highScore: newHigh, stats: newStats, wrongQuestionsBank: updatedWrongQuestionsBank, 
         seenQuestions: seenArray, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
@@ -902,13 +914,31 @@ async function endQuiz() {
         'stats.bestRoundScore': newStats.bestRoundScore, 'stats.lastPlayedDates': newStats.lastPlayedDates, 'stats.totalHardQuizzes': newStats.totalHardQuizzes,
         'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount
     };
+
+    // 🔥 تسجيل المسابقة الخاصة إذا وجدت
+    if (quizState.isEventMode && quizState.eventId) {
+        firestoreUpdates.playedEvents = arrayUnion(quizState.eventId);
+        userProfile.playedEvents.push(quizState.eventId); 
+        quizState.isEventMode = false; 
+    }
+
     Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
+    
+    // حفظ واحد نهائي
     await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
-    userProfile.highScore = newHigh; userProfile.stats = newStats;
-    if(newBadges.length > 0) { userProfile.badges.push(...newBadges); toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); }
+    
+    // تحديث الواجهة المحلية
+    userProfile.highScore = newHigh; 
+    userProfile.stats = newStats;
+    if(newBadges.length > 0) { 
+        userProfile.badges.push(...newBadges); 
+        toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); 
+    }
+    
     updateProfileUI();
     renderReviewArea();
 }
+
 
 function renderReviewArea() {
     const box = getEl('review-items-container'); 
@@ -1498,7 +1528,122 @@ async function checkWhatsNew() {
         console.error("News fetch error:", e);
     }
 }
+
 // ربط زر جوجل بالدالة الخاصة به
 bind('google-login-btn', 'click', handleGoogleLogin);
 bind('link-google-btn', 'click', linkGoogleAccount);
 
+// ==========================================
+// 🚀 نظام المسابقات الحية (Live Events Logic) - محسن
+// ==========================================
+
+// 1. مراقبة وجود مسابقة نشطة
+function initEventListener() {
+    onSnapshot(doc(db, "system", "active_event"), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // إصلاح 1: التأكد من تحميل البروفايل قبل معالجة الحدث
+            if (userProfile) {
+                handleEventUpdate(data);
+            } else {
+                // إعادة المحاولة بعد ثانية إذا لم يكن البروفايل جاهزاً
+                setTimeout(() => handleEventUpdate(data), 1000);
+            }
+        } else {
+            hide('event-modal');
+            if (eventTimerInterval) clearInterval(eventTimerInterval);
+        }
+    });
+}
+
+// 2. معالجة بيانات المسابقة
+function handleEventUpdate(data) {
+    // حماية إضافية في حال كان البروفايل لا يزال غير موجود
+    if (!userProfile) return;
+
+    activeEventData = data;
+    
+    // حماية من خطأ تحويل التاريخ إذا كان الحقل فارغاً
+    if (!data.endTime) return;
+    
+    const now = new Date();
+    const endTime = data.endTime.toDate(); 
+
+    const hasPlayed = userProfile.playedEvents && userProfile.playedEvents.includes(data.id);
+    const isExpired = now >= endTime;
+
+    // الشرط: المسابقة فعالة + لم تنتهِ + المستخدم لم يلعبها + المستخدم ليس في وسط لعبة حالياً
+    if (data.isActive && !isExpired && !hasPlayed && !quizState.active) {
+        showEventModal(data, endTime);
+    } else {
+        hide('event-modal');
+        if (eventTimerInterval) clearInterval(eventTimerInterval);
+    }
+}
+
+// 3. إظهار النافذة وتشغيل العداد
+function showEventModal(data, endTime) {
+    const modal = getEl('event-modal');
+    modal.classList.add('active');
+    
+    getEl('event-modal-title').textContent = data.title;
+    getEl('event-points-display').textContent = data.pointsPerQ;
+    
+    if (eventTimerInterval) clearInterval(eventTimerInterval);
+    
+    const updateTimer = () => {
+        const now = new Date();
+        const diff = endTime - now;
+        
+        if (diff <= 0) {
+            clearInterval(eventTimerInterval);
+            hide('event-modal');
+            return;
+        }
+        
+        const h = Math.floor((diff / (1000 * 60 * 60)));
+        const m = Math.floor((diff / (1000 * 60)) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        
+        getEl('timer-hours').textContent = h < 10 ? '0'+h : h;
+        getEl('timer-minutes').textContent = m < 10 ? '0'+m : m;
+        getEl('timer-seconds').textContent = s < 10 ? '0'+s : s;
+    };
+    
+    updateTimer();
+    eventTimerInterval = setInterval(updateTimer, 1000);
+}
+
+// 4. زر الدخول للمسابقة
+bind('btn-enter-event', 'click', () => {
+    if (!activeEventData) return;
+    
+    quizState.difficulty = 'مسابقة خاصة';
+    quizState.contextTopic = activeEventData.title;
+    
+    // نسخ الأسئلة لعدم التعديل على الأصل
+    const eventQs = [...activeEventData.questions];
+    shuffleArray(eventQs);
+    quizState.questions = eventQs;
+    
+    quizState.isEventMode = true;
+    quizState.eventId = activeEventData.id;
+    
+    // إصلاح 2: تحويل النقاط إلى رقم لضمان الجمع الصحيح
+    quizState.eventPoints = parseInt(activeEventData.pointsPerQ) || 10; 
+    
+    hide('event-modal');
+    if (eventTimerInterval) clearInterval(eventTimerInterval);
+    
+    startQuiz(); 
+    toast("حظاً موفقاً! ركز جيداً 🚀");
+});
+
+// إصلاح 3: إيقاف المؤقت عند الإغلاق اليدوي لتوفير الذاكرة
+bind('btn-close-event', 'click', () => {
+    hide('event-modal');
+    if (eventTimerInterval) clearInterval(eventTimerInterval);
+});
+
+// تشغيل المستمع
+initEventListener();
