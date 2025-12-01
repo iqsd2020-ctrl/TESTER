@@ -1,31 +1,4 @@
-/* --- أضف هذا الكود في بداية ملف style.css --- */
-
-/* 1. إزالة اللون الرمادي عند اللمس نهائياً */
-* {
-    -webkit-tap-highlight-color: transparent !important;
-}
-
-/* 2. إزالة الإطار الذهبي أو الأزرق الذي يظهر حول الزر بعد ضغطه */
-button:focus, 
-button:active, 
-input:focus, 
-select:focus, 
-div:focus {
-    outline: none !important;
-}
-
-/* ------------------------------------------- */
 :root { --font-heading: 'Reem Kufi', sans-serif; --font-body: 'Amiri', serif; --base-size: 16px; --gold: #fbbf24; --gold-dark: #b45309; }
-/* إزالة اللون الرمادي عند اللمس لكل العناصر */
-* {
-    -webkit-tap-highlight-color: transparent;
-}
-
-/* إزالة إطار التركيز الافتراضي للأزرار */
-button:focus {
-    outline: none;
-}
-
 body { font-family: var(--font-body); font-size: var(--base-size); line-height: 1.8; user-select: none; background: radial-gradient(circle at top, #0f172a 0%, #064E3B 100%); background-attachment: fixed; color: #f8fafc; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
 h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 #question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
@@ -91,4 +64,4 @@ select.input-glass { appearance: none; background-image: url("data:image/svg+xml
 
 #toggle-enrichment-btn:hover {
     transform: scale(1.1);
-} 
+}
