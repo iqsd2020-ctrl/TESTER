@@ -1,30 +1,8 @@
-// تأكد أن السطر يشبه هذا (أضفنا onSnapshot)
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { 
-    getAuth, 
-    signInAnonymously, 
-    onAuthStateChanged,
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword,     
-    signOut,                        
-    updateProfile,                  
-    GoogleAuthProvider,             
-    signInWithPopup,                
-    linkWithPopup,                  
-    fetchSignInMethodsForEmail      
-} from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
-function getSafeEmail(username) {
-    const isEnglish = /^[a-zA-Z0-9._-]+$/.test(username);
-    if (isEnglish) {
-        return `${username}@ahlulbayt.app`;
-    } else {
-        // تحويل الاسم العربي إلى كود Base64 آمن
-        const safeId = btoa(unescape(encodeURIComponent(username))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
-        return `u_${safeId}@ahlulbayt.app`;
-    }
-}
+
 const firebaseConfig = { apiKey: "AIzaSyDY1FNxvECtaV_dflCzkRH4pHQi_HQ4fwA", authDomain: "all-in-b0422.firebaseapp.com", projectId: "all-in-b0422", storageBucket: "all-in-b0422.firebasestorage.app", messagingSenderId: "347315641241", appId: "1:347315641241:web:c9ed240a0a0e5d2c5031108" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,9 +27,6 @@ let timerInterval = null;
 let audioContext = null; 
 let wisdomInterval = null;
 let currentSelectionMode = null; 
-// متغيرات المسابقة الحية
-let activeEventData = null;
-let eventTimerInterval = null;
 
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
@@ -101,238 +76,99 @@ if(muteToggle) muteToggle.onchange = () => { isMuted = !muteToggle.checked; };
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        console.log("User session found:", user.uid);
         currentUser = user;
-        effectiveUserId = user.uid;
-        await loadProfile(effectiveUserId);
-        
-        // إذا نجح تحميل البروفايل (ليس null)، ندخله للتطبيق
-        if (userProfile) {
+        const storedId = localStorage.getItem('ahlulbaytQuiz_UserId_v2.7');
+        if (storedId) {
+            effectiveUserId = storedId;
+            await loadProfile(storedId);
             navToHome();
+        } else {
+            hide('auth-loading');
+            show('login-area'); 
+            hide('top-header');
         }
     } else {
-        console.log("No user session, showing login");
-        hide('auth-loading');
-        show('login-area');
-        hide('main-header'); // إخفاء الهيدر بالكامل
-        hide('side-menu'); // إخفاء القائمة الجانبية
-        // إخفاء زر القائمة تحديداً للتأكد
-        getEl('menu-btn').classList.add('hidden');
+        show('auth-loading');
+        hide('top-header');
+        signInAnonymously(auth).catch(e => console.error(e));
     }
 });
-
-
 
 async function handleLogin() {
     const u = getEl('login-username-input').value.trim();
     const p = getEl('login-password-input').value.trim();
     const err = getEl('login-error-message');
-
     if(!u || !p) return err.textContent = "أدخل البيانات";
-    
     getEl('login-btn').disabled = true;
-
     try {
-        // نستخدم الدالة الآمنة الجديدة
-        const safeEmail = getSafeEmail(u);
-        
-        // 1. محاولة الدخول بالنظام الجديد
-        const userCredential = await signInWithEmailAndPassword(auth, safeEmail, p);
-        
-        // نجح الدخول
-        effectiveUserId = userCredential.user.uid;
-        await loadProfile(effectiveUserId);
-        navToHome();
-        toast(`أهلاً بك ${u}`);
-
-    } catch(e) { 
-        // التعديل هنا: أضفنا auth/invalid-email للقائمة
-        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
-            console.log("Migration needed or user not found...");
-            await migrateOldAccount(u, p, err);
-        } else {
-            console.error("Login Error:", e);
-            if (e.code === 'auth/wrong-password') err.textContent = "كلمة المرور غير صحيحة";
-            else if (e.code === 'auth/too-many-requests') err.textContent = "محاولات كثيرة جداً، انتظر قليلاً";
-            else err.textContent = "حدث خطأ في الاتصال";
-            getEl('login-btn').disabled = false; 
-        }
-    }
-}
-
-async function migrateOldAccount(username, password, errElement) {
-    try {
-        const q = query(collection(db, "users"), where("username", "==", username));
+        const q = query(collection(db, "users"), where("username", "==", u));
         const snap = await getDocs(q);
-
-        if (snap.empty) {
-            errElement.textContent = "اسم المستخدم غير صحيح";
-            getEl('login-btn').disabled = false;
-            return;
-        }
-
-        const oldDoc = snap.docs[0];
-        const userData = oldDoc.data();
-
-        if (userData.password === password) {
-            toast("جاري تحديث نظام حسابك للأمان الجديد...", "info");
-            
-            // التعديل هنا: استخدام الإيميل الآمن بدلاً من الاسم المباشر
-            const safeEmail = getSafeEmail(username);
-            
-            const userCredential = await createUserWithEmailAndPassword(auth, safeEmail, password);
-            const newUser = userCredential.user;
-            
-            await updateProfile(newUser, { displayName: username });
-            
-            const newId = newUser.uid;
-            const dataToKeep = { ...userData };
-            delete dataToKeep.password; 
-            
-            await setDoc(doc(db, "users", newId), dataToKeep);
-            await deleteDoc(doc(db, "users", oldDoc.id));
-            
-            effectiveUserId = newId;
+        if(snap.empty) { err.textContent = "مستخدم غير موجود"; getEl('login-btn').disabled = false; return; }
+        const d = snap.docs[0];
+        if(d.data().password === p) {
+            effectiveUserId = d.id;
+            localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
             await loadProfile(effectiveUserId);
             navToHome();
-            toast("تم تحديث حسابك بنجاح!");
-            
+            toast(`أهلاً بك ${u}`);
         } else {
-            errElement.textContent = "كلمة المرور غير صحيحة";
+            err.textContent = "كلمة المرور خطأ";
             getEl('login-btn').disabled = false;
         }
-    } catch (migrationErr) {
-        // في حال كان الحساب موجوداً مسبقاً في Auth (ربما من محاولة سابقة فاشلة)، نحاول تسجيل الدخول به
-        if (migrationErr.code === 'auth/email-already-in-use') {
-             try {
-                const safeEmail = getSafeEmail(username);
-                const userCredential = await signInWithEmailAndPassword(auth, safeEmail, password);
-                effectiveUserId = userCredential.user.uid;
-                await loadProfile(effectiveUserId);
-                navToHome();
-             } catch(loginErr) {
-                 console.error(loginErr);
-                 errElement.textContent = "حدث خطأ، يرجى المحاولة لاحقاً";
-                 getEl('login-btn').disabled = false;
-             }
-        } else {
-            console.error("Migration Failed:", migrationErr);
-            errElement.textContent = "حدث خطأ أثناء التحديث (" + migrationErr.code + ")";
-            getEl('login-btn').disabled = false;
-        }
-    }
+    } catch(e) { err.textContent = "خطأ اتصال"; getEl('login-btn').disabled = false; }
 }
 
-
-
-
-
-// ==========================================
-// 2. دالة إنشاء الحساب الجديدة (handleReg)
-// ==========================================
 async function handleReg() {
     const u = getEl('reg-username-input').value.trim();
     const p = getEl('reg-password-input').value.trim();
     const pc = getEl('reg-confirm-password-input').value.trim();
     const err = getEl('register-error-message');
-
-    // التحقق من المدخلات
     if(!u || !p) return err.textContent = "املأ الحقول";
     if(u.length < 3) return err.textContent = "الاسم قصير جداً";
     if(p !== pc) return err.textContent = "كلمة المرور غير متطابقة";
-    if(p.length < 6) return err.textContent = "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
-
-    // قفل الزر لمنع التكرار
     getEl('register-btn').disabled = true;
-
     try {
-        // 1. التحقق من أن الاسم غير محجوز في قاعدة البيانات (لأننا نسمح بتكرار الإيميل الوهمي أحياناً لكن الاسم يجب أن يكون فريداً)
         const q = query(collection(db, "users"), where("username", "==", u));
         const snap = await getDocs(q);
-        if(!snap.empty) { 
-            err.textContent = "الاسم محجوز، اختر اسماً آخر"; 
-            getEl('register-btn').disabled = false; 
-            return; 
-        }
-
-        // 2. توليد الإيميل الآمن (يحل مشكلة auth/invalid-email)
-        const safeEmail = getSafeEmail(u);
-
-        // 3. إنشاء المستخدم في Firebase Auth
-        const userCredential = await createUserWithEmailAndPassword(auth, safeEmail, p);
-        const newUser = userCredential.user;
-
-        // 4. تحديث اسم العرض
-        await updateProfile(newUser, { displayName: u });
-        effectiveUserId = newUser.uid;
-
-        // 5. تجهيز بيانات المستخدم للحفظ في Firestore
+        if(!snap.empty) { err.textContent = "الاسم محجوز"; getEl('register-btn').disabled = false; return; }
+        effectiveUserId = currentUser.uid;
         const data = { 
-    username: u, 
-    highScore: 0, 
-    createdAt: serverTimestamp(), 
-    avatar: 'account_circle', customAvatar: null, badges: ['beginner'], favorites: [],
-    seenQuestions: [], 
-    playedEvents: [], // <--- هام جداً: إضافة هذا السطر
-    stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
-    wrongQuestionsBank: []
-};
-
-        
-        // حفظ الملف
+            username: u, password: p, highScore: 0, createdAt: serverTimestamp(), 
+            avatar: 'account_circle', customAvatar: null, badges: ['beginner'], favorites: [],
+            seenQuestions: [], 
+            stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
+            wrongQuestionsBank: []
+        };
         await setDoc(doc(db, "users", effectiveUserId), data);
-        
-        // الدخول للتطبيق
+        localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
+        await loadProfile(effectiveUserId);
         navToHome();
-        toast("تم إنشاء الحساب بنجاح");
-
-    } catch(e) { 
-        console.error("Registration Error:", e); 
-        // معالجة الأخطاء
-        if (e.code === 'auth/email-already-in-use') err.textContent = "الاسم محجوز مسبقاً (جرب اسماً آخر)";
-        else if (e.code === 'auth/weak-password') err.textContent = "كلمة المرور ضعيفة جداً";
-        else if (e.code === 'auth/invalid-email') err.textContent = "الاسم يحتوي على رموز غير مقبولة";
-        else err.textContent = "حدث خطأ، حاول لاحقاً"; 
-        
-        getEl('register-btn').disabled = false; 
-    }
+        toast("تم إنشاء الحساب");
+    } catch(e) { console.error(e); err.textContent = "خطأ"; getEl('register-btn').disabled = false; }
 }
-
 
 async function loadProfile(uid) {
     try {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
             userProfile = snap.data();
-            // التأكد من وجود المصفوفات لتجنب الأخطاء
             if(!userProfile.badges) userProfile.badges = ['beginner'];
             if(!userProfile.favorites) userProfile.favorites = [];
             if(!userProfile.stats) userProfile.stats = {};
             userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
             userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
             if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
-            // إصلاح المسابقة: التأكد من وجود مصفوفة الأحداث
-            if(!userProfile.playedEvents) userProfile.playedEvents = [];
-            
             if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
             if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
         } else {
-            // التغيير هنا: إذا لم يوجد ملف، لا تنشئ ضيفاً، بل سجل خروج
-            console.log("No profile found for this UID, logging out...");
-            await signOut(auth);
-            userProfile = null;
-            show('login-area');
-            hide('auth-loading');
-            return; 
+            userProfile = { 
+                username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
+                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }
+            };
         }
         updateProfileUI();
-    } catch(e) { 
-        console.error("Error loading profile:", e);
-        // في حال الخطأ أيضاً نخرج المستخدم للأمان
-        await signOut(auth);
-    }
+    } catch(e) { console.error(e); }
 }
-
 
 function updateProfileUI() {
     getEl('username-display').textContent = userProfile.username;
@@ -357,25 +193,15 @@ function updateProfileUI() {
 }
 
 function navToHome() {
-    show('main-header'); // إظهار شريط الرأس
-    show('menu-btn'); // إظهار زر القائمة (الحل لمشكلة الاختفاء عند الخروج)
-    stopTimer(); // إيقاف أي مؤقت قد يكون نشطاً
-    
-    if(wisdomInterval) clearInterval(wisdomInterval); // إيقاف مؤقت رسالة اليوم القديم
-    loadAIWisdom(); // تحميل رسالة اليوم
-    wisdomInterval = setInterval(loadAIWisdom, 7000); // بدء مؤقت جديد لرسالة اليوم
-    
-    // إعادة تعيين حالة المسابقة
+    stopTimer(); 
+     show('top-header');
+    if(wisdomInterval) clearInterval(wisdomInterval);
+    loadAIWisdom();
+    wisdomInterval = setInterval(loadAIWisdom, 7000);
     quizState.active = false;
-    quizState.isEventMode = false;
-    
-    // إخفاء مناطق التطبيق الأخرى وعرض منطقة الترحيب
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
-    
-    initDropdowns(); // تهيئة قوائم اختيار القسم والموضوع
-    
-    // تحديث حالة زر المؤقت بناءً على حالة quizState.timerEnabled
+    initDropdowns();
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
         toggleBtn.classList.add('text-amber-400');
@@ -383,12 +209,11 @@ function navToHome() {
     } else {
         toggleBtn.classList.remove('text-amber-400');
         toggleBtn.classList.add('text-slate-500');
+        // هنا كان السطر، وسنقوم بنقله إلى الأسفل
     }
-    
-    // تشغيل فحص رسائل المطور بعد فترة قصيرة
-    setTimeout(checkWhatsNew, 1500);
+    // ============== أضف السطر هنا ================
+    setTimeout(checkWhatsNew, 1500); // <--- تأكد من وجوده في نهاية الدالة
 }
-
 
 
 function initDropdowns() {
@@ -600,9 +425,8 @@ function renderLives() {
 }
 
 function startQuiz() {
-    hide('main-header');
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
-     if (typeof quizState.isEventMode === 'undefined') quizState.isEventMode = false;
+    hide('top-header');
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
     quizState.timerEnabled = false;
@@ -730,36 +554,21 @@ function selectAnswer(idx, btn) {
     btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
 
-        if(isCorrect) {
+    if(isCorrect) {
         if (answerTime <= 5000) { quizState.fastAnswers++; } 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
         quizState.streak++;
         if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
-        
-        // 🔥🔥 التعديل يبدأ هنا 🔥🔥
-        let pointsAdded = 0;
+        const basePoints = 2; 
+        let multiplier = 1;
         let multiplierText = "";
-
-        if (quizState.isEventMode) {
-            // 1. منطق نقاط المسابقة الخاصة (ثابتة بدون مضاعفات ستريك)
-            pointsAdded = quizState.eventPoints;
-            multiplierText = "مسابقة 🏆";
-        } else {
-            // 2. المنطق العادي القديم
-            const basePoints = 2; 
-            let multiplier = 1;
-            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
-            else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
-            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
-            else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
-            pointsAdded = Math.floor(basePoints * multiplier);
-        }
-        // 🔥🔥 التعديل ينتهي هنا 🔥🔥
-
+        if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
+        else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
+        else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
+        else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
+        let pointsAdded = Math.floor(basePoints * multiplier);
         quizState.score += pointsAdded; 
         quizState.correctCount++;
-        // ... (باقي الكود كما هو)
-
         const scoreEl = getEl('live-score-text');
         scoreEl.textContent = quizState.score;
         scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
@@ -794,7 +603,7 @@ function selectAnswer(idx, btn) {
         if(qBankIdx === -1) userProfile.wrongQuestionsBank.push(q);
         
         if (quizState.lives <= 0) {
-            getEl('feedback-text').textContent = "نفدت المحاولات! 💔"; 
+            getEl('feedback-text').innerHTML = 'نفدت المحاولات! <span class="material-symbols-rounded align-middle text-sm">heart_broken</span>';
             getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-500";
             setTimeout(showReviveModal, transitionDelay); 
             return; 
@@ -842,36 +651,25 @@ bind('share-text-button', 'click', () => {
 
 async function endQuiz() {
     hide('quiz-proper'); show('results-area');
-    
-    // عرض البيانات في البطاقة
     getEl('card-score').textContent = quizState.score;
     getEl('card-username').textContent = userProfile.username;
     getEl('card-difficulty').textContent = quizState.difficulty;
-    
     const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
     const today = new Date().toISOString().slice(0, 10);
-    
-    getEl('card-correct-count').textContent = `✅ ${quizState.correctCount}`;
-    getEl('card-wrong-count').textContent = `❌ ${quizState.questions.length - quizState.correctCount}`;
-    
-    // رسالة النتيجة
+    getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${quizState.correctCount}`;
+getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${quizState.questions.length - quizState.correctCount}`;
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { msg = "أداء أسطوري! درجة كاملة"; playSound('applause'); launchConfetti(); }
     else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
     getEl('final-message').textContent = msg;
-
-    // حساب الإحصائيات الجديدة
     const newHigh = (userProfile.highScore || 0) + quizState.score;
     const stats = userProfile.stats || {};
-    
     if (quizState.fastAnswers >= 10) { stats.fastAnswerCount++; }
     if (!quizState.usedHelpers) { stats.noHelperQuizzesCount++; }
-    
     let lastPlayedDates = stats.lastPlayedDates.filter(d => d !== today).slice(-6); 
     lastPlayedDates.push(today);
     stats.lastPlayedDates = lastPlayedDates;
-
     const newStats = {
         quizzesPlayed: (stats.quizzesPlayed || 0) + 1,
         totalCorrect: (stats.totalCorrect || 0) + quizState.correctCount,
@@ -884,12 +682,9 @@ async function endQuiz() {
         maxStreak: stats.maxStreak,
         fastAnswerCount: stats.fastAnswerCount
     };
-
-    // معالجة الأوسمة (Badges)
     let newBadges = [];
     let loverBadgesEarned = 0;
     const requiredCorrectLover = 200;
-    
     infallibles.forEach(person => {
         const badgeId = `lover_${person.id}`;
         const currentCorrect = userProfile.stats.topicCorrect[person.topic] || 0;
@@ -898,31 +693,55 @@ async function endQuiz() {
             loverBadgesEarned++;
         } else if (userProfile.badges.includes(badgeId)) { loverBadgesEarned++; }
     });
-    
     if (loverBadgesEarned === infallibles.length && !userProfile.badges.includes('lover_infallibility')) {
         newBadges.push('lover_infallibility');
     }
-
-    // ... (شروط الأوسمة الأخرى مختصرة هنا لأنها موجودة في الكود الأصلي، تأكد من بقائها) ...
-    // لقد قمت بتبسيط الكود هنا للعرض، لكن الكود الذي ستنسخه يجب أن يحتوي كل شروط الأوسمة
-    // سأضع لك أهم الأسطر للتأكد من الإصلاح:
-
     if(newStats.quizzesPlayed >= 10 && !userProfile.badges.includes('scholar')) newBadges.push('scholar');
-    // ... (باقي شروط الأوسمة كما هي في ملفك) ...
-    
-    // إدارة الأسئلة التي تمت رؤيتها وبنك الأخطاء
+    if(newStats.quizzesPlayed >= 50 && !userProfile.badges.includes('master')) newBadges.push('master');
+    if(newStats.quizzesPlayed >= 100 && !userProfile.badges.includes('grand_master')) newBadges.push('grand_master');
+    if(newStats.quizzesPlayed >= 200 && !userProfile.badges.includes('historian_master')) newBadges.push('historian_master');
+    if(newStats.quizzesPlayed >= 500 && !userProfile.badges.includes('insightful')) newBadges.push('insightful');
+    if(newHigh >= 500 && !userProfile.badges.includes('veteran')) newBadges.push('veteran');
+    if(newHigh >= 1000 && !userProfile.badges.includes('servant')) newBadges.push('servant');
+    if(newHigh >= 5000 && !userProfile.badges.includes('supporter')) newBadges.push('supporter');
+    if(newHigh >= 10000 && !userProfile.badges.includes('treasurer')) newBadges.push('treasurer');
+    if(newStats.totalCorrect >= 100 && !userProfile.badges.includes('narrator')) newBadges.push('narrator');
+    if(newStats.totalCorrect >= 500 && !userProfile.badges.includes('ally')) newBadges.push('ally');
+    if(newStats.bestRoundScore >= 50 && !userProfile.badges.includes('high_score_v1')) newBadges.push('high_score_v1');
+    if(newStats.bestRoundScore >= 100 && !userProfile.badges.includes('high_score_v2')) newBadges.push('high_score_v2');
+    if(newStats.lastPlayedDates.length >= 7 && !userProfile.badges.includes('consistent')) newBadges.push('consistent');
+    if(accuracy === 100 && quizState.questions.length >= 5 && !userProfile.badges.includes('sharpshooter')) newBadges.push('sharpshooter');
+    if(newStats.maxStreak >= 5 && !userProfile.badges.includes('onfire')) newBadges.push('onfire'); 
+    if(newStats.maxStreak >= 10 && !userProfile.badges.includes('masterpiece')) newBadges.push('masterpiece');
+    if(quizState.questions.length >= 15 && accuracy >= 80 && !userProfile.badges.includes('patient')) newBadges.push('patient');
+    if(newStats.quizzesPlayed >= 5 && accuracy >= 80 && !userProfile.badges.includes('challenger')) newBadges.push('challenger');
+    if(newStats.noHelperQuizzesCount >= 10 && !userProfile.badges.includes('self_reliant')) newBadges.push('self_reliant');
+    if(newStats.totalQuestions > 0 && (newStats.totalCorrect / newStats.totalQuestions) >= 0.9 && !userProfile.badges.includes('precise')) newBadges.push('precise');
+    if(newStats.fastAnswerCount >= 10 && !userProfile.badges.includes('fast_learner')) newBadges.push('fast_learner');
+    if(quizState.contextTopic === "عام" && newStats.topicCorrect["عام"] >= 50 && !userProfile.badges.includes('general_expert')) newBadges.push('general_expert');
+    const specialistBadges = [
+        { key: "تاريخ ومعارك", id: 'master_history' }, { key: "عقائد وفقه", id: 'master_theology' },
+        { key: "الأنبياء والرسل", id: 'master_prophets' }, { key: "شخصيات (أصحاب وعلماء)", id: 'master_companions' },
+        { key: "أدعية وزيارات", id: 'master_ziyarat' }
+    ];
+    specialistBadges.forEach(item => {
+        if ((newStats.topicCorrect[item.key] || 0) >= 50 && !userProfile.badges.includes(item.id)) {
+            newBadges.push(item.id);
+        }
+    });
+    const hour = new Date().getHours();
+    if(hour >= 5 && hour <= 8 && !userProfile.badges.includes('morning')) newBadges.push('morning');
+    if(hour >= 0 && hour <= 4 && !userProfile.badges.includes('night')) newBadges.push('night');
+    if(userProfile.favorites.length >= 20 && !userProfile.badges.includes('dedicated')) newBadges.push('dedicated');
+    if(userProfile.wrongQuestionsBank.length <= 0 && (stats.totalQuestions - stats.totalCorrect) >= 15 && !userProfile.badges.includes('fixer')) newBadges.push('fixer'); 
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     let updatedSeenQuestions = new Set([...(userProfile.seenQuestions || []), ...playedIds]);
     let seenArray = Array.from(updatedSeenQuestions);
     if (seenArray.length > 1000) seenArray = seenArray.slice(seenArray.length - 1000);
-    
     let updatedWrongQuestionsBank = userProfile.wrongQuestionsBank;
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(updatedWrongQuestionsBank.length - 15);
-    
     userProfile.seenQuestions = seenArray;
     userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
-
-    // 🔥🔥 هنا الإصلاح: تعريف المتغير مرة واحدة فقط 🔥🔥
     const firestoreUpdates = {
         highScore: newHigh, stats: newStats, wrongQuestionsBank: updatedWrongQuestionsBank, 
         seenQuestions: seenArray, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
@@ -930,31 +749,13 @@ async function endQuiz() {
         'stats.bestRoundScore': newStats.bestRoundScore, 'stats.lastPlayedDates': newStats.lastPlayedDates, 'stats.totalHardQuizzes': newStats.totalHardQuizzes,
         'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount
     };
-
-    // 🔥 تسجيل المسابقة الخاصة إذا وجدت
-    if (quizState.isEventMode && quizState.eventId) {
-        firestoreUpdates.playedEvents = arrayUnion(quizState.eventId);
-        userProfile.playedEvents.push(quizState.eventId); 
-        quizState.isEventMode = false; 
-    }
-
     Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
-    
-    // حفظ واحد نهائي
     await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
-    
-    // تحديث الواجهة المحلية
-    userProfile.highScore = newHigh; 
-    userProfile.stats = newStats;
-    if(newBadges.length > 0) { 
-        userProfile.badges.push(...newBadges); 
-        toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); 
-    }
-    
+    userProfile.highScore = newHigh; userProfile.stats = newStats;
+    if(newBadges.length > 0) { userProfile.badges.push(...newBadges); toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); }
     updateProfileUI();
     renderReviewArea();
 }
-
 
 function renderReviewArea() {
     const box = getEl('review-items-container'); 
@@ -965,7 +766,9 @@ function renderReviewArea() {
         const div = document.createElement('div');
         const cardClass = h.isCorrect ? "bg-green-900/20 border-green-800" : "bg-red-900/20 border-red-800";
         div.className = `text-sm p-3 rounded-lg border mb-3 ${cardClass}`;
-        const statusIcon = h.isCorrect ? '✅' : '❌';
+        const statusIcon = h.isCorrect 
+    ? '<span class="material-symbols-rounded text-green-400 align-middle">check_circle</span>' 
+    : '<span class="material-symbols-rounded text-red-500 align-middle">cancel</span>';
         div.innerHTML = `<p class="text-white font-bold mb-1">${statusIcon} ${i+1}. ${h.q}</p>`;
         h.options.forEach((o, idx) => {
             let clr = "text-slate-400"; 
@@ -1111,9 +914,9 @@ bind('nav-leaderboard', 'click', async () => {
                 borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
                 bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
             }
-            if (r === 1) medalIcon = '<span class="text-2xl filter drop-shadow-md">🥇</span>'; 
-            else if (r === 2) medalIcon = '<span class="text-2xl filter drop-shadow-md">🥈</span>';
-            else if (r === 3) medalIcon = '<span class="text-2xl filter drop-shadow-md">🥉</span>';
+            if (r === 1) medalIcon = '<span class="material-symbols-rounded text-amber-400 text-2xl drop-shadow-md">emoji_events</span>'; 
+else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
+else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
             let avatarHtml = '';
             if (data.customAvatar) avatarHtml = `<img src="${data.customAvatar}" class="w-10 h-10 object-cover rounded-full border border-slate-600">`;
             else avatarHtml = `<div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center"><span class="material-symbols-rounded text-slate-200 text-2xl">account_circle</span></div>`;
@@ -1184,142 +987,20 @@ bind('nav-settings', 'click', () => openModal('settings-modal'));
 bind('font-size-slider', 'input', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
 bind('delay-slider', 'input', (e) => { const v = e.target.value; transitionDelay = v * 1000; getEl('delay-val').textContent = v; });
 
-const handleLogout = async () => { 
+const handleLogout = () => { 
     if(confirm("هل تريد تسجيل الخروج؟")) {
-        try {
-            await signOut(auth); // أمر الخروج من سيرفر Firebase
-            localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
-            location.reload(); 
-        } catch(e) {
-            console.error("Logout Error:", e);
-            toast("حدث خطأ أثناء الخروج", "error");
-        }
+        localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
+        location.reload(); 
     }
 };
-
-// دالة جديدة كلياً لمعالجة الدخول عبر Google
-async function handleGoogleLogin() {
-    const provider = new GoogleAuthProvider();
-    
-    try {
-        // 1. فتح نافذة Google المنبثقة
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user; // بيانات المستخدم القادمة من جوجل
-        
-        // 2. التحقق: هل هذا المستخدم لديه ملف سابق في قاعدة بياناتنا؟
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            // --- سيناريو: مستخدم مسجل سابقاً ---
-            console.log("Existing Google user found");
-            effectiveUserId = user.uid;
-            await loadProfile(effectiveUserId);
-            navToHome();
-            toast(`أهلاً بك مجدداً ${userProfile.username}`);
-        } else {
-            // --- سيناريو: مستخدم جديد كلياً ---
-            console.log("New Google user, creating profile...");
-            
-            // أخذ الاسم الأول من جوجل، أو تسميته "User" إذا لم يوجد
-            let baseName = user.displayName ? user.displayName.split(' ')[0] : "User";
-            let finalName = baseName;
-            
-            // فحص سريع: هل الاسم محجوز؟ إذا نعم، نضيف له رقماً عشوائياً
-            const q = query(collection(db, "users"), where("username", "==", finalName));
-            const snap = await getDocs(q);
-            
-            if (!snap.empty) {
-                // الاسم مكرر -> نضيف رقماً عشوائياً (مثال: Ali_482)
-                finalName = baseName + "_" + Math.floor(1000 + Math.random() * 9000);
-            }
-
-            effectiveUserId = user.uid;
-            
-  const data = { 
-    username: finalName, 
-    highScore: 0, 
-    createdAt: serverTimestamp(), 
-    avatar: 'account_circle', 
-    customAvatar: user.photoURL, 
-    badges: ['beginner'], favorites: [],
-    seenQuestions: [], 
-    playedEvents: [], // <--- هام جداً: إضافة هذا السطر
-    stats: { quizzesPlayed: 0, totalCorrect: 0, totalQuestions: 0, bestRoundScore: 0, topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }, 
-    wrongQuestionsBank: []
-};
-
-            
-            await setDoc(doc(db, "users", effectiveUserId), data);
-            await loadProfile(effectiveUserId);
-            navToHome();
-            toast(`تم إنشاء الحساب باسم ${finalName}`);
-        }
-    } catch (e) {
-        console.error("Google Login Error:", e);
-        toast("تم إلغاء الدخول أو حدث خطأ", "error");
-    }
-}
-
-// دالة لربط الحساب الحالي بحساب جوجل
-async function linkGoogleAccount() {
-    // 1. التحقق: هل المستخدم مسجل دخول أصلاً؟
-    if (!auth.currentUser) {
-        toast("يجب تسجيل الدخول أولاً", "error");
-        return;
-    }
-
-    const provider = new GoogleAuthProvider();
-    getEl('link-google-btn').disabled = true;
-
-    try {
-        // 2. محاولة الربط
-        const result = await linkWithPopup(auth.currentUser, provider);
-        
-        // 3. نجاح الربط
-        const user = result.user;
-        
-        // (اختياري) تحديث الصورة الشخصية إذا لم يكن لديه صورة
-        if (!userProfile.customAvatar && user.photoURL) {
-            await updateDoc(doc(db, "users", effectiveUserId), {
-                customAvatar: user.photoURL
-            });
-            userProfile.customAvatar = user.photoURL;
-            updateProfileUI();
-        }
-
-        toast("✅ تم ربط حسابك بـ Google بنجاح!");
-        
-        // إخفاء الزر أو تغيير نصه ليعرف المستخدم أنه انتهى
-        const btn = getEl('link-google-btn');
-        btn.innerHTML = `<span class="material-symbols-rounded text-green-600">check_circle</span> <span>تم الربط</span>`;
-        btn.classList.add('bg-green-100', 'text-green-800');
-
-    } catch (error) {
-        console.error("Link Error:", error);
-        getEl('link-google-btn').disabled = false;
-
-        if (error.code === 'auth/credential-already-in-use') {
-            // هذا الخطأ يحدث إذا كنت قد دخلت بحساب جوجل هذا سابقاً بشكل منفصل
-            toast("هذا الإيميل مرتبط بحساب آخر بالفعل!", "error");
-        } else {
-            toast("فشل عملية الربط", "error");
-        }
-    }
-}
-
-
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
 
 bind('clear-cache-btn', 'click', () => { if(confirm('هل أنت متأكد؟ سيتم تسجيل الخروج ومسح البيانات المحلية.')) { localStorage.clear(); location.reload(); } });
 bind('nav-about', 'click', () => openModal('about-modal'));
 
-// استبدل كود فتح الملف الشخصي القديم بهذا الجديد
 bind('user-profile-btn', 'click', () => {
     openModal('user-modal'); 
-    
-    // تعبئة البيانات الأساسية
     getEl('edit-username').value = userProfile.username;
     if(userProfile.customAvatar) {
          getEl('profile-img-preview').src = userProfile.customAvatar;
@@ -1331,43 +1012,12 @@ bind('user-profile-btn', 'click', () => {
          show('profile-icon-preview');
          hide('delete-custom-avatar');
     }
-
-    // ============================================================
-    // 👇 الكود الجديد: التحقق من حالة ربط جوجل وتغيير شكل الزر 👇
-    // ============================================================
-    const linkBtn = getEl('link-google-btn');
-    // نفحص هل يوجد مزود خدمة جوجل في بيانات المستخدم الحالية
-    const isLinked = auth.currentUser.providerData.some(p => p.providerId === 'google.com');
-
-    if (isLinked) {
-        // حالة: الحساب مرتبط بالفعل
-        linkBtn.disabled = true; // تعطيل الضغط
-        linkBtn.className = "w-full bg-green-100 border border-green-300 text-green-800 font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-default shadow-sm opacity-80";
-        linkBtn.innerHTML = `<span class="material-symbols-rounded text-green-600">check_circle</span> <span>تم ربط الحساب بـ Google</span>`;
-    } else {
-        // حالة: الحساب غير مرتبط (إعادة الزر لحالته الطبيعية)
-        linkBtn.disabled = false;
-        linkBtn.className = "w-full bg-white text-slate-800 font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-200 transition shadow-sm";
-        // نعيد أيقونة جوجل الأصلية
-        linkBtn.innerHTML = `
-            <svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            <span>ربط الحساب بـ Google</span>
-        `;
-    }
-    // ============================================================
-
     if(userProfile.stats) { 
         show('user-stats'); 
         getEl('stat-score').textContent = userProfile.highScore; 
         getEl('stat-played').textContent = userProfile.stats.quizzesPlayed || 0; 
     }
 });
-
 
 bind('close-user-modal', 'click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); });
 
@@ -1544,122 +1194,3 @@ async function checkWhatsNew() {
         console.error("News fetch error:", e);
     }
 }
-
-// ربط زر جوجل بالدالة الخاصة به
-bind('google-login-btn', 'click', handleGoogleLogin);
-bind('link-google-btn', 'click', linkGoogleAccount);
-
-// ==========================================
-// 🚀 نظام المسابقات الحية (Live Events Logic) - محسن
-// ==========================================
-
-// 1. مراقبة وجود مسابقة نشطة
-function initEventListener() {
-    onSnapshot(doc(db, "system", "active_event"), (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            // إصلاح 1: التأكد من تحميل البروفايل قبل معالجة الحدث
-            if (userProfile) {
-                handleEventUpdate(data);
-            } else {
-                // إعادة المحاولة بعد ثانية إذا لم يكن البروفايل جاهزاً
-                setTimeout(() => handleEventUpdate(data), 1000);
-            }
-        } else {
-            hide('event-modal');
-            if (eventTimerInterval) clearInterval(eventTimerInterval);
-        }
-    });
-}
-
-// 2. معالجة بيانات المسابقة
-function handleEventUpdate(data) {
-    // حماية إضافية في حال كان البروفايل لا يزال غير موجود
-    if (!userProfile) return;
-
-    activeEventData = data;
-    
-    // حماية من خطأ تحويل التاريخ إذا كان الحقل فارغاً
-    if (!data.endTime) return;
-    
-    const now = new Date();
-    const endTime = data.endTime.toDate(); 
-
-    const hasPlayed = userProfile.playedEvents && userProfile.playedEvents.includes(data.id);
-    const isExpired = now >= endTime;
-
-    // الشرط: المسابقة فعالة + لم تنتهِ + المستخدم لم يلعبها + المستخدم ليس في وسط لعبة حالياً
-    if (data.isActive && !isExpired && !hasPlayed && !quizState.active) {
-        showEventModal(data, endTime);
-    } else {
-        hide('event-modal');
-        if (eventTimerInterval) clearInterval(eventTimerInterval);
-    }
-}
-
-// 3. إظهار النافذة وتشغيل العداد
-function showEventModal(data, endTime) {
-    const modal = getEl('event-modal');
-    modal.classList.add('active');
-    
-    getEl('event-modal-title').textContent = data.title;
-    getEl('event-points-display').textContent = data.pointsPerQ;
-    
-    if (eventTimerInterval) clearInterval(eventTimerInterval);
-    
-    const updateTimer = () => {
-        const now = new Date();
-        const diff = endTime - now;
-        
-        if (diff <= 0) {
-            clearInterval(eventTimerInterval);
-            hide('event-modal');
-            return;
-        }
-        
-        const h = Math.floor((diff / (1000 * 60 * 60)));
-        const m = Math.floor((diff / (1000 * 60)) % 60);
-        const s = Math.floor((diff / 1000) % 60);
-        
-        getEl('timer-hours').textContent = h < 10 ? '0'+h : h;
-        getEl('timer-minutes').textContent = m < 10 ? '0'+m : m;
-        getEl('timer-seconds').textContent = s < 10 ? '0'+s : s;
-    };
-    
-    updateTimer();
-    eventTimerInterval = setInterval(updateTimer, 1000);
-}
-
-// 4. زر الدخول للمسابقة
-bind('btn-enter-event', 'click', () => {
-    if (!activeEventData) return;
-    
-    quizState.difficulty = 'مسابقة خاصة';
-    quizState.contextTopic = activeEventData.title;
-    
-    // نسخ الأسئلة لعدم التعديل على الأصل
-    const eventQs = [...activeEventData.questions];
-    shuffleArray(eventQs);
-    quizState.questions = eventQs;
-    
-    quizState.isEventMode = true;
-    quizState.eventId = activeEventData.id;
-    
-    // إصلاح 2: تحويل النقاط إلى رقم لضمان الجمع الصحيح
-    quizState.eventPoints = parseInt(activeEventData.pointsPerQ) || 10; 
-    
-    hide('event-modal');
-    if (eventTimerInterval) clearInterval(eventTimerInterval);
-    
-    startQuiz(); 
-    toast("حظاً موفقاً! ركز جيداً 🚀");
-});
-
-// إصلاح 3: إيقاف المؤقت عند الإغلاق اليدوي لتوفير الذاكرة
-bind('btn-close-event', 'click', () => {
-    hide('event-modal');
-    if (eventTimerInterval) clearInterval(eventTimerInterval);
-});
-
-// تشغيل المستمع
-initEventListener();
