@@ -114,13 +114,19 @@
                     </button>
                     <input type="hidden" id="topic-select" value="">
                 </div>
-                <div class="flex gap-2">
-                    <select id="ai-question-count" class="input-glass text-center w-1/2 font-body"><option value="5">5 أسئلة</option><option value="10" selected>10 أسئلة</option><option value="15">15 سؤال</option></select>
-                </div>
-                <button id="ai-generate-btn" class="btn-gold-action mt-2">
-                    <span class="text-lg">ابدأ التحدي</span> 
-                    <span class="material-symbols-rounded">play_circle</span>
+                            <div class="flex gap-2">
+                <select id="ai-question-count" class="input-glass text-center w-1/2 font-body"><option value="5">5 أسئلة</option><option value="10" selected>10 أسئلة</option><option value="15">15 سؤال</option></select>
+
+                <button id="btn-marathon-start" class="w-1/2 input-glass btn-marathon-silver btn-marathon-silver-anim">
+                    <span class="text-lg">تحدي الماراثون</span> 
+                    <span class="material-symbols-rounded">directions_run</span>
                 </button>
+            </div>
+            <button id="ai-generate-btn" class="btn-gold-action mt-2">
+                <span class="text-lg">ابدأ التحدي</span> 
+                <span class="material-symbols-rounded">play_circle</span>
+            </button>
+
                 <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem]"></div>
             </div>
         </div>
@@ -292,6 +298,20 @@
                     <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
             </div>
+                        <label class="block text-slate-400 mb-2">مظهر التطبيق (الثيم)</label>
+            <select id="theme-selector" class="input-glass w-full mb-6">
+                <option value="default">الولاء (الافتراضي)</option>
+                <option value="ruby">النور الياقوتي</option>
+                <option value="olive">الزيتوني الهادئ</option>
+                <option value="midnight">الزجاجي الليلي</option>
+                <option value="royal">نور الإمام (ملكي)</option>
+                <option value="blackfrost">الزجاج الأسود المصنفر</option>
+                <option value="persian">المنمنمات الفارسية</option>
+                <option value="manuscript">المخطوطات القديمة</option>
+                <option value="ashura">الحزن العاشورائي</option>
+                <option value="kawthar">الكوثر (سماوي)</option>
+            </select>
+
             <label class="block text-slate-400 mb-2">حجم الخط</label>
             <input type="range" id="font-size-slider" min="14" max="24" value="16" class="w-full accent-amber-500 mb-6">
             <label class="block text-slate-400 mb-2">سرعة الانتقال (ثواني): <span id="delay-val" class="text-amber-400">2</span></label>
@@ -362,6 +382,32 @@
 
     <div id="toast-notification" class="hidden"></div>
     <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50"></canvas>
+
+<div id="marathon-rules-modal" class="modal-overlay">
+    <div class="modal-box border-2 border-slate-400/50">
+        <h3 class="text-2xl font-bold text-white mb-4 font-heading text-center">🏆 قواعد تحدي الماراثون</h3>
+        <div class="space-y-3 p-4 bg-slate-800/60 rounded-lg border border-slate-700 mb-6">
+            <p class="text-slate-300 text-sm flex items-start gap-2">
+                <span class="material-symbols-rounded text-red-400 mt-1 shrink-0">favorite</span>
+                **حياة اللاعب:** تبدأ بـ 3 قلوب (محاولات). كل إجابة خاطئة تفقد قلباً.
+            </p>
+            <p class="text-slate-300 text-sm flex items-start gap-2">
+                <span class="material-symbols-rounded text-amber-400 mt-1 shrink-0">timer</span>
+                **الضغط الزمني:** المؤقت **إجباري التشغيل** ولا يمكن إيقافه.
+            </p>
+            <p class="text-slate-300 text-sm flex items-start gap-2">
+                <span class="material-symbols-rounded text-green-400 mt-1 shrink-0">add_circle</span>
+                **الهدف:** الإجابة على أكبر عدد ممكن من الأسئلة من جميع التصنيفات.
+            </p>
+            <p class="text-xs text-amber-500 font-bold mt-4 border-t border-slate-700 pt-3">
+                ملاحظة: يمكنك استخدام المساعدات (Skip, 50/50) بالتكلفة العادية.
+            </p>
+        </div>
+        <button id="btn-marathon-confirm" class="btn-gold-action w-full py-3">بدء التحدي الآن!</button>
+        <button class="close-modal w-full text-slate-500 hover:text-white mt-3 text-sm transition">إلغاء</button>
+    </div>
+</div>
+
 
     <script type="module" src="js/main.js?v=1.2"></script>
 </body>
