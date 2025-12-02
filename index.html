@@ -59,14 +59,14 @@
             <div id="login-view">
                 <div class="text-center mb-8">
                     <span class="material-symbols-rounded text-6xl text-amber-400 mb-2 pulse-slow">mosque</span>
-                    <h1 class="text-3xl font-bold text-white font-heading">من وحي أهل البيت (ع)</h1>
+                    <h1 class="text-3xl font-bold font-heading">من وحي أهل البيت (ع)</h1>
                     <p class="text-slate-400 text-sm mt-2">مسابقات عقائدية وتاريخية</p>
                 </div>
                 <div class="space-y-4">
                     <input type="text" id="login-username-input" class="input-glass" placeholder="اسم المستخدم">
                     <input type="password" id="login-password-input" class="input-glass" placeholder="كلمة المرور">
                     <p id="login-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                    <button id="login-btn" class="btn-gold-action">دخول</button>
+                   <button id="login-btn" class="btn-gold-action text-fixed-white">دخول</button>
                     <div class="text-center mt-4"><button id="show-register-btn" class="text-amber-400 text-sm hover:underline">إنشاء حساب جديد</button></div>
                 </div>
             </div>
@@ -78,7 +78,7 @@
                     <input type="password" id="reg-password-input" class="input-glass" placeholder="كلمة المرور">
                     <input type="password" id="reg-confirm-password-input" class="input-glass" placeholder="تأكيد كلمة المرور">
                     <p id="register-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                    <button id="register-btn" class="btn-gold-action bg-gradient-to-r from-green-600 to-green-500">تسجيل</button>
+                    <button id="register-btn" class="btn-gold-action bg-gradient-to-r from-green-600 to-green-500 text-fixed-white">تسجيل</button>
                     <div class="text-center mt-4"><button id="show-login-btn" class="text-slate-400 text-sm hover:underline">عودة للدخول</button></div>
                 </div>
             </div>
@@ -167,21 +167,31 @@
   
         <div id="results-area" class="hidden text-center fade-in">
             <h2 class="text-3xl font-bold text-white mb-6 font-heading">النتيجة النهائية</h2>
-            <div id="score-card" class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mb-6 relative overflow-hidden shadow-2xl transform hover:scale-[1.01] transition duration-500">
+                        <div id="score-card" class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mb-6 relative overflow-hidden shadow-2xl transform hover:scale-[1.01] transition duration-500">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600"></div>
                 <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
+                
                 <div class="flex justify-between border-b border-slate-700 pb-2 mb-4">
-                    <div class="text-right"><p class="text-slate-400 text-xs">اللاعب</p><p id="card-username" class="text-white font-bold">...</p></div>
-                    <div class="text-left"><p class="text-slate-400 text-xs">المستوى</p><p id="card-difficulty" class="text-white font-mono text-xs">موحد</p></div>
+                    <div class="text-right">
+                        <p class="text-slate-400 text-xs">اللاعب</p>
+                        <p id="card-username" class="text-lg font-bold text-fixed-white font-heading">...</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-slate-400 text-xs">المستوى</p>
+                        <p id="card-difficulty" class="text-fixed-white font-mono text-xs">موحد</p>
+                    </div>
                 </div>
+
                 <div class="py-4">
-                    <span id="card-score" class="text-6xl font-bold text-white font-heading block mb-2 drop-shadow-lg">0</span>
+                    <span id="card-score" class="text-6xl font-bold text-fixed-white font-heading block mb-2 drop-shadow-lg">0</span>
                     <span class="text-amber-400 text-sm font-heading uppercase tracking-widest">نقطة مكتسبة</span>
                 </div>
+
                 <div class="flex justify-center gap-4 mt-2 text-xs text-slate-400">
                     <span id="card-correct-count" class="flex items-center gap-1"><span class="material-symbols-rounded text-green-400 text-sm">check_circle</span> 0</span>
-<span id="card-wrong-count" class="flex items-center gap-1"><span class="material-symbols-rounded text-red-400 text-sm">cancel</span> 0</span>
+                    <span id="card-wrong-count" class="flex items-center gap-1"><span class="material-symbols-rounded text-red-400 text-sm">cancel</span> 0</span>
                 </div>
+                
                 <p id="final-message" class="text-lg text-slate-300 mt-4 font-bold"></p>
                 <div id="share-footer" class="hidden mt-4 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between"><span>من تطبيق: وحي أهل البيت (ع)</span></div>
             </div>
@@ -300,16 +310,13 @@
             </div>
                         <label class="block text-slate-400 mb-2">مظهر التطبيق (الثيم)</label>
             <select id="theme-selector" class="input-glass w-full mb-6">
-                <option value="default">الولاء (الافتراضي)</option>
-                <option value="ruby">النور الياقوتي</option>
-                <option value="olive">الزيتوني الهادئ</option>
+                <option value="default">الافتراضي</option>
+                <option value="ruby">الياقوتي</option>
                 <option value="midnight">الزجاجي الليلي</option>
-                <option value="royal">نور الإمام (ملكي)</option>
-                <option value="blackfrost">الزجاج الأسود المصنفر</option>
-                <option value="persian">المنمنمات الفارسية</option>
-                <option value="manuscript">المخطوطات القديمة</option>
-                <option value="ashura">الحزن العاشورائي</option>
-                <option value="kawthar">الكوثر (سماوي)</option>
+                <option value="royal">ملكي</option>
+                <option value="blackfrost">الزجاج الأسود</option>
+                <option value="persian">المنمنمات</option>
+                <option value="ashura">العاشورائي</option>
             </select>
 
             <label class="block text-slate-400 mb-2">حجم الخط</label>

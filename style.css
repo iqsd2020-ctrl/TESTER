@@ -38,24 +38,6 @@
     --shadow-color: rgba(255, 195, 0, 0.2);
 }
 
-/* 2. ثيم الزيتوني الهادئ (Olive) - فاتح (Neumorphic) */
-[data-theme="olive"] {
-    --bg-body: #EBEBEB; /* خلفية بيضاء كريمية */
-    --bg-card: #EBEBEB; /* Neumorphic Flat */
-    --bg-input: #dcdcdc;
-    --bg-side-menu: #e0e0e0;
-    --text-main: #2F3E46; /* نص داكن */
-    --text-muted: #4B5320;
-    --accent-color: #4B5320; /* زيتوني */
-    --accent-dark: #3a4018;
-    --accent-contrast: #ffffff;
-    --border-color: rgba(75, 83, 32, 0.2);
-    --shadow-color: rgba(0, 0, 0, 0.1);
-    --btn-gradient-start: #4B5320;
-    --btn-gradient-end: #3a4018;
-    /* تعديل خاص للظلال لمحاكاة Neumorphism في البطاقات */
-    --card-box-shadow: 8px 8px 16px #c4c4c4, -8px -8px 16px #ffffff;
-}
 
 /* 3. ثيم الزجاجي الليلي (Midnight Glass) - أزرق وزبرجدي */
 [data-theme="midnight"] {
@@ -122,55 +104,23 @@
     --shadow-color: rgba(0, 188, 212, 0.3);
 }
 
-/* 7. ثيم المخطوطات القديمة (Manuscript) - تراثي */
-[data-theme="manuscript"] {
-    --bg-body: #d4c5a0; /* لون البردي */
-    --bg-card: rgba(245, 235, 215, 0.9);
-    --bg-input: rgba(139, 69, 19, 0.1);
-    --bg-side-menu: #8B4513;
-    --text-main: #3e2723; /* بني محروق */
-    --text-muted: #5d4037;
-    --accent-color: #8B4513;
-    --accent-dark: #5D4037;
-    --accent-contrast: #f5f5dc;
-    --border-color: #8B4513;
-    --btn-gradient-start: #8B4513;
-    --btn-gradient-end: #5D4037;
-    --shadow-color: rgba(62, 39, 35, 0.3);
-}
-
-/* 8. ثيم الحزن العاشورائي (Ashura) */
+/* 8. ثيم الحزن العاشورائي (Ashura) - معدل */
 [data-theme="ashura"] {
     --bg-body: linear-gradient(to bottom, #000000 0%, #1a0505 100%);
     --bg-card: rgba(20, 0, 0, 0.9);
     --bg-input: rgba(50, 0, 0, 0.3);
     --bg-side-menu: #0a0000;
     --text-main: #cfcfcf;
-    --text-muted: #7f1d1d;
-    --accent-color: #ef4444; /* أحمر دموي */
+    --text-muted: #fca5a5; /* تم التعديل: وردي فاتح للقراءة */
+    --accent-color: #ef4444;
     --accent-dark: #991b1b;
-    --border-color: #7f1d1d;
+    --border-color: #b91c1c; /* تم التعديل: أحمر أوضح للحدود */
     --btn-gradient-start: #7f1d1d;
     --btn-gradient-end: #450a0a;
     --shadow-color: rgba(239, 68, 68, 0.2);
 }
 
-/* 9. ثيم الكوثر (Al-Kawthar) - سماوي فاتح */
-[data-theme="kawthar"] {
-    --bg-body: linear-gradient(180deg, #E0F2F1 0%, #B2DFDB 100%);
-    --bg-card: rgba(255, 255, 255, 0.85);
-    --bg-input: #ffffff;
-    --bg-side-menu: #00695C;
-    --text-main: #004D40;
-    --text-muted: #00796B;
-    --accent-color: #009688;
-    --accent-dark: #004D40;
-    --accent-contrast: #ffffff;
-    --border-color: #80CBC4;
-    --btn-gradient-start: #4DB6AC;
-    --btn-gradient-end: #009688;
-    --shadow-color: rgba(0, 150, 136, 0.2);
-}
+
 
 /* تطبيق المتغيرات على العناصر */
 body { 
@@ -224,13 +174,33 @@ select.input-glass {
     background-image: none; /* إزالة السهم الافتراضي لاستبداله */
 }
 
-/* لون الأيقونات والنصوص الملونة */
+
+/* --- إصلاح الألوان والنصوص (استبدل الكود القديم في نهاية الملف بهذا) --- */
+
+/* 1. النصوص العامة تأخذ لون الثيم */
+body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-icon) {
+    color: var(--text-main);
+}
+
+/* 2. استثناء: الألوان المميزة (الذهبي والأصفر) */
 .text-amber-400, .text-amber-500, .text-yellow-400 { color: var(--accent-color) !important; }
+
+/* 3. استثناء: النصوص الفرعية */
 .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500 { color: var(--text-muted) !important; }
-.text-white { color: var(--text-main) !important; }
+
+/* 4. هام جداً: كلاس جديد للنص الأبيض الثابت (للأزرار الملونة) */
+.text-fixed-white { color: #ffffff !important; }
+
+/* 5. الخلفيات والحدود */
 .bg-slate-800, .bg-slate-700, .bg-slate-900 { background-color: var(--bg-input) !important; }
 .border-slate-700, .border-slate-600 { border-color: var(--border-color) !important; }
 .border-amber-500, .border-amber-400 { border-color: var(--accent-color) !important; }
+
+/* 6. تحسين التمرير (Scrollbar) */
+::-webkit-scrollbar { width: 6px; } 
+::-webkit-scrollbar-track { background: var(--bg-input); } 
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
+
 
 .btn-gold-action { 
     width: 100%; 
