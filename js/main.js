@@ -196,6 +196,7 @@ async function loadProfile(uid) {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
             userProfile = snap.data();
+            // تهيئة القيم الافتراضية للبيانات القديمة
             if(!userProfile.badges) userProfile.badges = ['beginner'];
             if(!userProfile.favorites) userProfile.favorites = [];
             if(!userProfile.stats) userProfile.stats = {};
@@ -204,10 +205,23 @@ async function loadProfile(uid) {
             if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
             if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
             if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
+            
+            // --- تهيئة الحقيبة (Inventory) ---
+            if(!userProfile.inventory) {
+                userProfile.inventory = {
+                    lives: 0,
+                    helpers: { fifty: 0, hint: 0, skip: 0 },
+                    themes: ['default']
+                };
+            }
+            if(!userProfile.inventory.themes) userProfile.inventory.themes = ['default'];
+            // -------------------------------
+
         } else {
             userProfile = { 
                 username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
-                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 }
+                seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 },
+                inventory: { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] }
             };
         }
         updateProfileUI();
@@ -238,14 +252,19 @@ function updateProfileUI() {
 
 function navToHome() {
     stopTimer(); 
-     show('top-header');
+    show('top-header');
     if(wisdomInterval) clearInterval(wisdomInterval);
     loadAIWisdom();
     wisdomInterval = setInterval(loadAIWisdom, 7000);
     quizState.active = false;
+    
+    // إخفاء الشاشات الأخرى
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
+    
     initDropdowns();
+    
+    // إعدادات المؤقت
     quizState.timerEnabled = localStorage.getItem('timerEnabled') === 'false' ? false : true;
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
@@ -255,44 +274,109 @@ function navToHome() {
         toggleBtn.classList.remove('text-amber-400');
         toggleBtn.classList.add('text-slate-500');
     }
+
     setTimeout(checkWhatsNew, 1500); 
     checkMarathonStatus();
     initTheme(); 
+
+    // تحديث قائمة الثيمات في الإعدادات بناءً على ما يملكه المستخدم
+    updateThemeSelector();
 }
+
+// دالة مساعدة لتحديث قائمة الثيمات
+function updateThemeSelector() {
+    const select = getEl('theme-selector');
+    if(!select) return;
+    select.innerHTML = ''; // مسح القائمة الحالية
+    
+    const allThemes = {
+        default: 'الافتراضي',
+        ruby: 'الياقوتي',
+        midnight: 'الزجاجي الليلي',
+        royal: 'ملكي',
+        blackfrost: 'الزجاج الأسود',
+        persian: 'المنمنمات',
+        ashura: 'العاشورائي',
+    };
+
+    // إضافة الثيمات المملوكة فقط
+    const owned = userProfile.inventory.themes || ['default'];
+    Object.keys(allThemes).forEach(key => {
+        if(owned.includes(key)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = allThemes[key];
+            select.appendChild(opt);
+        }
+    });
+    
+    // تحديد الثيم الحالي
+    const current = localStorage.getItem('app_theme_v2') || 'default';
+    if(owned.includes(current)) select.value = current;
+    else select.value = 'default';
+}
+
+// --- أضف هذا الكود لإصلاح القوائم المنسدلة ---
+
+function openSelectionModal(mode) {
+    currentSelectionMode = mode;
+    const modal = document.getElementById('selection-modal');
+    const container = document.getElementById('selection-list-container');
+    const title = document.getElementById('selection-title');
+    
+    // تنظيف القائمة القديمة
+    container.innerHTML = '';
+    
+    // فتح النافذة
+    modal.classList.add('active');
+
+    if (mode === 'category') {
+        title.textContent = 'اختر القسم الرئيسي';
+        // إضافة خيار العشوائي
+        renderSelectionItem('🎲 عشوائي شامل', 'random', container);
+        // إضافة الأقسام من ملف data.js
+        Object.keys(topicsData).forEach(key => {
+            renderSelectionItem(key, key, container);
+        });
+
+    } else if (mode === 'topic') {
+        title.textContent = 'اختر الموضوع الفرعي';
+        const selectedCat = document.getElementById('category-select').value;
+        
+        if (!selectedCat || selectedCat === 'random') {
+            container.innerHTML = '<p class="text-center text-slate-400 p-4">لا توجد مواضيع فرعية لهذا الاختيار.</p>';
+        } else {
+            const subs = topicsData[selectedCat];
+            if (subs) {
+                subs.forEach(sub => {
+                    renderSelectionItem(sub, sub, container);
+                });
+            }
+        }
+
+    } else if (mode === 'count') {
+        title.textContent = 'عدد الأسئلة';
+        const counts = [5, 10, 15, 20, 25, 30, 50];
+        counts.forEach(c => {
+            renderSelectionItem(`${c} أسئلة`, c, container);
+        });
+    }
+}
+
 
 function initDropdowns() {
     const btnCat = document.getElementById('btn-category-trigger');
     const btnTop = document.getElementById('btn-topic-trigger');
+    const btnCount = document.getElementById('btn-count-trigger');
+    
     if(btnCat) btnCat.onclick = () => openSelectionModal('category');
     if(btnTop) btnTop.onclick = () => {
         if (!btnTop.disabled) openSelectionModal('topic');
         else toast("يرجى اختيار القسم الرئيسي أولاً", "error");
     };
+    if(btnCount) btnCount.onclick = () => openSelectionModal('count');
 }
 
-function openSelectionModal(mode) {
-    currentSelectionMode = mode;
-    const modal = document.getElementById('selection-modal');
-    const title = document.getElementById('selection-title');
-    const list = document.getElementById('selection-list-container');
-    list.innerHTML = ''; 
-    modal.classList.add('active'); 
-    if (mode === 'category') {
-        title.textContent = "اختر القسم الرئيسي";
-        renderSelectionItem("عشوائي شامل", "random", list);
-        Object.keys(topicsData).forEach(catKey => {
-            renderSelectionItem(catKey, catKey, list);
-        });
-    } else if (mode === 'topic') {
-        title.textContent = "اختر الموضوع الفرعي";
-        const selectedCat = document.getElementById('category-select').value;
-        if (selectedCat && topicsData[selectedCat]) {
-            topicsData[selectedCat].forEach(topic => {
-                renderSelectionItem(topic, topic, list);
-            });
-        }
-    }
-}
 
 function renderSelectionItem(text, value, container) {
     const div = document.createElement('div');
@@ -323,6 +407,9 @@ function handleSelection(text, value) {
     } else if (currentSelectionMode === 'topic') {
         document.getElementById('topic-select').value = value;
         document.getElementById('txt-topic-display').textContent = text;
+    } else if (currentSelectionMode === 'count') {
+        document.getElementById('ai-question-count').value = value;
+        document.getElementById('txt-count-display').textContent = text;
     }
     modal.classList.remove('active');
 }
@@ -433,10 +520,16 @@ bind('review-mistakes-btn', 'click', () => {
 });
 
 bind('quit-quiz-btn', 'click', () => {
-    if(confirm("هل تريد الخروج من الاختبار؟ ستفقد النقاط الحالية.")) {
-        navToHome();
-    }
+    window.showConfirm(
+        "مغادرة المسابقة",
+        "هل تريد الانسحاب؟ سيتم احتساب النقاط الحالية فقط ولن يتم حفظ التقدم في هذه الجولة.",
+        "exit_to_app",
+        () => {
+            navToHome();
+        }
+    );
 });
+
 
 bind('toggle-timer-btn', 'click', () => {
     if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع الماراثون!", "error"); return; }
@@ -529,11 +622,21 @@ function startQuiz() {
     hide('top-header');
     
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
-    quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
+    quizState.history = []; quizState.streak = 0; 
+    
+    // --- منطق دمج القلوب ---
+    // القلوب = 3 (الأساسية) + المخزون
+    const extraLives = (userProfile.inventory && userProfile.inventory.lives) ? userProfile.inventory.lives : 0;
+    quizState.lives = 3 + extraLives;
+    // ----------------------
+
     helpers = { fifty: false, hint: false, skip: false };
     quizState.usedHelpers = false; 
     quizState.fastAnswers = 0; 
     quizState.enrichmentEnabled = true;
+
+    // تصفير عداد الماراثون للثيمات
+    quizState.marathonCorrectStreak = 0; 
 
     if (quizState.mode === 'marathon') {
         quizState.timerEnabled = true; 
@@ -556,6 +659,7 @@ function startQuiz() {
     updateTimerUI(); 
     renderQuestion();
 }
+
 
 function startTimer() {
     stopTimer(); 
@@ -679,6 +783,17 @@ function selectAnswer(idx, btn) {
         if (answerTime <= 5000) { quizState.fastAnswers++; } 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
         quizState.streak++;
+        
+        // --- منطق الماراثون: فتح ثيم بعد 10 إجابات ---
+        if(quizState.mode === 'marathon') {
+            quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
+            if(quizState.marathonCorrectStreak === 10) {
+                unlockRandomThemeReward();
+                quizState.marathonCorrectStreak = 0; // تصفير العداد ليعمل كل 10 أسئلة
+            }
+        }
+        // ------------------------------------------
+
         if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
         const basePoints = 2; 
         let multiplier = 1;
@@ -703,11 +818,12 @@ function selectAnswer(idx, btn) {
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
         
         if(q.explanation && quizState.enrichmentEnabled) {
-    setTimeout(() => showEnrichment(q.explanation), transitionDelay);
-    return; 
+            setTimeout(() => showEnrichment(q.explanation), transitionDelay);
+            return; 
         }
         setTimeout(nextQuestion, transitionDelay);
     } else {
+        quizState.marathonCorrectStreak = 0; // تصفير عداد الماراثون عند الخطأ
         quizState.fastAnswers = 0; 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-incorrect'); }
         if(q.correctAnswer >= 0 && q.correctAnswer < btns.length) {
@@ -718,7 +834,16 @@ function selectAnswer(idx, btn) {
         else if (quizState.streak >= 5) { quizState.streak = 2; } 
         else { quizState.streak = 0; }
         
+        // --- خصم القلوب (المنطق الجديد) ---
+        // إذا كان لدى اللاعب أكثر من 3 قلوب، فهذا يعني أنه يستهلك قلوب الحقيبة
+        if(quizState.lives > 3) {
+            userProfile.inventory.lives = Math.max(0, userProfile.inventory.lives - 1);
+            // تحديث القاعدة فوراً لضمان الخصم
+            updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
+        }
         quizState.lives--;
+        // -------------------------------
+
         renderLives();
         playSound('lose');
         getEl('quiz-proper').classList.add('shake'); setTimeout(()=>getEl('quiz-proper').classList.remove('shake'),500);
@@ -738,6 +863,31 @@ function selectAnswer(idx, btn) {
         setTimeout(nextQuestion, transitionDelay);
     }
 }
+
+// دالة مكافأة الماراثون
+async function unlockRandomThemeReward() {
+    const allThemes = ['ruby', 'midnight', 'royal', 'blackfrost', 'persian', 'ashura'];
+    const owned = userProfile.inventory.themes || [];
+    const available = allThemes.filter(t => !owned.includes(t));
+    
+    if(available.length > 0) {
+        const newTheme = available[Math.floor(Math.random() * available.length)];
+        userProfile.inventory.themes.push(newTheme);
+        await updateDoc(doc(db, "users", effectiveUserId), { "inventory.themes": userProfile.inventory.themes });
+        
+        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} (ماراثون)`, "success");
+        playSound('applause');
+        updateThemeSelector();
+    } else {
+        // إذا كان يملك كل الثيمات، امنحه قلباً هدية
+        userProfile.inventory.lives++;
+        await updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
+        toast("🎉 إنجاز رائع! حصلت على قلب إضافي (ماراثون)", "success");
+        quizState.lives++; // زيادة فورية في اللعبة الحالية
+        renderLives();
+    }
+}
+
 
 bind('helper-report', 'click', async () => {
     const q = quizState.questions[quizState.idx];
@@ -779,12 +929,36 @@ async function endQuiz() {
     const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
     const today = new Date().toISOString().slice(0, 10);
     getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${quizState.correctCount}`;
-getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${quizState.questions.length - quizState.correctCount}`;
+    getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${quizState.questions.length - quizState.correctCount}`;
+    
     let msg = "حاول مرة أخرى";
-    if(accuracy === 100) { msg = "أداء أسطوري! درجة كاملة"; playSound('applause'); launchConfetti(); }
+    if(accuracy === 100) { 
+        msg = "أداء أسطوري! درجة كاملة"; 
+        playSound('applause'); 
+        launchConfetti(); 
+        
+        // --- مكافأة الجولة الكاملة ---
+        // منح جائزة عشوائية (قلب أو مساعدة)
+        const rewards = ['life', 'fifty', 'hint', 'skip'];
+        const rewardType = rewards[Math.floor(Math.random() * rewards.length)];
+        let rewardMsg = "";
+        
+        if(rewardType === 'life') {
+            userProfile.inventory.lives++;
+            rewardMsg = "قلب إضافي ❤️";
+        } else {
+            userProfile.inventory.helpers[rewardType]++;
+            rewardMsg = "وسيلة مساعدة ✨";
+        }
+        
+        toast(`🎁 هدية الأداء الكامل: حصلت على ${rewardMsg}`, "success");
+        // سيتم حفظ المخزون مع التحديث النهائي في الأسفل
+        // -------------------------
+    }
     else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
     getEl('final-message').textContent = msg;
+
     const newHigh = (userProfile.highScore || 0) + quizState.score;
     const stats = userProfile.stats || {};
     if (quizState.fastAnswers >= 10) { stats.fastAnswerCount++; }
@@ -864,12 +1038,15 @@ getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded tex
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(updatedWrongQuestionsBank.length - 15);
     userProfile.seenQuestions = seenArray;
     userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
+    
+    // إضافة تحديث المخزون للقاعدة
     const firestoreUpdates = {
         highScore: newHigh, stats: newStats, wrongQuestionsBank: updatedWrongQuestionsBank, 
         seenQuestions: seenArray, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
         'stats.quizzesPlayed': newStats.quizzesPlayed, 'stats.totalCorrect': newStats.totalCorrect, 'stats.totalQuestions': newStats.totalQuestions,
         'stats.bestRoundScore': newStats.bestRoundScore, 'stats.lastPlayedDates': newStats.lastPlayedDates, 'stats.totalHardQuizzes': newStats.totalHardQuizzes,
-        'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount
+        'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount,
+        inventory: userProfile.inventory // حفظ حالة الحقيبة بعد الجوائز
     };
     Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
     await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
@@ -878,6 +1055,7 @@ getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded tex
     updateProfileUI();
     renderReviewArea();
 }
+
 
 function renderReviewArea() {
     const box = getEl('review-items-container'); 
@@ -909,69 +1087,84 @@ function renderReviewArea() {
 function updateHelpersUI() {
     const btns = ['helper-fifty-fifty', 'helper-hint', 'helper-skip', 'helper-report'];
     btns.forEach(id => getEl(id).disabled = false);
-    getEl('helper-fifty-fifty').classList.toggle('opacity-50', helpers.fifty);
-    getEl('helper-hint').classList.toggle('opacity-50', helpers.hint);
-    getEl('helper-skip').classList.toggle('opacity-50', helpers.skip);
+    
+    // دالة مساعدة لتحديث الزر والشارة
+    const updateBtn = (id, isActive, typeKey) => {
+        const btn = getEl(id);
+        btn.classList.toggle('opacity-50', isActive);
+        
+        // إزالة أي شارة قديمة
+        const oldBadge = btn.querySelector('.count-badge');
+        if(oldBadge) oldBadge.remove();
+
+        // إضافة شارة العدد إذا كان يوجد رصيد في الحقيبة
+        const count = userProfile.inventory.helpers[typeKey] || 0;
+        if(count > 0 && !isActive) {
+            const badge = document.createElement('span');
+            badge.className = 'count-badge';
+            badge.textContent = `x${count}`;
+            btn.style.position = 'relative'; // لضمان ظهور الشارة
+            btn.appendChild(badge);
+        }
+    };
+
+    updateBtn('helper-fifty-fifty', helpers.fifty, 'fifty');
+    updateBtn('helper-hint', helpers.hint, 'hint');
+    updateBtn('helper-skip', helpers.skip, 'skip');
+}
+
+
+// دالة مساعدة لاستخدام وسيلة مساعدة (حقيبة ثم نقاط)
+async function useHelper(type, cost, actionCallback) {
+    if(helpers[type] || !quizState.active) return;
+
+    // 1. محاولة الخصم من الحقيبة أولاً
+    if(userProfile.inventory.helpers[type] > 0) {
+        userProfile.inventory.helpers[type]--;
+        // تنفيذ التغيير فوراً في القاعدة
+        updateDoc(doc(db, "users", effectiveUserId), { [`inventory.helpers.${type}`]: userProfile.inventory.helpers[type] });
+        toast(`تم استخدام ${type} من الحقيبة (مجاناً)`);
+    } 
+    // 2. الخصم من الرصيد العام
+    else {
+        if(quizState.score < cost) { toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error"); return; }
+        quizState.score -= cost;
+        getEl('live-score-text').textContent = quizState.score;
+        toast(`تم خصم ${cost} نقطة`);
+    }
+
+    helpers[type] = true;
+    quizState.usedHelpers = true; 
+    actionCallback(); // تنفيذ تأثير المساعدة
+    updateHelpersUI();
 }
 
 bind('helper-fifty-fifty', 'click', () => {
-    if(helpers.fifty || !quizState.active) return;
-    const cost = 4; 
-    if(quizState.score < cost) { toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error"); return; }
-    quizState.score -= cost;
-    getEl('live-score-text').textContent = quizState.score;
-    helpers.fifty = true;
-    quizState.usedHelpers = true; 
-    const q = quizState.questions[quizState.idx];
-    const opts = document.querySelectorAll('.option-btn');
-    let removed = 0;
-    [0,1,2,3].sort(()=>Math.random()-0.5).forEach(i => { 
-        if(i !== q.correctAnswer && removed < 2) { opts[i].classList.add('option-hidden'); removed++; } 
+    useHelper('fifty', 4, () => {
+        const q = quizState.questions[quizState.idx];
+        const opts = document.querySelectorAll('.option-btn');
+        let removed = 0;
+        [0,1,2,3].sort(()=>Math.random()-0.5).forEach(i => { 
+            if(i !== q.correctAnswer && removed < 2) { opts[i].classList.add('option-hidden'); removed++; } 
+        });
     });
-    updateHelpersUI();
-    toast(`تم خصم ${cost} نقطة (50/50)`, "info");
 });
 
 bind('helper-hint', 'click', () => {
-    if(helpers.hint || !quizState.active) return;
-    const cost = 3;
-    if(quizState.score < cost) { toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error"); return; }
-    quizState.score -= cost;
-    getEl('live-score-text').textContent = quizState.score;
-    helpers.hint = true;
-    quizState.usedHelpers = true; 
-    const q = quizState.questions[quizState.idx];
-    const opts = document.querySelectorAll('.option-btn');
-    let removed = 0;
-    [0,1,2,3].forEach(i => { 
-        if(i !== q.correctAnswer && removed < 1) { opts[i].classList.add('option-hidden'); removed++; } 
+    useHelper('hint', 3, () => {
+        const q = quizState.questions[quizState.idx];
+        const opts = document.querySelectorAll('.option-btn');
+        let removed = 0;
+        [0,1,2,3].forEach(i => { 
+            if(i !== q.correctAnswer && removed < 1) { opts[i].classList.add('option-hidden'); removed++; } 
+        });
     });
-    updateHelpersUI();
-    toast(`تم خصم ${cost} نقطة (تلميح)`, "info");
-});
-
-bind('toggle-enrichment-btn', 'click', () => {
-    quizState.enrichmentEnabled = !quizState.enrichmentEnabled;
-    updateEnrichmentUI();
-    
-    if(quizState.enrichmentEnabled) {
-        toast("تم تفعيل المعلومات الإثرائية");
-    } else {
-        toast("تم إيقاف المعلومات الإثرائية");
-    }
 });
 
 bind('helper-skip', 'click', () => {
-    if(helpers.skip || !quizState.active) return; 
-    const cost = 1;
-    if(quizState.score < cost) { toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error"); return; }
-    quizState.score -= cost;
-    getEl('live-score-text').textContent = quizState.score;
-    helpers.skip = true; 
-    quizState.usedHelpers = true; 
-    updateHelpersUI(); 
-    toast(`تم خصم ${cost} نقطة (تخطي)`, "info");
-    nextQuestion();
+    useHelper('skip', 1, () => {
+        nextQuestion();
+    });
 });
 
 bind('action-fav', 'click', async () => {
@@ -1109,16 +1302,35 @@ bind('nav-settings', 'click', () => openModal('settings-modal'));
 bind('font-size-slider', 'input', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
 bind('delay-slider', 'input', (e) => { const v = e.target.value; transitionDelay = v * 1000; getEl('delay-val').textContent = v; });
 
+
 const handleLogout = () => { 
-    if(confirm("هل تريد تسجيل الخروج؟")) {
-        localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
-        location.reload(); 
-    }
+    window.showConfirm(
+        "تسجيل الخروج",
+        "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
+        "logout",
+        () => {
+            localStorage.removeItem('ahlulbaytQuiz_UserId_v2.7'); 
+            location.reload(); 
+        }
+    );
 };
+
+
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
 
-bind('clear-cache-btn', 'click', () => { if(confirm('هل أنت متأكد؟ سيتم تسجيل الخروج ومسح البيانات المحلية.')) { localStorage.clear(); location.reload(); } });
+bind('clear-cache-btn', 'click', () => { 
+    window.showConfirm(
+        "مسح البيانات",
+        "هل أنت متأكد؟ سيتم حذف البيانات المحفوظة محلياً وتسجيل الخروج. لن يتم حذف حسابك من السيرفر.",
+        "delete_forever",
+        () => {
+            localStorage.clear(); 
+            location.reload(); 
+        }
+    );
+});
+
 bind('nav-about', 'click', () => openModal('about-modal'));
 
 bind('user-profile-btn', 'click', () => {
@@ -1177,6 +1389,166 @@ bind('delete-custom-avatar', 'click', () => {
 });
 
 bind('restart-button', 'click', navToHome);
+// --- دوال الحقيبة والمتجر ---
+
+function openBag() {
+    toggleMenu(false); 
+    openModal('bag-modal');
+    renderBag();
+}
+
+function renderBag() {
+    // تحديث الرصيد
+    getEl('bag-user-score').textContent = userProfile.highScore;
+    
+    // تحديث أرقام المقتنيات
+    const inv = userProfile.inventory;
+    getEl('inv-lives-count').textContent = inv.lives || 0;
+    getEl('inv-fifty-count').textContent = inv.helpers.fifty || 0;
+    getEl('inv-hint-count').textContent = inv.helpers.hint || 0;
+    getEl('inv-skip-count').textContent = inv.helpers.skip || 0;
+
+    // تحديث قائمة الثيمات المملوكة في تبويب المقتنيات
+    const themesList = getEl('inv-themes-list');
+    themesList.innerHTML = '';
+    const themesNames = {
+        default: 'الافتراضي', ruby: 'الياقوتي', midnight: 'الزجاجي الليلي',
+        royal: 'ملكي', blackfrost: 'الزجاج الأسود', persian: 'المنمنمات', ashura: 'العاشورائي',
+    };
+    
+    (inv.themes || ['default']).forEach(t => {
+        const span = document.createElement('span');
+        span.className = "text-xs bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-600";
+        span.textContent = themesNames[t] || t;
+        themesList.appendChild(span);
+    });
+
+    // تحديث متجر الثيمات (إظهار القفل)
+    const shopList = getEl('shop-themes-list');
+    shopList.innerHTML = '';
+    Object.keys(themesNames).forEach(key => {
+        if(key === 'default') return; // الافتراضي لا يباع
+        const isOwned = inv.themes.includes(key);
+        const btn = document.createElement('button');
+        // تنسيق الزر بناء على الملكية
+        btn.className = `p-3 rounded-xl border border-slate-600 text-center relative transition hover:border-amber-400 ${isOwned ? 'shop-item-owned' : 'shop-item-locked'}`;
+        
+        btn.innerHTML = `
+            <div class="h-12 w-full bg-slate-900 rounded mb-2 border border-slate-700 overflow-hidden" data-theme-preview="${key}"></div>
+            <p class="text-white text-sm font-bold">${themesNames[key]}</p>
+        `;
+        
+        if(!isOwned) {
+            btn.onclick = () => window.buyShopItem('theme', 500, key);
+        }
+        shopList.appendChild(btn);
+    });
+}
+
+// دالة التبديل بين التبويبات
+function switchBagTab(tab) {
+    const tInv = getEl('tab-inventory');
+    const tShop = getEl('tab-shop');
+    const vInv = getEl('inventory-view');
+    const vShop = getEl('shop-view');
+
+    if(tab === 'inventory') {
+        tInv.classList.add('bg-amber-500', 'text-black'); tInv.classList.remove('bg-slate-700', 'text-slate-300');
+        tShop.classList.remove('bg-amber-500', 'text-black'); tShop.classList.add('bg-slate-700', 'text-slate-300');
+        show('inventory-view'); hide('shop-view');
+    } else {
+        tShop.classList.add('bg-amber-500', 'text-black'); tShop.classList.remove('bg-slate-700', 'text-slate-300');
+        tInv.classList.remove('bg-amber-500', 'text-black'); tInv.classList.add('bg-slate-700', 'text-slate-300');
+        hide('inventory-view'); show('shop-view');
+    }
+}
+
+// دالة الشراء العالمية
+window.buyShopItem = async function(type, cost, id=null) {
+    if(userProfile.highScore < cost) {
+        toast("رصيدك غير كافٍ!", "error");
+        playSound('lose');
+        return;
+    }
+
+    // استخدام نافذة التأكيد الجديدة
+    window.showConfirm(
+        "تأكيد الشراء", 
+        `هل تريد دفع ${cost} نقطة لإتمام العملية؟`, 
+        "shopping_cart", 
+        async () => {
+            // خصم النقاط
+            userProfile.highScore -= cost;
+            
+            // إضافة العنصر
+            if(type === 'theme') {
+                userProfile.inventory.themes.push(id);
+                toast(`تم شراء ثيم: ${id}`);
+            } else if(type === 'life') {
+                userProfile.inventory.lives++;
+                toast("تم شراء قلب إضافي ❤️");
+            } else if(type === 'fifty') {
+                userProfile.inventory.helpers.fifty++;
+                toast("تم شراء مساعدة 50/50");
+            } else if(type === 'hint') {
+                userProfile.inventory.helpers.hint++;
+                toast("تم شراء تلميح 💡");
+            } else if(type === 'skip') {
+                userProfile.inventory.helpers.skip++;
+                toast("تم شراء تخطي ⏭️");
+            }
+
+            // حفظ في قاعدة البيانات
+            try {
+                await updateDoc(doc(db, "users", effectiveUserId), {
+                    highScore: userProfile.highScore,
+                    inventory: userProfile.inventory
+                });
+                playSound('win');
+                renderBag(); // تحديث الواجهة
+                updateProfileUI(); // تحديث الرصيد في الهيدر
+                updateThemeSelector(); // تحديث قائمة الثيمات في الإعدادات
+            } catch(e) {
+                console.error(e);
+                toast("خطأ في الاتصال", "error");
+            }
+        }
+    );
+};
+
+
+// ربط أزرار الحقيبة
+bind('nav-bag', 'click', openBag);
+bind('tab-inventory', 'click', () => switchBagTab('inventory'));
+bind('tab-shop', 'click', () => switchBagTab('shop'));
+
+// دالة التأكيد الموحدة
+window.showConfirm = function(title, msg, icon, yesCallback) {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('confirm-icon').textContent = icon || 'help';
+
+    // استنساخ الأزرار لإزالة الأحداث السابقة (لتجنب التكرار)
+    const yesBtn = document.getElementById('btn-confirm-yes');
+    const newYesBtn = yesBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+
+    const noBtn = document.getElementById('btn-confirm-no');
+    const newNoBtn = noBtn.cloneNode(true);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+
+    newYesBtn.onclick = () => {
+        modal.classList.remove('active');
+        if(yesCallback) yesCallback();
+    };
+    newNoBtn.onclick = () => {
+        modal.classList.remove('active');
+    };
+
+    modal.classList.add('active');
+};
+
 
 function bind(id, ev, fn) { const el = getEl(id); if(el) el.addEventListener(ev, fn); }
 function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
