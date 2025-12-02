@@ -23,10 +23,10 @@ const initialTimerState = localStorage.getItem('timerEnabled') === 'false' ? fal
 
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
-    difficulty: 'موحد', history: [], contextTopic: '', streak: 0,
-    timerEnabled: initialTimerState, usedHelpers: false, fastAnswers: 0,
-    enrichmentEnabled: true,
-    lives: 3
+    lives: 3,
+    mode: 'standard',
+    history: [], streak: 0, usedHelpers: false, fastAnswers: 0, enrichmentEnabled: true,
+    startTime: 0, difficulty: 'موحد', contextTopic: ''
 };
 let helpers = { fifty: false, hint: false, skip: false };
 let transitionDelay = 2000;
@@ -34,7 +34,45 @@ let isMuted = false;
 let timerInterval = null;
 let audioContext = null; 
 let wisdomInterval = null;
+let marathonInterval = null;
 let currentSelectionMode = null; 
+
+// --- Theme Logic ---
+const themes = {
+    default: 'الولاء (الافتراضي)',
+    ruby: 'النور الياقوتي',
+    olive: 'الزيتوني الهادئ',
+    midnight: 'الزجاجي الليلي',
+    royal: 'نور الإمام',
+    blackfrost: 'الزجاج الأسود',
+    persian: 'المنمنمات الفارسية',
+    manuscript: 'المخطوطات القديمة',
+    ashura: 'الحزن العاشورائي',
+    kawthar: 'الكوثر'
+};
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('app_theme_v2') || 'default';
+    applyTheme(savedTheme);
+    const select = document.getElementById('theme-selector');
+    if(select) {
+        select.value = savedTheme;
+        select.onchange = (e) => {
+            const newTheme = e.target.value;
+            applyTheme(newTheme);
+            localStorage.setItem('app_theme_v2', newTheme);
+            toast(`تم تغيير الثيم إلى: ${themes[newTheme]}`);
+        };
+    }
+}
+
+function applyTheme(themeName) {
+    if (themeName === 'default') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', themeName);
+    }
+}
 
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
@@ -210,6 +248,7 @@ function navToHome() {
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     initDropdowns();
+    quizState.timerEnabled = localStorage.getItem('timerEnabled') === 'false' ? false : true;
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
         toggleBtn.classList.add('text-amber-400');
@@ -217,12 +256,11 @@ function navToHome() {
     } else {
         toggleBtn.classList.remove('text-amber-400');
         toggleBtn.classList.add('text-slate-500');
-        // هنا كان السطر، وسنقوم بنقله إلى الأسفل
     }
-    // ============== أضف السطر هنا ================
-    setTimeout(checkWhatsNew, 1500); // <--- تأكد من وجوده في نهاية الدالة
+    setTimeout(checkWhatsNew, 1500); 
+    checkMarathonStatus();
+    initTheme(); 
 }
-
 
 function initDropdowns() {
     const btnCat = document.getElementById('btn-category-trigger');
@@ -328,6 +366,7 @@ bind('ai-generate-btn', 'click', async () => {
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
     quizState.difficulty = 'موحد';
+    quizState.mode = 'standard';
     const topicValue = getEl('topic-select').value;
     let topic = cat === 'random' || !cat ? "عام" : (topicValue || cat); 
     quizState.contextTopic = topic;
@@ -387,6 +426,7 @@ bind('ai-generate-btn', 'click', async () => {
 bind('review-mistakes-btn', 'click', () => {
     if(userProfile.wrongQuestionsBank.length === 0) return;
     quizState.contextTopic = "مراجعة الأخطاء";
+    quizState.mode = 'standard';
     quizState.difficulty = "موحد"; 
     const qs = [...userProfile.wrongQuestionsBank];
     shuffleArray(qs);
@@ -401,6 +441,7 @@ bind('quit-quiz-btn', 'click', () => {
 });
 
 bind('toggle-timer-btn', 'click', () => {
+    if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع الماراثون!", "error"); return; }
     quizState.timerEnabled = !quizState.timerEnabled;
     localStorage.setItem('timerEnabled', quizState.timerEnabled); 
     updateTimerUI();
@@ -432,18 +473,84 @@ function renderLives() {
     `;
 }
 
+async function startMarathon() {
+    const btn = getEl('btn-marathon-confirm');
+    
+    if (userProfile.lastMarathonDate) {
+        const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
+        const now = Date.now();
+        const diff = now - lastPlayed;
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        
+        if (diff < twentyFourHours) {
+            toast("⛔️ لا يمكنك لعب الماراثون إلا مرة واحدة كل 24 ساعة.", "error");
+            getEl('marathon-rules-modal').classList.remove('active');
+            checkMarathonStatus();
+            return;
+        }
+    }
+
+    btn.disabled = true; btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التحقق...`;
+
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            lastMarathonDate: serverTimestamp()
+        });
+        
+        userProfile.lastMarathonDate = { toMillis: () => Date.now() };
+
+        let qQuery = query(collection(db, "questions"), where("isReviewed", "==", true));
+        const snap = await getDocs(qQuery);
+        let qs = [];
+        snap.forEach(d => qs.push({ id: d.id, ...d.data() }));
+
+        if (qs.length < 10) {
+            toast("لا توجد أسئلة كافية لبدء الماراثون.", "error");
+            throw new Error("Not enough questions");
+        }
+
+        shuffleArray(qs); 
+        quizState.questions = qs.slice(0, Math.min(qs.length, 500)); 
+
+        quizState.mode = 'marathon'; 
+        quizState.contextTopic = "تحدي الماراثون";
+
+        getEl('marathon-rules-modal').classList.remove('active'); 
+        startQuiz();
+
+    } catch(e) {
+        console.error(e);
+        toast("حدث خطأ أثناء الاتصال بالسيرفر", "error");
+    } finally {
+        btn.disabled = false; btn.innerHTML = `بدء التحدي الآن!`;
+    }
+}
+
 function startQuiz() {
     if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
     hide('top-header');
+    
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; quizState.lives = 3; 
-    quizState.timerEnabled = false;
-    quizState.enrichmentEnabled = true;
     helpers = { fifty: false, hint: false, skip: false };
     quizState.usedHelpers = false; 
     quizState.fastAnswers = 0; 
+    quizState.enrichmentEnabled = true;
+
+    if (quizState.mode === 'marathon') {
+        quizState.timerEnabled = true; 
+    } else {
+         const initialTimerState = localStorage.getItem('timerEnabled') === 'false' ? false : true;
+         quizState.timerEnabled = initialTimerState;
+    }
+
     hide('welcome-area'); show('quiz-proper');
     getEl('quiz-topic-display').textContent = quizState.contextTopic || 'مسابقة متنوعة';
+    
+    getEl('ai-question-count').disabled = false;
+    getEl('ai-generate-btn').disabled = false;
+    getEl('btn-marathon-start').disabled = false;
+    
     updateHelpersUI();
     updateStreakUI();
     updateEnrichmentUI(); 
@@ -485,15 +592,23 @@ function renderQuestion() {
     quizState.active = true; 
     const q = quizState.questions[quizState.idx];
     getEl('question-text').textContent = q.question;
-    getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
-    getEl('live-score-text').textContent = quizState.score;
-    const dots = getEl('progress-dots'); dots.innerHTML = '';
-    for(let i=0; i<quizState.questions.length; i++) {
-        let cls = "w-2 h-2 rounded-full bg-slate-700";
-        if(i < quizState.idx) cls = "w-2 h-2 rounded-full bg-amber-500";
-        else if(i === quizState.idx) cls = "w-2 h-2 rounded-full bg-white scale-125";
-        dots.innerHTML += `<div class="${cls}"></div>`;
+    
+    if (quizState.mode === 'marathon') {
+        getEl('question-counter-text').textContent = `${quizState.idx+1}`;
+        const dots = getEl('progress-dots'); 
+        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">♾️ وضع الماراثون</span>';
+    } else {
+        getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
+        const dots = getEl('progress-dots'); dots.innerHTML = '';
+        for(let i=0; i<quizState.questions.length; i++) {
+            let cls = "w-2 h-2 rounded-full bg-slate-700";
+            if(i < quizState.idx) cls = "w-2 h-2 rounded-full bg-amber-500";
+            else if(i === quizState.idx) cls = "w-2 h-2 rounded-full bg-white scale-125";
+            dots.innerHTML += `<div class="${cls}"></div>`;
+        }
     }
+
+    getEl('live-score-text').textContent = quizState.score;
     const box = getEl('options-container'); box.innerHTML = '';
     q.options.forEach((o, i) => {
         const btn = document.createElement('button');
@@ -588,9 +703,10 @@ function selectAnswer(idx, btn) {
         }
         getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${pointsAdded})</span> <span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>`;
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
-        if(q.explanation && quizState.enrichmentEnabled && Math.random() > -1) {
-            setTimeout(() => showEnrichment(q.explanation), transitionDelay);
-            return; 
+        
+        if(q.explanation && quizState.enrichmentEnabled) {
+    setTimeout(() => showEnrichment(q.explanation), transitionDelay);
+    return; 
         }
         setTimeout(nextQuestion, transitionDelay);
     } else {
@@ -1085,6 +1201,15 @@ bind('register-btn', 'click', handleReg);
 bind('show-register-btn', 'click', () => { hide('login-view'); show('register-view'); getEl('login-error-message').textContent=''; });
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
 
+bind('btn-marathon-start', 'click', () => { 
+    document.getElementById('marathon-rules-modal').classList.add('active'); 
+    getEl('ai-question-count').disabled = true;
+    getEl('ai-generate-btn').disabled = true;
+    getEl('btn-marathon-start').disabled = true;
+});
+
+bind('btn-marathon-confirm', 'click', startMarathon);
+
 function showReviveModal() {
     let modal = document.getElementById('revive-modal');
     if (!modal) {
@@ -1159,46 +1284,86 @@ window.cancelRevive = function() {
     endQuiz();
 };
 
-// ==========================================
-//  نظام رسائل المطور (What's New) 📢
-// ==========================================
+
+function checkMarathonStatus() {
+    const btn = getEl('btn-marathon-start');
+    if (marathonInterval) clearInterval(marathonInterval);
+
+    if (!userProfile || !userProfile.lastMarathonDate) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = `<span class="text-lg">تحدي الماراثون</span> <span class="material-symbols-rounded">directions_run</span>`;
+        return;
+    }
+
+    const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const diff = now - lastPlayed;
+
+    if (diff < twentyFourHours) {
+        btn.disabled = true;
+        btn.classList.add('cursor-not-allowed');
+        
+        const updateTimer = () => {
+            const currentNow = Date.now();
+            const timeLeft = twentyFourHours - (currentNow - lastPlayed);
+            
+            if (timeLeft <= 0) {
+                clearInterval(marathonInterval);
+                checkMarathonStatus();
+                return;
+            }
+
+            const h = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+            btn.innerHTML = `
+                <span class="text-lg font-mono font-bold text-black" dir="ltr">
+                    ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}
+                </span> 
+                <span class="material-symbols-rounded text-black">lock_clock</span>
+            `;
+        };
+
+        updateTimer();
+        marathonInterval = setInterval(updateTimer, 1000);
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('cursor-not-allowed');
+        btn.innerHTML = `<span class="text-lg">تحدي الماراثون</span> <span class="material-symbols-rounded">directions_run</span>`;
+    }
+}
+
 async function checkWhatsNew() {
     try {
-        // 1. الاتصال بقاعدة البيانات لجلب الرسالة
         const docRef = doc(db, "system", "whats_new");
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
             const data = docSnap.data();
 
-            // 2. التحقق مما إذا كانت الرسالة مفعلة وبها نص
             if (!data.isActive || !data.message) return;
 
-            // 3. مقارنة التوقيت: هل هذه الرسالة جديدة بالنسبة للمستخدم؟
-            // نستخدم وقت التحديث (updatedAt) كمعرف فريد للرسالة
             const serverTime = data.updatedAt ? data.updatedAt.toMillis() : 0;
             const localTime = parseInt(localStorage.getItem('last_seen_news_time') || '0');
 
-            // إذا كان وقت الرسالة في السيرفر أحدث من الوقت المخزن محلياً
             if (serverTime > localTime) {
-                // عرض الرسالة
                 const contentEl = getEl('news-content');
-                // تحويل فواصل الأسطر لتعمل في HTML (احتياطاً، رغم استخدام whitespace-pre-line)
                 contentEl.textContent = data.message; 
                 
                 const modal = getEl('news-modal');
                 modal.classList.add('active');
 
-                // عند ضغط زر الإغلاق، نقوم بحفظ التوقيت الجديد حتى لا تظهر مرة أخرى
                 getEl('close-news-btn').onclick = () => {
                     localStorage.setItem('last_seen_news_time', serverTime);
                     modal.classList.remove('active');
-                    // تشغيل صوت بسيط عند الإغلاق
                     playSound('win'); 
                 };
             }
         }
-    } catch (e) {
+      } catch (e) {
         console.error("News fetch error:", e);
     }
 }
