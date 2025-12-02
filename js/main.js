@@ -29,6 +29,7 @@ let quizState = {
     startTime: 0, difficulty: 'موحد', contextTopic: ''
 };
 let helpers = { fifty: false, hint: false, skip: false };
+const ENRICHMENT_FREQUENCY = 0;
 let transitionDelay = 2000;
 let isMuted = false;
 let timerInterval = null;
@@ -39,16 +40,13 @@ let currentSelectionMode = null;
 
 // --- Theme Logic ---
 const themes = {
-    default: 'الولاء (الافتراضي)',
-    ruby: 'النور الياقوتي',
-    olive: 'الزيتوني الهادئ',
+    default: 'الافتراضي',
+    ruby: 'الياقوتي',
     midnight: 'الزجاجي الليلي',
-    royal: 'نور الإمام',
+    royal: 'ملكي',
     blackfrost: 'الزجاج الأسود',
-    persian: 'المنمنمات الفارسية',
-    manuscript: 'المخطوطات القديمة',
-    ashura: 'الحزن العاشورائي',
-    kawthar: 'الكوثر'
+    persian: 'المنمنمات',
+    ashura: 'العاشورائي',
 };
 
 function initTheme() {
