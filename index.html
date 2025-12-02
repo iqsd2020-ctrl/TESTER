@@ -38,7 +38,8 @@
     <div id="side-menu">
         <div class="p-6 border-b border-slate-700 text-center"><h2 class="text-xl font-bold text-amber-400 font-heading">القائمة</h2></div>
         <div class="flex-grow overflow-y-auto p-2">
-            <div class="menu-item" id="nav-home"><span class="material-symbols-rounded text-amber-500">home</span> الرئيسية</div>
+            
+            <div class="menu-item" id="nav-bag"><span class="material-symbols-rounded text-amber-500">inventory_2</span> حقيبتي</div>
             <div class="menu-item" id="nav-badges"><span class="material-symbols-rounded text-purple-400">military_tech</span> الأوسمة</div>
             <div class="menu-item" id="nav-leaderboard"><span class="material-symbols-rounded text-yellow-400">trophy</span> المتصدرون</div>
             <div class="menu-item" id="nav-favs"><span class="material-symbols-rounded text-red-400">favorite</span> المفضلة</div>
@@ -115,8 +116,16 @@
                     <input type="hidden" id="topic-select" value="">
                 </div>
                             <div class="flex gap-2">
-                <select id="ai-question-count" class="input-glass text-center w-1/2 font-body"><option value="5">5 أسئلة</option><option value="10" selected>10 أسئلة</option><option value="15">15 سؤال</option></select>
+                                <div class="relative w-1/2">
+                    <button id="btn-count-trigger" class="custom-select-trigger h-full justify-center gap-2">
+                        <span id="txt-count-display">10 أسئلة</span>
+                        <span class="material-symbols-rounded trigger-icon text-sm">expand_more</span>
+                    </button>
+                    <input type="hidden" id="ai-question-count" value="10">
+                </div>
 
+                
+                
                 <button id="btn-marathon-start" class="w-1/2 input-glass btn-marathon-silver btn-marathon-silver-anim">
                     <span class="text-lg">تحدي الماراثون</span> 
                     <span class="material-symbols-rounded">directions_run</span>
@@ -386,7 +395,88 @@
             <div id="selection-list-container" class="flex flex-col"></div>
         </div>
     </div>
+<div id="bag-modal" class="modal-overlay">
+    <div class="modal-box border-2 border-amber-500/50 bg-[#0f172a]">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+            <h3 class="text-xl font-bold text-amber-400 font-heading">حقيبتي والمتجر</h3>
+            <button class="close-modal text-slate-400 hover:text-white">✕</button>
+        </div>
+        
+        <div class="bg-slate-800/50 p-3 rounded-xl mb-4 flex justify-between items-center border border-slate-700">
+            <span class="text-slate-400 text-sm">رصيدك:</span>
+            <span class="text-amber-400 font-bold text-xl font-heading flex items-center gap-1">
+                <span id="bag-user-score">0</span> <span class="material-symbols-rounded text-sm">monetization_on</span>
+            </span>
+        </div>
 
+        <div class="flex gap-2 mb-4">
+            <button id="tab-inventory" class="flex-1 py-2 rounded-lg bg-amber-500 text-black font-bold text-sm transition">مقتنياتي</button>
+            <button id="tab-shop" class="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 font-bold text-sm hover:bg-slate-600 transition">المتجر</button>
+        </div>
+
+        <div id="inventory-view" class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 bg-red-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-red-500">favorite</span></div>
+                    <p class="text-slate-400 text-xs mt-2">قلوب إضافية</p>
+                    <p id="inv-lives-count" class="text-2xl font-bold text-white mt-1">0</p>
+                </div>
+                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 bg-blue-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-blue-400">percent</span></div>
+                    <p class="text-slate-400 text-xs mt-2">50/50</p>
+                    <p id="inv-fifty-count" class="text-2xl font-bold text-white mt-1">0</p>
+                </div>
+                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 bg-yellow-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-yellow-400">lightbulb</span></div>
+                    <p class="text-slate-400 text-xs mt-2">تلميحات</p>
+                    <p id="inv-hint-count" class="text-2xl font-bold text-white mt-1">0</p>
+                </div>
+                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 bg-green-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-green-400">skip_next</span></div>
+                    <p class="text-slate-400 text-xs mt-2">تخطي</p>
+                    <p id="inv-skip-count" class="text-2xl font-bold text-white mt-1">0</p>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-sm text-slate-400 mb-2 border-b border-slate-700 pb-1">الثيمات المملوكة</h4>
+                <div id="inv-themes-list" class="flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+
+        <div id="shop-view" class="hidden space-y-6">
+            <div>
+                <h4 class="text-amber-400 text-sm font-bold mb-3 flex items-center gap-1"><span class="material-symbols-rounded">medical_services</span> المساعدات والقلوب</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="window.buyShopItem('life', 100)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-red-500 transition text-center relative">
+                         <span class="material-symbols-rounded text-red-500 text-2xl mb-1">favorite</span>
+                         <p class="text-white text-sm font-bold">قلب إضافي</p>
+                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">100 نقطة</span>
+                    </button>
+                    <button onclick="window.buyShopItem('fifty', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-blue-500 transition text-center relative">
+                         <span class="material-symbols-rounded text-blue-400 text-2xl mb-1">percent</span>
+                         <p class="text-white text-sm font-bold">50/50</p>
+                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
+                    </button>
+                    <button onclick="window.buyShopItem('hint', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-yellow-400 transition text-center relative">
+                         <span class="material-symbols-rounded text-yellow-400 text-2xl mb-1">lightbulb</span>
+                         <p class="text-white text-sm font-bold">تلميح</p>
+                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
+                    </button>
+                    <button onclick="window.buyShopItem('skip', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-green-400 transition text-center relative">
+                         <span class="material-symbols-rounded text-green-400 text-2xl mb-1">skip_next</span>
+                         <p class="text-white text-sm font-bold">تخطي</p>
+                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
+                    </button>
+                </div>
+            </div>
+
+                <div>
+                       <h4 class="text-amber-400 text-sm font-bold mb-3 flex items-center gap-1"><span class="material-symbols-rounded">palette</span> الثيمات (500 نقطة)</h4>
+                     <div id="shop-themes-list" class="grid grid-cols-2 gap-3"></div>
+              </div>
+          </div>
+      </div>
+</div>
     <div id="toast-notification" class="hidden"></div>
     <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50"></canvas>
 
@@ -417,5 +507,19 @@
 
 
     <script type="module" src="js/main.js?v=1.2"></script>
+        <div id="confirm-modal" class="modal-overlay z-[90]">
+        <div class="modal-box border-2 border-amber-500/50 text-center bg-[#0f172a]">
+            <div class="mb-4 flex justify-center">
+                <span id="confirm-icon" class="material-symbols-rounded text-5xl text-amber-400 animate-bounce">help</span>
+            </div>
+            <h3 id="confirm-title" class="text-2xl font-bold text-white mb-2 font-heading">تأكيد الإجراء</h3>
+            <p id="confirm-msg" class="text-slate-300 text-sm mb-6 leading-relaxed">...</p>
+            <div class="flex gap-3 justify-center">
+                <button id="btn-confirm-yes" class="btn-gold-action w-1/2 py-2 text-sm">نعم، متأكد</button>
+                <button id="btn-confirm-no" class="bg-slate-700 text-white w-1/2 rounded-xl border border-slate-600 hover:bg-slate-600 transition font-heading">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
