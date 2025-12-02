@@ -784,24 +784,25 @@ function selectAnswer(idx, btn) {
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
         quizState.streak++;
         
-        // --- منطق الماراثون: فتح ثيم بعد 10 إجابات ---
         if(quizState.mode === 'marathon') {
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
             if(quizState.marathonCorrectStreak === 10) {
                 unlockRandomThemeReward();
-                quizState.marathonCorrectStreak = 0; // تصفير العداد ليعمل كل 10 أسئلة
+                quizState.marathonCorrectStreak = 0; 
             }
         }
-        // ------------------------------------------
 
         if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
-        const basePoints = 2; 
+                const basePoints = 1; 
         let multiplier = 1;
         let multiplierText = "";
-        if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 ⚡️"; } 
-        else if (quizState.streak >= 10) { multiplier = 3; multiplierText = "x3 🔥"; } 
-        else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2 🚀"; } 
-        else if (quizState.streak >= 3) { multiplier = 1.5; multiplierText = "x1.5"; }
+
+        if (quizState.streak >= 15) { multiplier = 12; multiplierText = "x12 ⚡️"; }
+        else if (quizState.streak >= 12) { multiplier = 10; multiplierText = "x10 🔥"; }
+        else if (quizState.streak >= 9) { multiplier = 9; multiplierText = "x9 🔥"; }
+        else if (quizState.streak >= 6) { multiplier = 6; multiplierText = "x6 🚀"; }
+        else if (quizState.streak >= 3) { multiplier = 2; multiplierText = "x2"; }
+
         let pointsAdded = Math.floor(basePoints * multiplier);
         quizState.score += pointsAdded; 
         quizState.correctCount++;
@@ -823,7 +824,7 @@ function selectAnswer(idx, btn) {
         }
         setTimeout(nextQuestion, transitionDelay);
     } else {
-        quizState.marathonCorrectStreak = 0; // تصفير عداد الماراثون عند الخطأ
+        quizState.marathonCorrectStreak = 0; 
         quizState.fastAnswers = 0; 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-incorrect'); }
         if(q.correctAnswer >= 0 && q.correctAnswer < btns.length) {
@@ -834,15 +835,48 @@ function selectAnswer(idx, btn) {
         else if (quizState.streak >= 5) { quizState.streak = 2; } 
         else { quizState.streak = 0; }
         
-        // --- خصم القلوب (المنطق الجديد) ---
-        // إذا كان لدى اللاعب أكثر من 3 قلوب، فهذا يعني أنه يستهلك قلوب الحقيبة
         if(quizState.lives > 3) {
             userProfile.inventory.lives = Math.max(0, userProfile.inventory.lives - 1);
-            // تحديث القاعدة فوراً لضمان الخصم
             updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
         }
         quizState.lives--;
-        // -------------------------------
+
+        // --- منطق الخصم الجديد: من الجولة أولاً ثم من الرصيد العام ---
+        const deductionTarget = 2;
+        let deductedFromRound = 0;
+        let deductedFromBalance = 0;
+
+        // 1. محاولة الخصم من نقاط الجولة الحالية
+        if (quizState.score >= deductionTarget) {
+            quizState.score -= deductionTarget;
+            deductedFromRound = deductionTarget;
+        } else {
+            // خصم كل ما في الجولة
+            deductedFromRound = quizState.score;
+            quizState.score = 0;
+            
+            // حساب المتبقي للخصم من الرصيد العام
+            const remainingToDeduct = deductionTarget - deductedFromRound;
+
+            // 2. الخصم من الرصيد العام (highScore)
+            if (userProfile.highScore >= remainingToDeduct) {
+                userProfile.highScore -= remainingToDeduct;
+                deductedFromBalance = remainingToDeduct;
+            } else {
+                // إذا لم يكفِ الرصيد العام، نخصم ما تبقى فيه فقط
+                deductedFromBalance = userProfile.highScore;
+                userProfile.highScore = 0;
+            }
+
+            // تحديث الرصيد العام في قاعدة البيانات والواجهة فوراً
+            if (deductedFromBalance > 0) {
+                updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
+                updateProfileUI(); // تحديث الهيدر
+            }
+        }
+        
+        getEl('live-score-text').textContent = quizState.score;
+        // -----------------------------------------------------------
 
         renderLives();
         playSound('lose');
@@ -856,13 +890,18 @@ function selectAnswer(idx, btn) {
             return; 
         } 
 
-        getEl('feedback-text').textContent = "إجابة خاطئة (+0)"; 
+        const totalDeducted = deductedFromRound + deductedFromBalance;
+        const deductionText = totalDeducted > 0 ? `(-${totalDeducted})` : `(+0)`;
+        
+        getEl('feedback-text').textContent = `إجابة خاطئة ${deductionText}`; 
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-400";
+        
         updateStreakUI();
         quizState.history.push({ q: q.question, options: q.options, correct: q.correctAnswer, user: idx, isCorrect, topic: q.topic || quizState.contextTopic, fast: (isCorrect && answerTime <= 5000) });
         setTimeout(nextQuestion, transitionDelay);
     }
 }
+
 
 // دالة مكافأة الماراثون
 async function unlockRandomThemeReward() {
