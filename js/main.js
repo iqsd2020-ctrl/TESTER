@@ -104,6 +104,10 @@ function updateEnrichmentUI() {
         btn.querySelector('span').textContent = 'lightbulb_outline';
     }
 }
+bind('toggle-enrichment-btn', 'click', () => {
+    quizState.enrichmentEnabled = !quizState.enrichmentEnabled;
+    updateEnrichmentUI();
+});
 
 function playSound(type) { 
     if(isMuted) return; 
@@ -333,7 +337,7 @@ function openSelectionModal(mode) {
     if (mode === 'category') {
         title.textContent = 'اختر القسم الرئيسي';
         // إضافة خيار العشوائي
-        renderSelectionItem('🎲 عشوائي شامل', 'random', container);
+        renderSelectionItem(' عشوائي شامل', 'random', container);
         // إضافة الأقسام من ملف data.js
         Object.keys(topicsData).forEach(key => {
             renderSelectionItem(key, key, container);
@@ -356,7 +360,7 @@ function openSelectionModal(mode) {
 
     } else if (mode === 'count') {
         title.textContent = 'عدد الأسئلة';
-        const counts = [5, 10, 15, 20, 25, 30, 50];
+        const counts = [5, 10, 15, 20,];
         counts.forEach(c => {
             renderSelectionItem(`${c} أسئلة`, c, container);
         });
@@ -698,7 +702,7 @@ function renderQuestion() {
     if (quizState.mode === 'marathon') {
         getEl('question-counter-text').textContent = `${quizState.idx+1}`;
         const dots = getEl('progress-dots'); 
-        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">♾️ وضع الماراثون</span>';
+        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 وضع الماراثون</span>';
     } else {
         getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
         const dots = getEl('progress-dots'); dots.innerHTML = '';
@@ -786,7 +790,7 @@ function selectAnswer(idx, btn) {
         
         if(quizState.mode === 'marathon') {
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
-            if(quizState.marathonCorrectStreak === 10) {
+            if(quizState.marathonCorrectStreak === 15) {
                 unlockRandomThemeReward();
                 quizState.marathonCorrectStreak = 0; 
             }
@@ -797,10 +801,10 @@ function selectAnswer(idx, btn) {
         let multiplier = 1;
         let multiplierText = "";
 
-        if (quizState.streak >= 15) { multiplier = 12; multiplierText = "x12 ⚡️"; }
-        else if (quizState.streak >= 12) { multiplier = 10; multiplierText = "x10 🔥"; }
+        if (quizState.streak >= 15) { multiplier = 12; multiplierText = "x12 🔥"; }
+        else if (quizState.streak >= 12) { multiplier = 10; multiplierText = "x10 🪙"; }
         else if (quizState.streak >= 9) { multiplier = 9; multiplierText = "x9 🔥"; }
-        else if (quizState.streak >= 6) { multiplier = 6; multiplierText = "x6 🚀"; }
+        else if (quizState.streak >= 6) { multiplier = 6; multiplierText = "x6 🪙"; }
         else if (quizState.streak >= 3) { multiplier = 2; multiplierText = "x2"; }
 
         let pointsAdded = Math.floor(basePoints * multiplier);
@@ -952,7 +956,7 @@ bind('share-text-button', 'click', () => {
     const correct = quizState.correctCount;
     const total = quizState.questions.length;
     const accuracy = Math.round((correct / total) * 100);
-    const message = `🕌 من وحي أهل البيت (ع) 🌟\n` + `لقد حصلت على ${score} نقطة في ${quizState.contextTopic}!\n` + `✅ الإجابات الصحيحة: ${correct}/${total} (${accuracy}%)\n` + `هل يمكنك تحدي رقمي؟\n` + `#مسابقة_أهل_البيت #ثقافة_شيعية`;
+    const message = `🕌 من وحي أهل البيت (ع) 🌟\n` + `لقد حصلت على ${score} نقطة في: ${quizState.contextTopic}!\n` + `✅ الإجابات الصحيحة: ${correct}/${total} (${accuracy}%)\n` + `هل يمكنك تحدي رقمي؟\n` + `#مسابقة_أهل_البيت #ثقافة_شيعية`;
     if (navigator.share) {
         navigator.share({ title: 'تحدي المعرفة - من وحي أهل البيت (ع)', text: message }).then(() => toast('تمت مشاركة النتيجة بنجاح!'));
     } else {
@@ -1775,4 +1779,107 @@ async function checkWhatsNew() {
       } catch (e) {
         console.error("News fetch error:", e);
     }
+}
+
+// --- CHEAT CODES & DEV TOOLS ---
+
+// Inject CSS for Sauron Eye
+const sauronStyle = document.createElement('style');
+sauronStyle.innerHTML = `
+@keyframes sauronPulse { 0% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 80px #ff3300; } 100% { transform: scale(1); opacity: 0.9; } }
+@keyframes pupilMove { 0% { height: 60%; width: 15px; } 50% { height: 70%; width: 10px; } 100% { height: 60%; width: 15px; } }
+.sauron-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.8s ease-in-out; }
+.sauron-overlay.active { opacity: 1; pointer-events: auto; }
+.eye-shape { 
+    position: relative; width: 300px; height: 140px; 
+    background: radial-gradient(circle at 50% 50%, #ffdd00 0%, #ff8800 25%, #cc0000 60%, #330000 100%); 
+    border-radius: 70% 70% 70% 70% / 100% 100% 100% 100%; 
+    box-shadow: 0 0 60px #ff2200, inset 0 0 30px #000; 
+    animation: sauronPulse 3s infinite ease-in-out; 
+    display: flex; justify-content: center; align-items: center; overflow: hidden; border: 2px solid #550000;
+}
+.eye-pupil { 
+    width: 15px; height: 60%; background: #000; 
+    border-radius: 50%; box-shadow: 0 0 15px #ff0000; 
+    animation: pupilMove 0.5s infinite alternate; filter: blur(1px);
+}
+`;
+document.head.appendChild(sauronStyle);
+
+const sauronDiv = document.createElement('div');
+sauronDiv.id = 'sauron-modal';
+sauronDiv.className = 'sauron-overlay';
+sauronDiv.innerHTML = '<div class="eye-shape"><div class="eye-pupil"></div></div>';
+document.body.appendChild(sauronDiv);
+
+// 1. Marathon Cheat: Click 5 times on Header Score
+let marathonCheatClicks = 0;
+bind('header-score', 'click', async () => {
+    marathonCheatClicks++;
+    if(marathonCheatClicks === 5) {
+        if(userProfile) {
+            userProfile.lastMarathonDate = null;
+            await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
+            checkMarathonStatus();
+            toast("🔓 تم كسر الزمن! الماراثون متاح الآن.", "success");
+            playSound('win');
+        }
+        marathonCheatClicks = 0;
+    }
+    setTimeout(() => marathonCheatClicks = 0, 1000);
+});
+
+// 2. Reveal Answer Cheat Sequence: 
+// (Double Click "1/10") -> (Click "Lives") -> (Click "Round Score")
+let cheatStep1 = false;
+let cheatStep2 = false;
+
+bind('question-counter-text', 'dblclick', () => {
+    if(!quizState.active) return;
+    cheatStep1 = true;
+    // Reset if sequence not completed in 4 seconds
+    setTimeout(() => { cheatStep1 = false; cheatStep2 = false; }, 4000);
+});
+
+bind('lives-display', 'click', () => {
+    if(cheatStep1) cheatStep2 = true;
+    else { cheatStep1 = false; cheatStep2 = false; }
+});
+
+bind('live-score-text', 'click', () => {
+    if(cheatStep1 && cheatStep2) {
+        triggerSauronEffect();
+        cheatStep1 = false; 
+        cheatStep2 = false;
+    } else {
+        cheatStep1 = false; 
+        cheatStep2 = false;
+    }
+});
+
+function triggerSauronEffect() {
+    const modal = document.getElementById('sauron-modal');
+    
+    // Play scary low frequency sound
+    if(!isMuted) {
+        createOscillator(80, 'sawtooth', 2.0, 0.6);
+        createOscillator(60, 'square', 2.0, 0.6);
+    }
+
+    modal.classList.add('active');
+    
+    setTimeout(() => {
+        modal.classList.remove('active');
+        const q = quizState.questions[quizState.idx];
+        const btns = document.querySelectorAll('.option-btn');
+        if(btns[q.correctAnswer]) {
+            // Apply fiery style to correct answer
+            const btn = btns[q.correctAnswer];
+            btn.style.transition = "all 0.5s";
+            btn.style.border = "2px solid #ef4444";
+            btn.style.boxShadow = "0 0 25px rgba(220, 38, 38, 0.8), inset 0 0 10px rgba(220, 38, 38, 0.5)";
+            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
+            btn.classList.add('animate-pulse');
+        }
+    }, 2500);
 }
