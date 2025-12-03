@@ -84,7 +84,7 @@ export let badgesData = [
     {id:'master_history', name:'متخصص التاريخ', icon:'museum', desc:'الإجابة الصحيحة على 50 سؤال في فئة "تاريخ ومعارك".', topicKey: "تاريخ ومعارك"},
     {id:'master_theology', name:'متخصص العقائد', icon:'diamond', desc:'الإجابة الصحيحة على 50 سؤال في فئة "عقائد وفقه".', topicKey: "عقائد وفقه"},
     {id:'master_prophets', name:'متخصص الأنبياء', icon:'menu_book', desc:'الإجابة الصحيحة على 50 سؤال في فئة "الأنبياء والرسل".', topicKey: "الأنبياء والرسل"},
-    {id:'master_companions', name:'متخصص الصحابة', icon:'groups', desc:'الإجابة الصحيحة على 50 سؤال في فئة "شخصيات (أصحاب وعلماء)".', topicKey: "شخصيات (أصحاب وعلماء)"},
+    {id:'master_companions', name:'متخصص الصحابة', icon:'groups', desc:'الإجابة الصحيحة على 50 سؤال في فئة "شخصيات (أصحاب وعلماء ونساء)".', topicKey: "شخصيات (أصحاب وعلماء ونساء)"},
     {id:'master_ziyarat', name:'حافظ الزيارات', icon:'handshake', desc:'الإجابة الصحيحة على 50 سؤال في فئة "أدعية وزيارات".', topicKey: "أدعية وزيارات"},
     {id:'dedicated', name:'المُخلص', icon:'favorite', desc:'إضافة 20 سؤال إلى قائمة المفضلة.'},
     {id:'fixer', name:'المُصحح', icon:'auto_fix_high', desc:'مراجعة والإجابة الصحيحة على 15 سؤال من بنك الأخطاء.'},

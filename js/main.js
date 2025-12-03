@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
@@ -199,29 +199,23 @@ async function loadProfile(uid) {
     try {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
-            userProfile = snap.data();
-            // تهيئة القيم الافتراضية للبيانات القديمة
-            if(!userProfile.badges) userProfile.badges = ['beginner'];
-            if(!userProfile.favorites) userProfile.favorites = [];
-            if(!userProfile.stats) userProfile.stats = {};
-            userProfile.stats.topicCorrect = userProfile.stats.topicCorrect || {};
-            userProfile.stats.lastPlayedDates = userProfile.stats.lastPlayedDates || [];
-            if(!userProfile.wrongQuestionsBank) userProfile.wrongQuestionsBank = [];
-            if(userProfile.customAvatar === undefined) userProfile.customAvatar = null;
-            if(!userProfile.seenQuestions) userProfile.seenQuestions = [];
+            const rawData = snap.data();
             
-            // --- تهيئة الحقيبة (Inventory) ---
-            if(!userProfile.inventory) {
-                userProfile.inventory = {
-                    lives: 0,
-                    helpers: { fifty: 0, hint: 0, skip: 0 },
-                    themes: ['default']
-                };
+            // --- هنا يبدأ السحر: الفحص والإصلاح التلقائي ---
+            const { cleanData, wasFixed } = sanitizeUserData(rawData);
+
+            if (wasFixed) {
+                console.log("Found corrupted data for user, auto-fixing...");
+                // تحديث قاعدة البيانات بالنسخة النظيفة بصمت
+                await updateDoc(doc(db, "users", uid), cleanData);
+                userProfile = cleanData; // استخدام النسخة النظيفة في التطبيق
+            } else {
+                userProfile = rawData; // البيانات سليمة
             }
-            if(!userProfile.inventory.themes) userProfile.inventory.themes = ['default'];
-            // -------------------------------
+            // ------------------------------------------------
 
         } else {
+            // مستخدم جديد (لا يحتاج إصلاح)
             userProfile = { 
                 username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
                 seenQuestions: [], stats: { topicCorrect: {}, lastPlayedDates: [], totalHardQuizzes: 0, noHelperQuizzesCount: 0, maxStreak: 0, fastAnswerCount: 0 },
@@ -229,8 +223,9 @@ async function loadProfile(uid) {
             };
         }
         updateProfileUI();
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Error loading profile:", e); }
 }
+
 
 function updateProfileUI() {
     getEl('username-display').textContent = userProfile.username;
@@ -245,7 +240,7 @@ function updateProfileUI() {
         hide('user-avatar-img');
         show('user-avatar-icon');
     }
-    getEl('header-score').textContent = userProfile.highScore || 0;
+    getEl('header-score').textContent = formatNumberAr(userProfile.highScore || 0, true);
     if(userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         show('review-mistakes-btn');
         getEl('review-mistakes-text').textContent = `مراجعة أخطائي (${userProfile.wrongQuestionsBank.length})`;
@@ -418,41 +413,77 @@ function handleSelection(text, value) {
     modal.classList.remove('active');
 }
 
+// استبدل الدالة القديمة بهذه الدالة المحسنة
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { toast("الصورة كبيرة جداً، اختر صورة أصغر", "error"); return; }
+
+    // التحقق المبدئي (نقبل حتى 5 ميجا لأننا سنضغطها بشدة)
+    if (file.size > 5 * 1024 * 1024) { 
+        toast("حجم الصورة الأصلي كبير جداً", "error"); 
+        return; 
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            const maxSize = 150;
+
+            // 1. تقليل الأبعاد إلى 110 بكسل (كافية للأفاتار)
+            const maxSize = 110; 
             let width = img.width;
             let height = img.height;
+
             if (width > height) {
                 if (width > maxSize) { height *= maxSize / width; width = maxSize; }
             } else {
                 if (height > maxSize) { width *= maxSize / height; height = maxSize; }
             }
+
             canvas.width = width;
             canvas.height = height;
+
+            // رسم الصورة
             ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+
+            // 2. التحويل إلى WebP مع جودة منخفضة (أفضل ضغط ممكن)
+            // إذا لم يدعم المتصفح WebP سيعود تلقائياً لـ JPEG
+            let dataUrl = canvas.toDataURL('image/webp', 0.3);
+            
+            // في حالة عدم دعم WebP، نعود لـ JPEG بضغط عالٍ
+            if (dataUrl.indexOf('image/webp') === -1) {
+                dataUrl = canvas.toDataURL('image/jpeg', 0.3);
+            }
+
+            // تحديث الواجهة
             getEl('profile-img-preview').src = dataUrl;
             show('profile-img-preview');
             hide('profile-icon-preview');
             show('delete-custom-avatar');
+            
+            // حفظ النتيجة المضغوطة جداً
             userProfile.tempCustomAvatar = dataUrl; 
+            
+            // (اختياري) طباعة الحجم الجديد في الكونسول للتأكد
+            console.log(`New size: ${Math.round(dataUrl.length / 1024)} KB`);
         };
         img.src = event.target.result;
     };
     reader.readAsDataURL(file);
 }
 
+
 bind('ai-generate-btn', 'click', async () => {
+    // --- بداية التعديل: التحقق من بنك الأخطاء ---
+    if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
+        openModal('force-review-modal');
+        return; // إيقاف الدالة ومنع بدء اللعب
+    }
+    // --- نهاية التعديل ---
     const cat = getEl('category-select').value;
+    // ... يكمل الكود كما هو دون تغيير ...
     const count = parseInt(getEl('ai-question-count').value);
     quizState.difficulty = 'موحد';
     quizState.mode = 'standard';
@@ -469,46 +500,73 @@ bind('ai-generate-btn', 'click', async () => {
     try {
         let firebaseQs = [];
         let qQuery;
+        
+        // 1. رفع الحد الأقصى للجلب (Query Limit)
+        // غيرنا الرقم من 500 إلى 5000 لنضمن أن النظام "يرى" كل الأسئلة الموجودة في القاعدة
+        // هذا يحل مشكلة "العمى" حيث يظن النظام أن الأسئلة انتهت بينما هي موجودة لكن لم يتم تحميلها
+        const QUERY_LIMIT = 5000;
+
         if(cat === 'random' || !cat) {
-            qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(500)); 
+            qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(QUERY_LIMIT)); 
         } else {
-            qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true));
+            qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true), limit(QUERY_LIMIT));
         }
+        
         const snap = await getDocs(qQuery);
+        
+        // التحقق من وجود أسئلة في القسم أصلاً
         if (cat !== 'random' && cat !== '' && snap.empty) {
             toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
             btn.disabled = false; 
             btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
             return;
         }
+
         snap.forEach(d => firebaseQs.push({ id: d.id, ...d.data() }));
+        
+        // 2. الفلترة الصارمة (Strict Filtering)
         let allAvailableQuestions = firebaseQs;
         const seenIds = userProfile.seenQuestions || [];
+        
+        // استبعاد أي سؤال موجود في قائمة seenIds
         let freshQuestions = allAvailableQuestions.filter(q => !seenIds.includes(q.id));
-        let seenQuestionsPool = allAvailableQuestions.filter(q => seenIds.includes(q.id));
+        
+        // خلط الأسئلة الجديدة
         shuffleArray(freshQuestions);
-        shuffleArray(seenQuestionsPool);
-        const needed = count - qs.length; 
-        let selectedFromFirebase = [];
-        if (freshQuestions.length >= needed) {
-            selectedFromFirebase = freshQuestions.slice(0, needed);
+        
+        // 3. منطق التوزيع (Allocation Logic)
+        if (freshQuestions.length >= count) {
+            // الحالة الممتازة: لدينا أسئلة جديدة تكفي للعدد المطلوب
+            quizState.questions = freshQuestions.slice(0, count);
+        } else if (freshQuestions.length > 0) {
+            // الحالة المتوسطة: لدينا أسئلة جديدة لكن أقل من المطلوب (مثلاً طلب 10 ووجدنا 4)
+            // القرار الصارم: نعطيه الـ 4 فقط ولا نخلطها بالقديم
+            quizState.questions = freshQuestions;
+            toast(`تبقى لديك ${freshQuestions.length} أسئلة جديدة فقط في هذا القسم!`, "info");
         } else {
-            selectedFromFirebase = [...freshQuestions]; 
-            const remaining = needed - freshQuestions.length;
-            selectedFromFirebase = [...selectedFromFirebase, ...seenQuestionsPool.slice(0, remaining)];
+            // حالة نفاذ الكمية تماماً (Zero Fresh Questions)
+            // هنا فقط يُسمح بالتكرار
+            let recycledQuestions = [...allAvailableQuestions];
+            shuffleArray(recycledQuestions);
+            quizState.questions = recycledQuestions.slice(0, count);
+            
+            toast("سيتم عرض اسئله سابقة في هذه الجوله.", "warning");
         }
-        const uniqueMap = new Map();
-        qs.forEach(item => { if (item && item.question) uniqueMap.set(item.question.trim(), item); });
-        selectedFromFirebase.forEach(item => { if (item && item.question && !uniqueMap.has(item.question.trim())) uniqueMap.set(item.question.trim(), item); });
-        let allUniqueQs = Array.from(uniqueMap.values());
-        quizState.questions = allUniqueQs.slice(0, count);
-        if(quizState.questions.length === 0) { toast("لا توجد أسئلة كافية لبدء الجولة.", "error"); throw new Error("No questions"); }
-        shuffleArray(quizState.questions); 
+
+        // التحقق النهائي للأمان
+        if(quizState.questions.length === 0) { 
+            toast("لا توجد أسئلة كافية لبدء الجولة.", "error"); 
+            throw new Error("No questions"); 
+        }
+        
+        // بدء اللعبة
         startQuiz();
+
     } catch(e) {
         console.error(e);
         if (e.message !== "No questions") toast("حدث خطأ في تحميل الأسئلة", "error");
     }
+
     btn.disabled = false; btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
 });
 
@@ -526,13 +584,29 @@ bind('review-mistakes-btn', 'click', () => {
 bind('quit-quiz-btn', 'click', () => {
     window.showConfirm(
         "مغادرة المسابقة",
-        "هل تريد الانسحاب؟ سيتم احتساب النقاط الحالية فقط ولن يتم حفظ التقدم في هذه الجولة.",
-        "exit_to_app",
-        () => {
+        "هل تريد الانسحاب؟ سيتم احتساب النقاط الحالية فقط.",
+        "save_as",
+        async () => {
+            // حفظ النقاط إذا كانت أكبر من صفر قبل الخروج
+            if (quizState.score > 0) {
+                try {
+                    const userRef = doc(db, "users", effectiveUserId);
+                    await updateDoc(userRef, {
+                        highScore: increment(quizState.score), // استخدام الزيادة الذرية
+                        "stats.quizzesPlayed": increment(1)
+                    });
+                    // تحديث محلي سريع لضمان تناسق الواجهة
+                    userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
+                    toast(`تم حفظ ${quizState.score} نقطة في رصيدك`, "success");
+                } catch (e) {
+                    console.error("Error saving partial score:", e);
+                }
+            }
             navToHome();
         }
     );
 });
+
 
 
 bind('toggle-timer-btn', 'click', () => {
@@ -560,13 +634,15 @@ function updateTimerUI() {
 
 function renderLives() {
     const el = getEl('lives-display');
+    // التعديل: استخدام formatNumberAr للرقم
     el.innerHTML = `
         <div class="flex items-center gap-1 transition-all duration-300">
             <span class="material-symbols-rounded text-red-500 text-2xl drop-shadow-sm ${quizState.lives <= 1 ? 'animate-pulse' : ''}">favorite</span>
-            <span class="text-red-400 font-bold text-xl font-heading pt-1" dir="ltr">x${quizState.lives}</span>
+            <span class="text-red-400 font-bold text-xl font-heading pt-1" dir="ltr">x${formatNumberAr(quizState.lives)}</span>
         </div>
     `;
 }
+
 
 async function startMarathon() {
     const btn = getEl('btn-marathon-confirm');
@@ -704,7 +780,8 @@ function renderQuestion() {
         const dots = getEl('progress-dots'); 
         dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 وضع الماراثون</span>';
     } else {
-        getEl('question-counter-text').textContent = `${quizState.idx+1}/${quizState.questions.length}`;
+       getEl('question-counter-text').textContent = `${formatNumberAr(quizState.idx+1)}/${formatNumberAr(quizState.questions.length)}`;
+
         const dots = getEl('progress-dots'); dots.innerHTML = '';
         for(let i=0; i<quizState.questions.length; i++) {
             let cls = "w-2 h-2 rounded-full bg-slate-700";
@@ -714,7 +791,8 @@ function renderQuestion() {
         }
     }
 
-    getEl('live-score-text').textContent = quizState.score;
+    getEl('live-score-text').textContent = formatNumberAr(quizState.score);
+
     const box = getEl('options-container'); box.innerHTML = '';
     q.options.forEach((o, i) => {
         const btn = document.createElement('button');
@@ -738,15 +816,28 @@ function nextQuestion() {
 }
 
 function updateStreakUI() {
-    const s = quizState.streak;
     const icon = getEl('streak-icon');
     const txt = getEl('streak-count');
-    txt.textContent = 'x' + s;
+
+    // --- التعديل: إخفاء الستريك تماماً إذا لم يكن الوضع ماراثون ---
+    if (quizState.mode !== 'marathon') {
+        icon.classList.remove('active');
+        icon.classList.add('opacity-0'); // إخفاء
+        txt.classList.add('opacity-0');  // إخفاء
+        return; 
+    }
+    // -----------------------------------------------------------
+
+    const s = quizState.streak;
+    txt.textContent = 'x' + formatNumberAr(s); 
+    
     icon.classList.remove('text-orange-500', 'text-yellow-400', 'text-red-500', 'text-purple-500', 'animate-pulse');
     txt.classList.remove('text-orange-400', 'text-yellow-300', 'text-red-400', 'text-purple-400');
+    
     if(s > 1) {
+        icon.classList.remove('opacity-0'); // إظهار
         icon.classList.add('active');
-        txt.classList.remove('opacity-0');
+        txt.classList.remove('opacity-0'); // إظهار
         if (s >= 15) { icon.classList.add('text-purple-500', 'animate-pulse'); txt.classList.add('text-purple-400'); } 
         else if (s >= 10) { icon.classList.add('text-red-500'); txt.classList.add('text-red-400'); } 
         else if (s >= 5) { icon.classList.add('text-yellow-400'); txt.classList.add('text-yellow-300'); } 
@@ -757,6 +848,8 @@ function updateStreakUI() {
         icon.classList.add('text-orange-500');
     }
 }
+
+
 
 function showEnrichment(text) {
     getEl('enrichment-content').textContent = text;
@@ -786,40 +879,56 @@ function selectAnswer(idx, btn) {
     if(isCorrect) {
         if (answerTime <= 5000) { quizState.fastAnswers++; } 
         if(btn) { btn.classList.remove('opacity-60'); btn.classList.add('btn-correct'); }
-        quizState.streak++;
         
-        if(quizState.mode === 'marathon') {
+        // --- متغيرات النقاط والمضاعف ---
+        let basePoints = 1; 
+        let multiplier = 1;
+        let multiplierText = "";
+
+        // --- التعديل: تفعيل الستريك والمكافآت فقط في الماراثون ---
+        if (quizState.mode === 'marathon') {
+            quizState.streak++;
+            
+            // تحديث إحصائية أعلى ستريك فقط في الماراثون
+            if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
+
+            // مكافأة الثيمات (خاصة بالماراثون)
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
             if(quizState.marathonCorrectStreak === 15) {
                 unlockRandomThemeReward();
                 quizState.marathonCorrectStreak = 0; 
             }
+
+            // حساب المضاعفات
+            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 🪙"; }
+            else if (quizState.streak >= 9) { multiplier = 3; multiplierText = "x3 ✨"; }
+            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2🔸"; }
+
+            // صوت الستريك
+            if(quizState.streak >= 5) playSound('streak'); else playSound('win');
+        } else {
+            // في الوضع العادي: لا يوجد ستريك ولا مضاعفات
+            quizState.streak = 0;
+            playSound('win');
         }
-
-        if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; } 
-                const basePoints = 1; 
-        let multiplier = 1;
-        let multiplierText = "";
-
-        if (quizState.streak >= 15) { multiplier = 12; multiplierText = "x12 🔥"; }
-        else if (quizState.streak >= 12) { multiplier = 10; multiplierText = "x10 🪙"; }
-        else if (quizState.streak >= 9) { multiplier = 9; multiplierText = "x9 🔥"; }
-        else if (quizState.streak >= 6) { multiplier = 6; multiplierText = "x6 🪙"; }
-        else if (quizState.streak >= 3) { multiplier = 2; multiplierText = "x2"; }
-
+        // -------------------------------------------------------
+        
         let pointsAdded = Math.floor(basePoints * multiplier);
         quizState.score += pointsAdded; 
         quizState.correctCount++;
         const scoreEl = getEl('live-score-text');
-        scoreEl.textContent = quizState.score;
+        scoreEl.textContent = formatNumberAr(quizState.score);
+
         scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
-        if(quizState.streak >= 5) playSound('streak'); else playSound('win');
+        
         if(qBankIdx > -1) userProfile.wrongQuestionsBank.splice(qBankIdx, 1);
         const currentTopic = q.topic || quizState.contextTopic;
         if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
             userProfile.stats.topicCorrect[currentTopic] = (userProfile.stats.topicCorrect[currentTopic] || 0) + 1;
         }
-        getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${pointsAdded})</span> <span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>`;
+        
+        // عرض رسالة النقاط (مع المضاعف فقط إن وجد)
+        getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${formatNumberAr(pointsAdded)})</span> ${multiplierText ? `<span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>` : ''}`;
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
         
         if(q.explanation && quizState.enrichmentEnabled) {
@@ -835,9 +944,16 @@ function selectAnswer(idx, btn) {
             btns[q.correctAnswer].classList.remove('opacity-60'); 
             btns[q.correctAnswer].classList.add('btn-correct');
         } 
-        if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); } 
-        else if (quizState.streak >= 5) { quizState.streak = 2; } 
-        else { quizState.streak = 0; }
+        
+        // --- التعديل: منطق خفض الستريك فقط في الماراثون ---
+        if (quizState.mode === 'marathon') {
+            if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); } 
+            else if (quizState.streak >= 5) { quizState.streak = 2; } 
+            else { quizState.streak = 0; }
+        } else {
+            quizState.streak = 0;
+        }
+        // ------------------------------------------------
         
         if(quizState.lives > 3) {
             userProfile.inventory.lives = Math.max(0, userProfile.inventory.lives - 1);
@@ -845,42 +961,33 @@ function selectAnswer(idx, btn) {
         }
         quizState.lives--;
 
-        // --- منطق الخصم الجديد: من الجولة أولاً ثم من الرصيد العام ---
         const deductionTarget = 2;
         let deductedFromRound = 0;
         let deductedFromBalance = 0;
 
-        // 1. محاولة الخصم من نقاط الجولة الحالية
         if (quizState.score >= deductionTarget) {
             quizState.score -= deductionTarget;
             deductedFromRound = deductionTarget;
         } else {
-            // خصم كل ما في الجولة
             deductedFromRound = quizState.score;
             quizState.score = 0;
-            
-            // حساب المتبقي للخصم من الرصيد العام
             const remainingToDeduct = deductionTarget - deductedFromRound;
 
-            // 2. الخصم من الرصيد العام (highScore)
             if (userProfile.highScore >= remainingToDeduct) {
                 userProfile.highScore -= remainingToDeduct;
                 deductedFromBalance = remainingToDeduct;
             } else {
-                // إذا لم يكفِ الرصيد العام، نخصم ما تبقى فيه فقط
                 deductedFromBalance = userProfile.highScore;
                 userProfile.highScore = 0;
             }
 
-            // تحديث الرصيد العام في قاعدة البيانات والواجهة فوراً
             if (deductedFromBalance > 0) {
                 updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
-                updateProfileUI(); // تحديث الهيدر
+                updateProfileUI(); 
             }
         }
         
-        getEl('live-score-text').textContent = quizState.score;
-        // -----------------------------------------------------------
+        getEl('live-score-text').textContent = formatNumberAr(quizState.score);
 
         renderLives();
         playSound('lose');
@@ -895,7 +1002,7 @@ function selectAnswer(idx, btn) {
         } 
 
         const totalDeducted = deductedFromRound + deductedFromBalance;
-        const deductionText = totalDeducted > 0 ? `(-${totalDeducted})` : `(+0)`;
+        const deductionText = totalDeducted > 0 ? `(-${formatNumberAr(totalDeducted)})` : `(+${formatNumberAr(0)})`;
         
         getEl('feedback-text').textContent = `إجابة خاطئة ${deductionText}`; 
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-400";
@@ -905,6 +1012,7 @@ function selectAnswer(idx, btn) {
         setTimeout(nextQuestion, transitionDelay);
     }
 }
+
 
 
 // دالة مكافأة الماراثون
@@ -952,10 +1060,11 @@ bind('helper-report', 'click', async () => {
 });
 
 bind('share-text-button', 'click', () => {
-    const score = quizState.score;
-    const correct = quizState.correctCount;
-    const total = quizState.questions.length;
-    const accuracy = Math.round((correct / total) * 100);
+    const score = formatNumberAr(quizState.score);
+    const correct = formatNumberAr(quizState.correctCount);
+    const total = formatNumberAr(quizState.questions.length);
+    const accuracy = formatNumberAr(Math.round((quizState.correctCount / quizState.questions.length) * 100));
+    
     const message = `🕌 من وحي أهل البيت (ع) 🌟\n` + `لقد حصلت على ${score} نقطة في: ${quizState.contextTopic}!\n` + `✅ الإجابات الصحيحة: ${correct}/${total} (${accuracy}%)\n` + `هل يمكنك تحدي رقمي؟\n` + `#مسابقة_أهل_البيت #ثقافة_شيعية`;
     if (navigator.share) {
         navigator.share({ title: 'تحدي المعرفة - من وحي أهل البيت (ع)', text: message }).then(() => toast('تمت مشاركة النتيجة بنجاح!'));
@@ -965,139 +1074,212 @@ bind('share-text-button', 'click', () => {
 });
 
 async function endQuiz() {
-    hide('quiz-proper'); show('results-area');
-    getEl('card-score').textContent = quizState.score;
+    // 1. إعداد الواجهة وإظهار النتائج
+    hide('quiz-proper'); 
+    show('results-area');
+    
+    // التأكد من أن القيم أرقام لضمان عدم ظهور NaN في الواجهة
+    const safeCorrectCount = Number(quizState.correctCount) || 0;
+    const safeTotalQuestions = Number(quizState.questions.length) || 0;
+    const accuracy = safeTotalQuestions > 0 ? Math.round((safeCorrectCount / safeTotalQuestions) * 100) : 0;
+
+    // تحديث بطاقة النتيجة
+    getEl('card-score').textContent = formatNumberAr(quizState.score); 
     getEl('card-username').textContent = userProfile.username;
     getEl('card-difficulty').textContent = quizState.difficulty;
-    const accuracy = (quizState.correctCount / quizState.questions.length) * 100;
-    const today = new Date().toISOString().slice(0, 10);
-    getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${quizState.correctCount}`;
-    getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${quizState.questions.length - quizState.correctCount}`;
     
+    getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${formatNumberAr(safeCorrectCount)}`;
+    getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${formatNumberAr(safeTotalQuestions - safeCorrectCount)}`;
+
+    // 2. تحديد رسالة النتيجة والمكافآت
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { 
         msg = "أداء أسطوري! درجة كاملة"; 
         playSound('applause'); 
-        launchConfetti(); 
         
-        // --- مكافأة الجولة الكاملة ---
-        // منح جائزة عشوائية (قلب أو مساعدة)
-        const rewards = ['life', 'fifty', 'hint', 'skip'];
-        const rewardType = rewards[Math.floor(Math.random() * rewards.length)];
-        let rewardMsg = "";
-        
-        if(rewardType === 'life') {
-            userProfile.inventory.lives++;
-            rewardMsg = "قلب إضافي ❤️";
-        } else {
-            userProfile.inventory.helpers[rewardType]++;
-            rewardMsg = "وسيلة مساعدة ✨";
+        // التحقق من أن الوضع ليس "مراجعة الأخطاء" لمنح الجوائز
+        if (quizState.contextTopic !== "مراجعة الأخطاء") {
+            launchConfetti(); 
+            
+            const rewards = ['life', 'fifty', 'hint', 'skip'];
+            const rewardType = rewards[Math.floor(Math.random() * rewards.length)];
+            let rewardMsg = "";
+            
+            // تحديث المخزون المحلي فوراً
+            if(!userProfile.inventory) userProfile.inventory = { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] };
+            
+            if(rewardType === 'life') {
+                userProfile.inventory.lives = (Number(userProfile.inventory.lives) || 0) + 1;
+                rewardMsg = "قلب إضافي ❤️";
+            } else {
+                userProfile.inventory.helpers[rewardType] = (Number(userProfile.inventory.helpers[rewardType]) || 0) + 1;
+                rewardMsg = "وسيلة مساعدة ✨";
+            }
+            
+            toast(`🎁 هدية الأداء الكامل: حصلت على ${rewardMsg}`, "success");
         }
-        
-        toast(`🎁 هدية الأداء الكامل: حصلت على ${rewardMsg}`, "success");
-        // سيتم حفظ المخزون مع التحديث النهائي في الأسفل
-        // -------------------------
-    }
-    else if(accuracy >= 80) msg = "أداء ممتاز!";
+    } else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
+    
     getEl('final-message').textContent = msg;
 
-    const newHigh = (userProfile.highScore || 0) + quizState.score;
+    // 3. حساب الإحصائيات الجديدة (مع الحماية من البيانات التالفة)
     const stats = userProfile.stats || {};
-    if (quizState.fastAnswers >= 10) { stats.fastAnswerCount++; }
-    if (!quizState.usedHelpers) { stats.noHelperQuizzesCount++; }
-    let lastPlayedDates = stats.lastPlayedDates.filter(d => d !== today).slice(-6); 
-    lastPlayedDates.push(today);
-    stats.lastPlayedDates = lastPlayedDates;
+    
+    // استخدام || 0 مع كل قيمة قادمة من البروفايل لمنع NaN
+    const oldTotalCorrect = Number(stats.totalCorrect) || 0;
+    const oldTotalQs = Number(stats.totalQuestions) || 0;
+    const oldBestScore = Number(stats.bestRoundScore) || 0;
+    const oldQuizzesPlayed = Number(stats.quizzesPlayed) || 0;
+    
+    // --- إصلاح التاريخ (Bug Fix) ---
+    const currentTodayStr = new Date().toISOString().split('T')[0];
+    let lastPlayedDates = Array.isArray(stats.lastPlayedDates) ? stats.lastPlayedDates.filter(d => d !== currentTodayStr).slice(-6) : [];
+    if(!lastPlayedDates.includes(currentTodayStr)) lastPlayedDates.push(currentTodayStr);
+    // -----------------------------
+
     const newStats = {
-        quizzesPlayed: (stats.quizzesPlayed || 0) + 1,
-        totalCorrect: (stats.totalCorrect || 0) + quizState.correctCount,
-        totalQuestions: (stats.totalQuestions || 0) + quizState.questions.length,
-        bestRoundScore: Math.max((stats.bestRoundScore || 0), quizState.score),
-        topicCorrect: userProfile.stats.topicCorrect,
-        lastPlayedDates: stats.lastPlayedDates,
-        totalHardQuizzes: stats.totalHardQuizzes,
-        noHelperQuizzesCount: stats.noHelperQuizzesCount,
-        maxStreak: stats.maxStreak,
-        fastAnswerCount: stats.fastAnswerCount
+        quizzesPlayed: oldQuizzesPlayed + 1,
+        totalCorrect: oldTotalCorrect + safeCorrectCount,
+        totalQuestions: oldTotalQs + safeTotalQuestions,
+        bestRoundScore: Math.max(oldBestScore, quizState.score),
+        
+        // الحفاظ على القيم الأخرى مع التأكد من سلامتها
+        topicCorrect: stats.topicCorrect || {},
+        lastPlayedDates: lastPlayedDates,
+        totalHardQuizzes: Number(stats.totalHardQuizzes) || 0,
+        noHelperQuizzesCount: (Number(stats.noHelperQuizzesCount) || 0) + (!quizState.usedHelpers ? 1 : 0),
+        maxStreak: Number(stats.maxStreak) || 0,
+        fastAnswerCount: (Number(stats.fastAnswerCount) || 0) + (quizState.fastAnswers >= 10 ? 1 : 0)
     };
+
+    // تحديث إحصائيات المواضيع
+    const currentTopic = quizState.contextTopic;
+    if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
+        const oldTopicScore = Number(newStats.topicCorrect[currentTopic]) || 0;
+        newStats.topicCorrect[currentTopic] = oldTopicScore + safeCorrectCount;
+    }
+
+    // 4. نظام الأوسمة (Badges)
     let newBadges = [];
+    const currentBadges = Array.isArray(userProfile.badges) ? userProfile.badges : ['beginner'];
+    
+    // شروط الأوسمة
+    if(newStats.quizzesPlayed >= 10 && !currentBadges.includes('scholar')) newBadges.push('scholar');
+    if(userProfile.highScore + quizState.score >= 500 && !currentBadges.includes('veteran')) newBadges.push('veteran');
+    if(newStats.quizzesPlayed >= 50 && !currentBadges.includes('master')) newBadges.push('master');
+    if(newStats.quizzesPlayed >= 100 && !currentBadges.includes('grand_master')) newBadges.push('grand_master');
+    if(newStats.quizzesPlayed >= 200 && !currentBadges.includes('historian_master')) newBadges.push('historian_master');
+    if(userProfile.highScore + quizState.score >= 1000 && !currentBadges.includes('servant')) newBadges.push('servant');
+    if(userProfile.highScore + quizState.score >= 5000 && !currentBadges.includes('supporter')) newBadges.push('supporter');
+    if(userProfile.highScore + quizState.score >= 10000 && !currentBadges.includes('treasurer')) newBadges.push('treasurer');
+    if(newStats.quizzesPlayed >= 500 && !currentBadges.includes('insightful')) newBadges.push('insightful');
+    if(newStats.totalCorrect >= 100 && !currentBadges.includes('narrator')) newBadges.push('narrator');
+    if(newStats.totalCorrect >= 500 && !currentBadges.includes('ally')) newBadges.push('ally');
+    
+    // أوسمة الجولة الواحدة
+    if(quizState.score >= 50 && !currentBadges.includes('high_score_v1')) newBadges.push('high_score_v1');
+    if(quizState.score >= 100 && !currentBadges.includes('high_score_v2')) newBadges.push('high_score_v2');
+    if(newStats.lastPlayedDates.length >= 7 && !currentBadges.includes('consistent')) newBadges.push('consistent');
+    if(accuracy === 100 && safeTotalQuestions >= 5 && !currentBadges.includes('sharpshooter')) newBadges.push('sharpshooter');
+    if(quizState.streak >= 5 && !currentBadges.includes('onfire')) newBadges.push('onfire');
+    if(quizState.streak >= 10 && !currentBadges.includes('masterpiece')) newBadges.push('masterpiece');
+    if(safeTotalQuestions >= 15 && accuracy >= 80 && !currentBadges.includes('patient')) newBadges.push('patient');
+    
+    // أوسمة التحدي والصعوبة
+    if(accuracy >= 80) newStats.totalHardQuizzes = (newStats.totalHardQuizzes || 0) + 1;
+    if(newStats.totalHardQuizzes >= 5 && !currentBadges.includes('challenger')) newBadges.push('challenger');
+    
+    if(!quizState.usedHelpers) newStats.noHelperQuizzesCount = (newStats.noHelperQuizzesCount || 0) + 1;
+    if(newStats.noHelperQuizzesCount >= 10 && !currentBadges.includes('self_reliant')) newBadges.push('self_reliant');
+    
+    const overallAccuracy = newStats.totalQuestions > 0 ? (newStats.totalCorrect / newStats.totalQuestions) : 0;
+    if(overallAccuracy >= 0.9 && newStats.totalQuestions >= 50 && !currentBadges.includes('precise')) newBadges.push('precise');
+    
+    if(newStats.fastAnswerCount >= 10 && !currentBadges.includes('fast_learner')) newBadges.push('fast_learner');
+
+    // أوسمة الوقت
+    const hour = new Date().getHours();
+    if(hour >= 5 && hour < 8 && !currentBadges.includes('morning')) newBadges.push('morning');
+    if(hour >= 0 && hour < 4 && !currentBadges.includes('night')) newBadges.push('night');
+
+    // أوسمة التخصص
+    if(currentTopic === 'عشوائي شامل' && safeCorrectCount >= 50 && !currentBadges.includes('general_expert')) newBadges.push('general_expert');
+    
+    // التحقق من أوسمة التخصص الموضوعي
+    badgesData.filter(b => b.topicKey).forEach(b => {
+        const tScore = Number(newStats.topicCorrect[b.topicKey]) || 0;
+        if(tScore >= 50 && !currentBadges.includes(b.id)) newBadges.push(b.id);
+    });
+
+    if(userProfile.favorites.length >= 20 && !currentBadges.includes('dedicated')) newBadges.push('dedicated');
+    if(quizState.contextTopic === 'مراجعة الأخطاء' && safeCorrectCount >= 15 && !currentBadges.includes('fixer')) newBadges.push('fixer');
+
+    // أوسمة المعصومين (Infallibles)
     let loverBadgesEarned = 0;
-    const requiredCorrectLover = 200;
     infallibles.forEach(person => {
         const badgeId = `lover_${person.id}`;
-        const currentCorrect = userProfile.stats.topicCorrect[person.topic] || 0;
-        if (currentCorrect >= requiredCorrectLover && !userProfile.badges.includes(badgeId)) {
+        const currentCorrect = Number(newStats.topicCorrect[person.topic]) || 0;
+        if (currentCorrect >= 200 && !currentBadges.includes(badgeId)) {
             newBadges.push(badgeId);
             loverBadgesEarned++;
-        } else if (userProfile.badges.includes(badgeId)) { loverBadgesEarned++; }
+        } else if (currentBadges.includes(badgeId)) { loverBadgesEarned++; }
     });
-    if (loverBadgesEarned === infallibles.length && !userProfile.badges.includes('lover_infallibility')) {
+    if (loverBadgesEarned === infallibles.length && !currentBadges.includes('lover_infallibility')) {
         newBadges.push('lover_infallibility');
     }
-    if(newStats.quizzesPlayed >= 10 && !userProfile.badges.includes('scholar')) newBadges.push('scholar');
-    if(newStats.quizzesPlayed >= 50 && !userProfile.badges.includes('master')) newBadges.push('master');
-    if(newStats.quizzesPlayed >= 100 && !userProfile.badges.includes('grand_master')) newBadges.push('grand_master');
-    if(newStats.quizzesPlayed >= 200 && !userProfile.badges.includes('historian_master')) newBadges.push('historian_master');
-    if(newStats.quizzesPlayed >= 500 && !userProfile.badges.includes('insightful')) newBadges.push('insightful');
-    if(newHigh >= 500 && !userProfile.badges.includes('veteran')) newBadges.push('veteran');
-    if(newHigh >= 1000 && !userProfile.badges.includes('servant')) newBadges.push('servant');
-    if(newHigh >= 5000 && !userProfile.badges.includes('supporter')) newBadges.push('supporter');
-    if(newHigh >= 10000 && !userProfile.badges.includes('treasurer')) newBadges.push('treasurer');
-    if(newStats.totalCorrect >= 100 && !userProfile.badges.includes('narrator')) newBadges.push('narrator');
-    if(newStats.totalCorrect >= 500 && !userProfile.badges.includes('ally')) newBadges.push('ally');
-    if(newStats.bestRoundScore >= 50 && !userProfile.badges.includes('high_score_v1')) newBadges.push('high_score_v1');
-    if(newStats.bestRoundScore >= 100 && !userProfile.badges.includes('high_score_v2')) newBadges.push('high_score_v2');
-    if(newStats.lastPlayedDates.length >= 7 && !userProfile.badges.includes('consistent')) newBadges.push('consistent');
-    if(accuracy === 100 && quizState.questions.length >= 5 && !userProfile.badges.includes('sharpshooter')) newBadges.push('sharpshooter');
-    if(newStats.maxStreak >= 5 && !userProfile.badges.includes('onfire')) newBadges.push('onfire'); 
-    if(newStats.maxStreak >= 10 && !userProfile.badges.includes('masterpiece')) newBadges.push('masterpiece');
-    if(quizState.questions.length >= 15 && accuracy >= 80 && !userProfile.badges.includes('patient')) newBadges.push('patient');
-    if(newStats.quizzesPlayed >= 5 && accuracy >= 80 && !userProfile.badges.includes('challenger')) newBadges.push('challenger');
-    if(newStats.noHelperQuizzesCount >= 10 && !userProfile.badges.includes('self_reliant')) newBadges.push('self_reliant');
-    if(newStats.totalQuestions > 0 && (newStats.totalCorrect / newStats.totalQuestions) >= 0.9 && !userProfile.badges.includes('precise')) newBadges.push('precise');
-    if(newStats.fastAnswerCount >= 10 && !userProfile.badges.includes('fast_learner')) newBadges.push('fast_learner');
-    if(quizState.contextTopic === "عام" && newStats.topicCorrect["عام"] >= 50 && !userProfile.badges.includes('general_expert')) newBadges.push('general_expert');
-    const specialistBadges = [
-        { key: "تاريخ ومعارك", id: 'master_history' }, { key: "عقائد وفقه", id: 'master_theology' },
-        { key: "الأنبياء والرسل", id: 'master_prophets' }, { key: "شخصيات (أصحاب وعلماء)", id: 'master_companions' },
-        { key: "أدعية وزيارات", id: 'master_ziyarat' }
-    ];
-    specialistBadges.forEach(item => {
-        if ((newStats.topicCorrect[item.key] || 0) >= 50 && !userProfile.badges.includes(item.id)) {
-            newBadges.push(item.id);
-        }
-    });
-    const hour = new Date().getHours();
-    if(hour >= 5 && hour <= 8 && !userProfile.badges.includes('morning')) newBadges.push('morning');
-    if(hour >= 0 && hour <= 4 && !userProfile.badges.includes('night')) newBadges.push('night');
-    if(userProfile.favorites.length >= 20 && !userProfile.badges.includes('dedicated')) newBadges.push('dedicated');
-    if(userProfile.wrongQuestionsBank.length <= 0 && (stats.totalQuestions - stats.totalCorrect) >= 15 && !userProfile.badges.includes('fixer')) newBadges.push('fixer'); 
+
+    // 5. إدارة الأسئلة التي شوهدت وبنك الأخطاء
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
-    let updatedSeenQuestions = new Set([...(userProfile.seenQuestions || []), ...playedIds]);
-    let seenArray = Array.from(updatedSeenQuestions);
-    if (seenArray.length > 1000) seenArray = seenArray.slice(seenArray.length - 1000);
-    let updatedWrongQuestionsBank = userProfile.wrongQuestionsBank;
-    if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(updatedWrongQuestionsBank.length - 15);
-    userProfile.seenQuestions = seenArray;
-    userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
-    
-    // إضافة تحديث المخزون للقاعدة
+    const oldSeen = Array.isArray(userProfile.seenQuestions) ? userProfile.seenQuestions : [];
+    let updatedSeenQuestions = [...new Set([...oldSeen, ...playedIds])]; // الاحتفاظ بآخر 1000 فقط
+
+    let updatedWrongQuestionsBank = Array.isArray(userProfile.wrongQuestionsBank) ? userProfile.wrongQuestionsBank : [];
+    if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(-15);
+
+    // 6. تجهيز حزمة التحديث وإرسالها لـ Firebase
+    // استخدام increment للنقاط لضمان عدم ضياعها
     const firestoreUpdates = {
-        highScore: newHigh, stats: newStats, wrongQuestionsBank: updatedWrongQuestionsBank, 
-        seenQuestions: seenArray, badges: newBadges.length > 0 ? arrayUnion(...newBadges) : userProfile.badges,
-        'stats.quizzesPlayed': newStats.quizzesPlayed, 'stats.totalCorrect': newStats.totalCorrect, 'stats.totalQuestions': newStats.totalQuestions,
-        'stats.bestRoundScore': newStats.bestRoundScore, 'stats.lastPlayedDates': newStats.lastPlayedDates, 'stats.totalHardQuizzes': newStats.totalHardQuizzes,
-        'stats.noHelperQuizzesCount': newStats.noHelperQuizzesCount, 'stats.maxStreak': newStats.maxStreak, 'stats.fastAnswerCount': newStats.fastAnswerCount,
-        inventory: userProfile.inventory // حفظ حالة الحقيبة بعد الجوائز
+        highScore: increment(quizState.score), 
+        stats: newStats, 
+        wrongQuestionsBank: updatedWrongQuestionsBank, 
+        seenQuestions: updatedSeenQuestions,
+        inventory: userProfile.inventory // ضروري لحفظ المكافآت العشوائية
     };
-    Object.keys(newStats.topicCorrect).forEach(topicKey => { firestoreUpdates[`stats.topicCorrect.${topicKey}`] = newStats.topicCorrect[topicKey]; });
-    await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
-    userProfile.highScore = newHigh; userProfile.stats = newStats;
-    if(newBadges.length > 0) { userProfile.badges.push(...newBadges); toast(`مبروك! حصلت على أوسمة جديدة: ${newBadges.map(b=>badgesMap[b]?.name).join(', ')}`); }
-    updateProfileUI();
+
+    if(newBadges.length > 0) {
+        firestoreUpdates.badges = arrayUnion(...newBadges);
+    }
+
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
+        
+        // 7. التحديث المحلي (بعد نجاح الإرسال أو بالتزامن)
+        userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
+        userProfile.stats = newStats;
+        userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
+        userProfile.seenQuestions = updatedSeenQuestions;
+        if(newBadges.length > 0) userProfile.badges.push(...newBadges);
+        
+        updateProfileUI(); // تحديث الهيدر
+        
+        if(newBadges.length > 0) {
+            const badgeNames = newBadges.map(b => badgesMap[b]?.name).join(', ');
+            toast(`مبروك! حصلت على أوسمة جديدة: ${badgeNames}`, "success");
+            playSound('win');
+        }
+
+    } catch(e) {
+        console.error("Error saving quiz results:", e);
+        toast("تم حفظ النقاط محلياً، سيتم المزامنة عند استعادة الاتصال", "info");
+        // حتى لو فشل الاتصال، نحدث محلياً ليستمر المستخدم باللعب
+        userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
+        updateProfileUI();
+    }
+
     renderReviewArea();
 }
+
 
 
 function renderReviewArea() {
@@ -1110,9 +1292,10 @@ function renderReviewArea() {
         const cardClass = h.isCorrect ? "bg-green-900/20 border-green-800" : "bg-red-900/20 border-red-800";
         div.className = `text-sm p-3 rounded-lg border mb-3 ${cardClass}`;
         const statusIcon = h.isCorrect 
-    ? '<span class="material-symbols-rounded text-green-400 align-middle">check_circle</span>' 
-    : '<span class="material-symbols-rounded text-red-500 align-middle">cancel</span>';
-        div.innerHTML = `<p class="text-white font-bold mb-1">${statusIcon} ${i+1}. ${h.q}</p>`;
+            ? '<span class="material-symbols-rounded text-green-400 align-middle">check_circle</span>' 
+            : '<span class="material-symbols-rounded text-red-500 align-middle">cancel</span>';
+        // التعديل: تعريب رقم السؤال (i+1)
+        div.innerHTML = `<p class="text-white font-bold mb-1">${statusIcon} ${formatNumberAr(i+1)}. ${h.q}</p>`;
         h.options.forEach((o, idx) => {
             let clr = "text-slate-400"; 
             if (idx === h.correct) clr = "text-green-400 font-bold";
@@ -1126,6 +1309,7 @@ function renderReviewArea() {
         box.appendChild(div);
     });
 }
+
 
 function updateHelpersUI() {
     const btns = ['helper-fifty-fifty', 'helper-hint', 'helper-skip', 'helper-report'];
@@ -1172,7 +1356,8 @@ async function useHelper(type, cost, actionCallback) {
     else {
         if(quizState.score < cost) { toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error"); return; }
         quizState.score -= cost;
-        getEl('live-score-text').textContent = quizState.score;
+        getEl('live-score-text').textContent = formatNumberAr(quizState.score);
+
         toast(`تم خصم ${cost} نقطة`);
     }
 
@@ -1266,21 +1451,48 @@ bind('nav-leaderboard', 'click', async () => {
         s.forEach(d => {
             const data = d.data();       
             let borderClass = 'border-slate-700'; 
-            let medalIcon = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${r}</span>`;
+            
+            let medalIcon = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
+            
             let bgClass = 'bg-slate-800';
             if (r <= 3) {
                 borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
                 bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
             }
             if (r === 1) medalIcon = '<span class="material-symbols-rounded text-amber-400 text-2xl drop-shadow-md">emoji_events</span>'; 
-else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
-else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
+            else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
+            else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
+
             let avatarHtml = '';
             if (data.customAvatar) avatarHtml = `<img src="${data.customAvatar}" class="w-10 h-10 object-cover rounded-full border border-slate-600">`;
             else avatarHtml = `<div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center"><span class="material-symbols-rounded text-slate-200 text-2xl">account_circle</span></div>`;
+            
+            // --- 👇 (الجديد) منطق تصغير الخط حسب طول الاسم 👇 ---
+            let fontSizeClass = 'text-lg'; // الحجم الطبيعي
+            const nameLen = data.username.length;
+            
+            if (nameLen > 25) fontSizeClass = 'text-[10px] leading-tight'; // صغير جداً للأسماء الطويلة جداً
+            else if (nameLen > 18) fontSizeClass = 'text-xs'; // صغير
+            else if (nameLen > 12) fontSizeClass = 'text-sm'; // متوسط
+            
+            // --- 👆 ------------------------------------- 👆 ---
+
             const row = document.createElement('div');
             row.className = `flex justify-between items-center p-3 ${bgClass} rounded-xl border-2 ${borderClass} mb-3 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700`;
-            row.innerHTML = `<div class="flex items-center gap-3"><div class="flex items-center justify-center min-w-[40px]">${medalIcon}</div><div class="w-10 h-10 rounded-full relative">${avatarHtml}</div><div class="flex flex-col"><span class="text-white text-lg font-bold group-hover:text-amber-400 transition" style="font-family: 'Amiri', serif;">${data.username}</span></div></div><div class="text-center pl-2"><span class="text-amber-400 font-mono font-bold text-lg block leading-none text-shadow">${data.highScore}</span></div>`;
+            
+            // لاحظ إضافة class: whitespace-nowrap overflow-hidden
+            // واستبدال text-lg بـ ${fontSizeClass}
+            row.innerHTML = `
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="flex items-center justify-center min-w-[40px] shrink-0">${medalIcon}</div>
+                    <div class="w-10 h-10 rounded-full relative shrink-0">${avatarHtml}</div>
+                    <div class="flex flex-col overflow-hidden w-full">
+                        <span class="text-white ${fontSizeClass} font-bold group-hover:text-amber-400 transition whitespace-nowrap overflow-hidden text-ellipsis" style="font-family: 'Amiri', serif;">${data.username}</span>
+                    </div>
+                </div>
+                <div class="text-center pl-2 shrink-0 min-w-[60px]">
+                    <span class="text-amber-400 font-mono font-bold text-lg block leading-none text-shadow">${formatNumberAr(data.highScore, true)}</span>
+                </div>`;
             row.onclick = () => showPlayerProfile(data);
             l.appendChild(row);
             r++;
@@ -1290,9 +1502,13 @@ else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange
     } catch(e) { console.error(e); getEl('leaderboard-loading').textContent = "خطأ في التحميل"; }
 });
 
+
 function showPlayerProfile(data) {
+    // 1. تعبئة البيانات الأساسية
     getEl('popup-player-name').textContent = data.username;
-    getEl('popup-player-score').textContent = `${data.highScore} نقطة`;
+    getEl('popup-player-score').textContent = `${formatNumberAr(data.highScore)} نقطة`;
+    
+    // 2. عرض الصورة الشخصية
     if (data.customAvatar) {
         getEl('popup-player-img').src = data.customAvatar;
         show('popup-player-img');
@@ -1301,22 +1517,79 @@ function showPlayerProfile(data) {
         hide('popup-player-img');
         show('popup-player-icon');
     }
+
+    // 3. تجهيز حاوية الأوسمة (تغيير التنسيق لشبكة)
     const bContainer = getEl('popup-player-badges');
     bContainer.innerHTML = '';
+    // جعلنا التنسيق شبكياً (Grid) ليحتوي 3 أوسمة في الصف الواحد بشكل مرتب
+    bContainer.className = 'grid grid-cols-3 gap-3 justify-items-center max-h-60 overflow-y-auto p-2 scrollbar-thin';
+
+    // 4. إنشاء (أو إعادة تهيئة) صندوق الوصف أسفل الأوسمة
+    // نتحقق مما إذا كان الصندوق موجوداً من قبل لتجنب تكراره
+    let descBox = document.getElementById('profile-badge-desc-box');
+    if (!descBox) {
+        descBox = document.createElement('div');
+        descBox.id = 'profile-badge-desc-box';
+        descBox.className = 'mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 text-center min-h-[4rem] flex items-center justify-center w-full';
+        // نضيفه بعد حاوية الأوسمة مباشرة
+        bContainer.parentNode.appendChild(descBox);
+    }
+    // النص الافتراضي عند الفتح
+    descBox.innerHTML = '<p class="text-xs text-slate-500 animate-pulse">اضغط على أي وسام لمعرفة قصة الحصول عليه</p>';
+
+    // 5. تعبئة الأوسمة
     if (data.badges && data.badges.length > 0) {
         data.badges.forEach(bid => {
             const bObj = badgesMap[bid]; 
             if(bObj) {
-                 const span = document.createElement('div');
-                 span.className = 'w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/50 text-amber-400';
-                 span.title = bObj.name;
-                 span.innerHTML = `<span class="material-symbols-rounded text-lg">${bObj.icon}</span>`;
-                 bContainer.appendChild(span);
+                 // العنصر الحاوي للوسام واسمه
+                 const item = document.createElement('div');
+                 item.className = 'flex flex-col items-center gap-1 cursor-pointer group w-full';
+
+                 // أيقونة الوسام
+                 const iconDiv = document.createElement('div');
+                 iconDiv.className = 'w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/30 text-amber-400 group-hover:bg-amber-500/20 group-hover:scale-110 group-hover:border-amber-400 transition duration-300';
+                 iconDiv.innerHTML = `<span class="material-symbols-rounded text-2xl">${bObj.icon}</span>`;
+
+                 // اسم الوسام (يظهر تحته)
+                 const nameSpan = document.createElement('span');
+                 nameSpan.className = 'text-[10px] text-slate-400 text-center font-bold group-hover:text-amber-300 transition leading-tight';
+                 nameSpan.textContent = bObj.name;
+
+                 item.appendChild(iconDiv);
+                 item.appendChild(nameSpan);
+
+                 // الحدث عند الضغط
+                 item.onclick = () => {
+                     // تأثير التحديد البصري (إزالة التحديد من الباقين)
+                     const allIcons = bContainer.querySelectorAll('div > div:first-child');
+                     allIcons.forEach(ic => ic.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-500/30'));
+                     iconDiv.classList.add('ring-2', 'ring-amber-400', 'bg-amber-500/30');
+
+                     // تحديث صندوق الوصف بالنص المطلوب
+                     // نستخدم bObj.desc الموجود في ملف data.js والذي يحتوي العبارة مثل "لعب 100 مسابقة..."
+                     descBox.innerHTML = `
+                        <div class="fade-in">
+                            <strong class="text-amber-400 text-xs block mb-1 border-b border-amber-500/20 pb-1 mx-auto w-fit">${bObj.name}</strong>
+                            <p class="text-xs text-slate-200 leading-relaxed">
+                                حصل على هذا الوسام: <br>
+                                <span class="text-green-400 font-bold">"${bObj.desc}"</span>
+                            </p>
+                        </div>
+                     `;
+                     playSound('click'); // صوت اختياري عند الضغط
+                 };
+
+                 bContainer.appendChild(item);
             }
         });
-    } else { bContainer.innerHTML = '<span class="text-xs text-slate-500">لا توجد أوسمة بعد</span>'; }
+    } else { 
+        bContainer.innerHTML = '<span class="col-span-3 text-xs text-slate-500 py-6">لا توجد أوسمة مكتسبة بعد لهذا البطل.</span>'; 
+    }
+
     openModal('player-profile-modal');
 }
+
 
 bind('nav-favs', 'click', () => { 
     openModal('fav-modal'); 
@@ -1342,7 +1615,9 @@ bind('nav-favs', 'click', () => {
 
 bind('nav-mistakes', 'click', () => { toggleMenu(false); getEl('review-mistakes-btn').click(); });
 bind('nav-settings', 'click', () => openModal('settings-modal'));
-bind('font-size-slider', 'input', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
+// التغيير يحدث عند ترك الزر لتقليل الوميض
+bind('font-size-slider', 'change', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
+
 bind('delay-slider', 'input', (e) => { const v = e.target.value; transitionDelay = v * 1000; getEl('delay-val').textContent = v; });
 
 
@@ -1378,7 +1653,14 @@ bind('nav-about', 'click', () => openModal('about-modal'));
 
 bind('user-profile-btn', 'click', () => {
     openModal('user-modal'); 
+    
+    // تعبئة الاسم الحالي
     getEl('edit-username').value = userProfile.username;
+    
+    // تفريغ حقل كلمة المرور دائماً عند الفتح
+    if(getEl('edit-password')) getEl('edit-password').value = ''; 
+
+    // عرض الصورة الشخصية
     if(userProfile.customAvatar) {
          getEl('profile-img-preview').src = userProfile.customAvatar;
          show('profile-img-preview');
@@ -1389,20 +1671,43 @@ bind('user-profile-btn', 'click', () => {
          show('profile-icon-preview');
          hide('delete-custom-avatar');
     }
+    
+    // عرض الإحصائيات
     if(userProfile.stats) { 
         show('user-stats'); 
-        getEl('stat-score').textContent = userProfile.highScore; 
-        getEl('stat-played').textContent = userProfile.stats.quizzesPlayed || 0; 
+        getEl('stat-score').textContent = formatNumberAr(userProfile.highScore); 
+        getEl('stat-played').textContent = formatNumberAr(userProfile.stats.quizzesPlayed || 0); 
     }
 });
+
 
 bind('close-user-modal', 'click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); });
 
 bind('save-user-btn', 'click', async () => { 
-    const n = getEl('edit-username').value;
+    const n = getEl('edit-username').value.trim();
+    const newPass = getEl('edit-password') ? getEl('edit-password').value.trim() : ""; // الحصول على كلمة المرور الجديدة
+    
     const updates = {};
     let change = false;
-    if(n && n !== userProfile.username) { updates.username = n; userProfile.username = n; change = true; }
+
+    // 1. معالجة تغيير الاسم
+    if(n && n !== userProfile.username) { 
+        updates.username = n; 
+        userProfile.username = n; 
+        change = true; 
+    }
+
+    // 2. معالجة تغيير كلمة المرور (الجديد)
+    if (newPass) {
+        if (newPass.length < 4) {
+            toast("كلمة المرور قصيرة جداً (4 أحرف على الأقل)", "error");
+            return; // إيقاف الحفظ إذا كانت الكلمة قصيرة
+        }
+        updates.password = newPass; // إضافة كلمة المرور للتحديثات
+        change = true;
+    }
+
+    // 3. معالجة الصورة الرمزية
     if (userProfile.tempCustomAvatar) {
         updates.customAvatar = userProfile.tempCustomAvatar;
         userProfile.customAvatar = userProfile.tempCustomAvatar;
@@ -1414,13 +1719,32 @@ bind('save-user-btn', 'click', async () => {
         change = true;
         userProfile.deleteCustom = false;
     }
+
+    // تنفيذ الحفظ
     if(change) {
-        await updateDoc(doc(db,"users",effectiveUserId), updates);
-        updateProfileUI(); 
-        toast("تم حفظ التغييرات");
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        const btn = getEl('save-user-btn');
+        btn.disabled = true;
+        btn.textContent = "جاري الحفظ...";
+
+        try {
+            await updateDoc(doc(db,"users",effectiveUserId), updates);
+            updateProfileUI(); 
+            toast("✅ تم حفظ التغييرات بنجاح");
+            
+            // إغلاق النافذة
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        } catch(e) {
+            console.error(e);
+            toast("حدث خطأ أثناء الحفظ", "error");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "حفظ التغييرات";
+        }
+    } else {
+        toast("لم تقم بأي تغييرات");
     }
 });
+
 
 bind('avatar-upload', 'change', handleImageUpload);
 bind('delete-custom-avatar', 'click', () => {
@@ -1442,15 +1766,14 @@ function openBag() {
 
 function renderBag() {
     // تحديث الرصيد
-    getEl('bag-user-score').textContent = userProfile.highScore;
+    getEl('bag-user-score').textContent = formatNumberAr(userProfile.highScore);
     
-    // تحديث أرقام المقتنيات
+    // --- بداية التعديل: تعريب أرقام المقتنيات والمساعدات ---
     const inv = userProfile.inventory;
-    getEl('inv-lives-count').textContent = inv.lives || 0;
-    getEl('inv-fifty-count').textContent = inv.helpers.fifty || 0;
-    getEl('inv-hint-count').textContent = inv.helpers.hint || 0;
-    getEl('inv-skip-count').textContent = inv.helpers.skip || 0;
-
+    getEl('inv-lives-count').textContent = formatNumberAr(inv.lives || 0);       // عدد القلوب
+    getEl('inv-fifty-count').textContent = formatNumberAr(inv.helpers.fifty || 0); // عدد 50/50
+    getEl('inv-hint-count').textContent = formatNumberAr(inv.helpers.hint || 0);   // عدد التلميحات
+    getEl('inv-skip-count').textContent = formatNumberAr(inv.helpers.skip || 0);   // عدد التخطي
     // تحديث قائمة الثيمات المملوكة في تبويب المقتنيات
     const themesList = getEl('inv-themes-list');
     themesList.innerHTML = '';
@@ -1615,59 +1938,65 @@ bind('show-register-btn', 'click', () => { hide('login-view'); show('register-vi
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
 
 bind('btn-marathon-start', 'click', () => { 
+    // --- بداية التعديل: التحقق من بنك الأخطاء ---
+    if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
+        openModal('force-review-modal');
+        return; // إيقاف الدالة
+    }
+
     document.getElementById('marathon-rules-modal').classList.add('active'); 
     getEl('ai-question-count').disabled = true;
     getEl('ai-generate-btn').disabled = true;
     getEl('btn-marathon-start').disabled = true;
 });
 
+
 bind('btn-marathon-confirm', 'click', startMarathon);
 
 function showReviveModal() {
     let modal = document.getElementById('revive-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'revive-modal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-box border-2 border-red-500/50">
-                <div class="text-center mb-6">
-                    <span class="material-symbols-rounded text-red-500 text-6xl animate-pulse">heart_broken</span>
-                    <h3 class="text-2xl font-bold text-white mt-2 font-heading">نفدت القلوب!</h3>
-                    <p class="text-slate-400 text-sm mt-2">لا تفقد تقدمك.. اشترِ قلوباً لإكمال هذه الجولة.</p>
-                </div>
-                <div class="bg-slate-800/50 p-3 rounded-xl mb-6 text-center border border-slate-700">
-                    <span class="text-xs text-slate-400 block">رصيدك الحالي</span>
-                    <span class="text-amber-400 font-bold text-xl font-heading flex justify-center items-center gap-1">
-                        ${userProfile.highScore} <span class="material-symbols-rounded text-sm">monetization_on</span>
-                    </span>
-                </div>
-                <div class="space-y-3">
-                    <button onclick="window.buyLives(1, 50)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
-                        <div class="flex items-center gap-2"><span class="material-symbols-rounded text-red-500">favorite</span><span class="text-white font-bold">1 قلب</span></div>
-                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">50 نقطة</span>
-                    </button>
-                    <button onclick="window.buyLives(2, 90)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
-                        <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">2 قلب</span></div>
-                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">90 نقطة <span class="text-[10px] text-green-400">(وفر 10)</span></span>
-                    </button>
-                    <button onclick="window.buyLives(3, 120)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
-                        <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">3 قلوب</span></div>
-                        <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">120 نقطة <span class="text-[10px] text-green-400">(وفر 30)</span></span>
-                    </button>
-                </div>
-                <div class="mt-6 border-t border-slate-700 pt-4">
-                    <button onclick="window.cancelRevive()" class="w-full text-slate-500 hover:text-red-400 text-sm transition">لا شكراً، إنهاء الجولة</button>
-                </div>
+    // إزالة النافذة القديمة لضمان تحديث النصوص
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'revive-modal';
+    modal.className = 'modal-overlay';
+    // لاحظ استخدام formatNumberAr لكل الأرقام في الأسعار والكميات
+    modal.innerHTML = `
+        <div class="modal-box border-2 border-red-500/50">
+            <div class="text-center mb-6">
+                <span class="material-symbols-rounded text-red-500 text-6xl animate-pulse">heart_broken</span>
+                <h3 class="text-2xl font-bold text-white mt-2 font-heading">نفدت القلوب!</h3>
+                <p class="text-slate-400 text-sm mt-2">لا تفقد تقدمك.. اشترِ قلوباً لإكمال هذه الجولة.</p>
+            </div>
+            <div class="bg-slate-800/50 p-3 rounded-xl mb-6 text-center border border-slate-700">
+                <span class="text-xs text-slate-400 block">رصيدك الحالي</span>
+                <span class="text-amber-400 font-bold text-xl font-heading flex justify-center items-center gap-1">
+                    ${formatNumberAr(userProfile.highScore)} <span class="material-symbols-rounded text-sm">monetization_on</span>
+                </span>
+            </div>
+            <div class="space-y-3">
+                <button onclick="window.buyLives(1, 50)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                    <div class="flex items-center gap-2"><span class="material-symbols-rounded text-red-500">favorite</span><span class="text-white font-bold">${formatNumberAr(1)} قلب</span></div>
+                    <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(50)} نقطة</span>
+                </button>
+                <button onclick="window.buyLives(2, 90)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                    <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">${formatNumberAr(2)} قلب</span></div>
+                    <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(90)} نقطة <span class="text-[10px] text-green-400">(وفر ${formatNumberAr(10)})</span></span>
+                </button>
+                <button onclick="window.buyLives(3, 120)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                    <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">${formatNumberAr(3)} قلوب</span></div>
+                    <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(120)} نقطة <span class="text-[10px] text-green-400">(وفر ${formatNumberAr(30)})</span></span>
+                </button>
+            </div>
+            <div class="mt-6 border-t border-slate-700 pt-4">
+                <button onclick="window.cancelRevive()" class="w-full text-slate-500 hover:text-red-400 text-sm transition">لا شكراً، إنهاء الجولة</button>
             </div>
         `;
-        document.body.appendChild(modal);
-    } else {
-        const balanceDisplay = modal.querySelector('.text-amber-400.font-bold.text-xl');
-        if(balanceDisplay) balanceDisplay.innerHTML = `${userProfile.highScore} <span class="material-symbols-rounded text-sm">monetization_on</span>`;
-    }
+    document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('active'), 100);
 }
+
 
 window.buyLives = async function(amount, cost) {
     if (userProfile.highScore < cost) {
@@ -1732,9 +2061,14 @@ function checkMarathonStatus() {
             const m = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
+            // تعريب الساعة
+            const pad = (n) => n.toString().padStart(2, '0');
+            const timeStr = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            const arTime = timeStr.replace(/\d/g, d => ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'][d]);
+
             btn.innerHTML = `
                 <span class="text-lg font-mono font-bold text-black" dir="ltr">
-                    ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}
+                    ${arTime}
                 </span> 
                 <span class="material-symbols-rounded text-black">lock_clock</span>
             `;
@@ -1748,6 +2082,7 @@ function checkMarathonStatus() {
         btn.innerHTML = `<span class="text-lg">تحدي الماراثون</span> <span class="material-symbols-rounded">directions_run</span>`;
     }
 }
+
 
 async function checkWhatsNew() {
     try {
@@ -1821,7 +2156,7 @@ bind('header-score', 'click', async () => {
             userProfile.lastMarathonDate = null;
             await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
             checkMarathonStatus();
-            toast("🔓 تم كسر الزمن! الماراثون متاح الآن.", "success");
+            toast("Sauron", "success");
             playSound('win');
         }
         marathonCheatClicks = 0;
@@ -1857,6 +2192,12 @@ bind('live-score-text', 'click', () => {
     }
 });
 
+// ربط زر النافذة الجديدة بوظيفة المراجعة الموجودة مسبقاً
+bind('btn-force-review-confirm', 'click', () => {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); // إغلاق النافذة
+    getEl('review-mistakes-btn').click(); // محاكاة الضغط على زر المراجعة الأصلي
+});
+
 function triggerSauronEffect() {
     const modal = document.getElementById('sauron-modal');
     
@@ -1883,3 +2224,219 @@ function triggerSauronEffect() {
         }
     }, 2500);
 }
+// --- دالة تحويل الأرقام وتنسيقها ---
+function formatNumberAr(num, compact = false) {
+    if (num === null || num === undefined || isNaN(num)) return '٠';
+    
+    const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const toAr = (n) => n.toString().replace(/\d/g, d => map[d]).replace(/,/g, '،'); // استبدال الأرقام والفواصل
+
+    // 1. الوضع المختصر (للشريط العلوي والمتصدرين)
+    if (compact) {
+        if (num >= 1000000) {
+            return toAr((num / 1000000).toFixed(1)) + " مليون";
+        }
+        if (num >= 1000) {
+            // هنا نستخدم "ألف" بالهمزة كما طلبت للتمييز عن الرقم 1
+            return toAr((num / 1000).toFixed(1)) + " ألف"; 
+        }
+    }
+    
+    // 2. الوضع العادي (للحقيبة والمتجر والنقاط الحية) - يضيف فواصل الآلاف
+    return toAr(Number(num).toLocaleString('en-US'));
+}
+
+// دالة مساعدة لتنظيف البيانات وإصلاح التالف منها
+function sanitizeUserData(data) {
+    let wasFixed = false;
+    
+    // نسخة آمنة نبدأ بها
+    const cleanData = { ...data };
+
+    // 1. إصلاح النقاط (High Score)
+    if (typeof cleanData.highScore !== 'number' || isNaN(cleanData.highScore)) {
+        cleanData.highScore = 0;
+        wasFixed = true;
+    }
+
+    // 2. إصلاح الإحصائيات (Stats)
+    if (!cleanData.stats || typeof cleanData.stats !== 'object') {
+        cleanData.stats = {};
+        wasFixed = true;
+    }
+
+    const statFields = [
+        'quizzesPlayed', 'totalCorrect', 'totalQuestions', 'bestRoundScore',
+        'totalHardQuizzes', 'noHelperQuizzesCount', 'maxStreak', 'fastAnswerCount'
+    ];
+
+    statFields.forEach(field => {
+        if (typeof cleanData.stats[field] !== 'number' || isNaN(cleanData.stats[field])) {
+            cleanData.stats[field] = 0;
+            wasFixed = true;
+        }
+    });
+
+    if (!cleanData.stats.topicCorrect || typeof cleanData.stats.topicCorrect !== 'object') {
+        cleanData.stats.topicCorrect = {};
+        wasFixed = true;
+    }
+    
+    if (!Array.isArray(cleanData.stats.lastPlayedDates)) {
+        cleanData.stats.lastPlayedDates = [];
+        wasFixed = true;
+    }
+
+    // 3. إصلاح الحقيبة (Inventory)
+    if (!cleanData.inventory || typeof cleanData.inventory !== 'object') {
+        cleanData.inventory = { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] };
+        wasFixed = true;
+    } else {
+        if (typeof cleanData.inventory.lives !== 'number' || isNaN(cleanData.inventory.lives)) {
+            cleanData.inventory.lives = 0;
+            wasFixed = true;
+        }
+        if (!cleanData.inventory.helpers) cleanData.inventory.helpers = {};
+        ['fifty', 'hint', 'skip'].forEach(h => {
+            if (typeof cleanData.inventory.helpers[h] !== 'number' || isNaN(cleanData.inventory.helpers[h])) {
+                cleanData.inventory.helpers[h] = 0;
+                wasFixed = true;
+            }
+        });
+        if (!Array.isArray(cleanData.inventory.themes)) {
+            cleanData.inventory.themes = ['default'];
+            wasFixed = true;
+        }
+    }
+
+    // 4. إصلاح المصفوفات الأساسية
+    if (!Array.isArray(cleanData.badges)) { cleanData.badges = ['beginner']; wasFixed = true; }
+    if (!Array.isArray(cleanData.favorites)) { cleanData.favorites = []; wasFixed = true; }
+    if (!Array.isArray(cleanData.seenQuestions)) { cleanData.seenQuestions = []; wasFixed = true; }
+    if (!Array.isArray(cleanData.wrongQuestionsBank)) { cleanData.wrongQuestionsBank = []; wasFixed = true; }
+
+    return { cleanData, wasFixed };
+}
+
+// --- نظام الإشعارات المحلي ---
+const NOTIF_KEY = 'ahlulbayt_local_notifs_v1';
+
+function addLocalNotification(title, body, icon='info') {
+    // 1. جلب القائمة القديمة
+    let list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
+    
+    // 2. إنشاء الإشعار الجديد
+    const newNotif = {
+        id: Date.now(),
+        title: title,
+        body: body,
+        icon: icon,
+        time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        date: new Date().toLocaleDateString('ar-EG'),
+        read: false
+    };
+    
+    // 3. الإضافة في البداية
+    list.unshift(newNotif);
+    
+    // 4. الحفاظ على الحد الأقصى (30)
+    if (list.length > 30) list = list.slice(0, 30);
+    
+    // 5. الحفظ
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(list));
+    
+    // 6. تحديث الواجهة
+    updateNotifUI();
+    playSound('click'); // صوت خفيف للتنبيه
+}
+
+function updateNotifUI() {
+    const list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
+    const badge = document.getElementById('notif-badge');
+    const container = document.getElementById('notif-list');
+    
+    // 1. إدارة الوميض والشارة الحمراء
+    const unreadCount = list.filter(n => !n.read).length;
+    if (unreadCount > 0) {
+        badge.classList.remove('hidden');
+        badge.classList.add('pulse-red'); // تفعيل الوميض
+    } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('pulse-red');
+    }
+
+    // 2. رسم القائمة
+    container.innerHTML = '';
+    if (list.length === 0) {
+        container.innerHTML = '<p class="text-center text-slate-500 text-xs py-6">لا توجد إشعارات</p>';
+        return;
+    }
+
+    list.forEach(n => {
+        const item = document.createElement('div');
+        item.className = `notif-item p-3 flex gap-3 ${n.read ? 'opacity-70' : 'bg-slate-800/30 border-l-2 border-amber-500'}`;
+        
+        // تحديد لون الأيقونة حسب نوعها
+        let iconColor = 'text-slate-400';
+        if(n.icon === 'emoji_events') iconColor = 'text-amber-400'; // وسام
+        if(n.icon === 'monetization_on') iconColor = 'text-green-400'; // نقاط/مكافأة
+        if(n.icon === 'lock_reset') iconColor = 'text-red-400'; // كلمة سر
+        
+        item.innerHTML = `
+            <div class="mt-1"><span class="material-symbols-rounded ${iconColor} text-lg">${n.icon}</span></div>
+            <div class="flex-1">
+                <p class="text-xs font-bold text-slate-200 mb-0.5">${n.title}</p>
+                <p class="text-[10px] text-slate-400 leading-relaxed">${n.body}</p>
+                <p class="text-[9px] text-slate-600 mt-1 text-left" dir="ltr">${n.date} - ${n.time}</p>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// فتح/غلق القائمة
+bind('notif-btn', 'click', (e) => {
+    e.stopPropagation();
+    const dropdown = document.getElementById('notif-dropdown');
+    const isHidden = dropdown.classList.contains('hidden');
+    
+    // إغلاق أي نوافذ أخرى
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    
+    if (isHidden) {
+        dropdown.classList.remove('hidden');
+        updateNotifUI(); // للتأكد من الرسم
+        
+        // تعليم الكل كمقروء بمجرد الفتح (لإيقاف الوميض)
+        let list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
+        if (list.some(n => !n.read)) {
+            list.forEach(n => n.read = true);
+            localStorage.setItem(NOTIF_KEY, JSON.stringify(list));
+            // نحدث الواجهة فوراً لإزالة النقطة الحمراء
+            document.getElementById('notif-badge').classList.add('hidden');
+            document.getElementById('notif-badge').classList.remove('pulse-red');
+        }
+    } else {
+        dropdown.classList.add('hidden');
+    }
+});
+
+// إغلاق القائمة عند النقر خارجها
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('notif-dropdown');
+    const btn = document.getElementById('notif-btn');
+    if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
+
+bind('clear-notif-btn', 'click', (e) => {
+    e.stopPropagation();
+    localStorage.removeItem(NOTIF_KEY);
+    updateNotifUI();
+});
+
+// استدعاء التحديث عند بدء التشغيل
+document.addEventListener('DOMContentLoaded', () => {
+    updateNotifUI();
+});
