@@ -17,20 +17,41 @@
 
     <div id="top-header" class="w-full max-w-2xl flex justify-between items-center mb-4 z-20 relative">
     <div class="flex items-center gap-3">
-            <button id="menu-btn" class="text-white p-2 hover:bg-white/10 rounded-full transition"><span class="material-symbols-rounded text-3xl">menu</span></button>
-            <div id="user-profile-container" class="hidden flex items-center gap-3">
-                <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-amber-500/30 shadow-lg">
-                    <span id="header-score" class="text-amber-400 font-bold font-heading text-sm pt-1">0</span>
-                    <span class="material-symbols-rounded text-amber-500 text-sm">military_tech</span>
-                </div>
-                <div id="user-profile-btn" class="flex items-center gap-2 bg-slate-800/60 pl-4 pr-1.5 py-1.5 rounded-full cursor-pointer border border-white/10 hover:bg-slate-700/80 transition relative overflow-hidden group">
-                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-amber-400/50 overflow-hidden">
-                        <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
-                        <span id="user-avatar-icon" class="material-symbols-rounded text-amber-400 text-xl">account_circle</span>
-                    </div>
-                    <span id="username-display" class="text-sm text-white font-heading max-w-[80px] truncate">...</span>
-                </div>
+    
+    <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-amber-500/30 shadow-lg">
+        <span id="header-score" class="text-amber-400 font-bold font-heading text-sm pt-1">0</span>
+        <span class="material-symbols-rounded text-amber-500 text-sm">military_tech</span>
+    </div>
+
+        <div class="relative z-50">
+        <button id="notif-btn" class="flex items-center justify-center p-2 rounded-full bg-slate-800/60 border border-white/10 text-slate-400 hover:text-amber-400 hover:bg-slate-700/80 transition relative">
+            <span class="material-symbols-rounded text-xl">notifications</span>
+            <span id="notif-badge" class="hidden absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-sm"></span>
+        </button>
+
+        <div id="notif-dropdown" class="hidden absolute top-full mt-2 -right-10 md:right-0 w-72 bg-slate-900 border border-amber-500/30 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[100] origin-top-right">
+            
+            <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800">
+                <span class="text-amber-400 font-bold text-xs font-heading">🔔 الإشعارات</span>
+                <button id="clear-notif-btn" class="text-[10px] text-red-400 hover:text-red-300 hover:bg-red-900/20 px-2 py-0.5 rounded transition">مسح الكل</button>
             </div>
+            
+            <div id="notif-list" class="max-h-64 overflow-y-auto scrollbar-thin bg-slate-900/95">
+                </div>
+        </div>
+    </div>
+
+
+    <div id="user-profile-btn" class="flex items-center gap-2 bg-slate-800/60 pl-4 pr-1.5 py-1.5 rounded-full cursor-pointer border border-white/10 hover:bg-slate-700/80 transition relative overflow-hidden group">
+        <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-amber-400/50 overflow-hidden">
+            <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
+            <span id="user-avatar-icon" class="material-symbols-rounded text-amber-400 text-xl">account_circle</span>
+        </div>
+        <span id="username-display" class="text-sm text-white font-heading max-w-[80px] truncate">...</span>
+    </div>
+
+</div>
+
         </div>
     </div>
 
@@ -86,7 +107,8 @@
         </div>
 
         <div id="welcome-area" class="hidden fade-in">
-            <div class="bg-slate-800/50 p-4 rounded-xl border border-amber-500/20 mb-6 text-center relative group">
+            <div class="bg-slate-800/50 p-4 rounded-xl border border-amber-500/20 mb-6 text-center relative group min-h-[80px] flex items-center justify-center">
+
                 <div class="absolute top-0 right-0 bg-amber-500 text-black text-xs px-2 rounded-bl font-bold">رسالة اليوم</div>
                 <p id="wisdom-text" class="text-slate-200 text-sm italic leading-relaxed pt-2">...</p>
             </div>
@@ -248,14 +270,14 @@
                     <span class="material-symbols-rounded text-amber-500 text-4xl animate-pulse">campaign</span>
                 </div>
                 
-                <h3 class="text-xl font-bold text-white font-heading mb-2">ما الجديد؟</h3>
-                <p class="text-xs text-slate-400 mb-4">رسالة من المطور</p>
+                <h3 class="text-xl font-bold text-white font-heading mb-2">الاخبار</h3>
+                <p class="text-xs text-slate-400 mb-4">تحديث</p>
 
                 <div id="news-content" class="text-slate-200 text-sm leading-loose bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 mb-6 text-right whitespace-pre-line max-h-60 overflow-y-auto">
                     </div>
 
                 <button id="close-news-btn" class="btn-gold-action w-full py-2 text-sm shadow-lg">
-                    حسناً، علمت
+                    فهمت
                 </button>
             </div>
         </div>
@@ -276,7 +298,8 @@
     
     <div id="player-profile-modal" class="modal-overlay">
         <div class="modal-box border border-amber-500/30">
-            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
+            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white z-50 p-2 text-xl font-bold transition hover:scale-110">✕</button>
+
             <div class="text-center mb-6 relative">
                  <div class="w-24 h-24 rounded-full mx-auto border-4 border-amber-500 shadow-lg overflow-hidden relative bg-slate-800 flex items-center justify-center">
                      <img id="popup-player-img" src="" class="w-full h-full object-cover hidden" alt="">
@@ -348,7 +371,7 @@
                 <ul class="list-disc list-inside space-y-2">
                     <li><strong>نظام النقاط التراكمي:</strong> جهدك محفوظ دائماً؛ فالنقاط تضاف لرصيدك المستمر لبناء ثروة معرفية.</li>
                     <li><strong>المنافسة والصدارة:</strong> نافس الآخرين عبر "لوحة المتصدرين" للوصول للمراكز الأولى.</li>
-                    <li><strong>التحكم:</strong> إمكانية التحكم بالمؤقت والأصوات من الإعدادات.</li>
+                    <li><strong>التحكم:</strong> إمكانية التحكم بالمؤقت والأصوات والثيمات من الإعدادات.</li>
                     <li><strong>قيمة التطبيق:</strong> أداة تعليمية تُرسخ المعلومات التاريخية والعقائدية عبر التحدي والشرح.</li>
                 </ul>
             </div>
@@ -376,6 +399,8 @@
             </div>
             <div class="space-y-3">
                 <input type="text" id="edit-username" class="input-glass" placeholder="تغيير الاسم">
+                
+    <input type="password" id="edit-password" class="input-glass" placeholder="كلمة مرور جديدة (اتركه فارغاً للإبقاء)">
                 <button id="save-user-btn" class="btn-gold-action py-2 text-base">حفظ التغييرات</button>
                 <button id="logout-btn" class="w-full py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition">تسجيل خروج</button>
             </div>
@@ -486,18 +511,18 @@
         <div class="space-y-3 p-4 bg-slate-800/60 rounded-lg border border-slate-700 mb-6">
             <p class="text-slate-300 text-sm flex items-start gap-2">
                 <span class="material-symbols-rounded text-red-400 mt-1 shrink-0">favorite</span>
-                **حياة اللاعب:** تبدأ بـ 3 قلوب (محاولات). كل إجابة خاطئة تفقد قلباً.
+                حياة اللاعب: تبدأ بـ 3 قلوب (محاولات). كل إجابة خاطئة تفقد قلباً.
             </p>
             <p class="text-slate-300 text-sm flex items-start gap-2">
                 <span class="material-symbols-rounded text-amber-400 mt-1 shrink-0">timer</span>
-                **الضغط الزمني:** المؤقت **إجباري التشغيل** ولا يمكن إيقافه.
+                الضغط الزمني: المؤقت إجباري التشغيل ولا يمكن إيقافه.
             </p>
             <p class="text-slate-300 text-sm flex items-start gap-2">
                 <span class="material-symbols-rounded text-green-400 mt-1 shrink-0">add_circle</span>
-                **الهدف:** الإجابة على أكبر عدد ممكن من الأسئلة من جميع التصنيفات.
+                الهدف: الإجابة على أكبر عدد ممكن من الأسئلة من جميع التصنيفات.
             </p>
             <p class="text-xs text-amber-500 font-bold mt-4 border-t border-slate-700 pt-3">
-                ملاحظة: يمكنك استخدام المساعدات (Skip, 50/50) بالتكلفة العادية.
+                ملاحظة: يمكنك استخدام المساعدات (تخطي, خذف اجابات) بالتكلفة العادية.
             </p>
         </div>
         <button id="btn-marathon-confirm" class="btn-gold-action w-full py-3">بدء التحدي الآن!</button>
@@ -517,6 +542,19 @@
             <div class="flex gap-3 justify-center">
                 <button id="btn-confirm-yes" class="btn-gold-action w-1/2 py-2 text-sm">نعم، متأكد</button>
                 <button id="btn-confirm-no" class="bg-slate-700 text-white w-1/2 rounded-xl border border-slate-600 hover:bg-slate-600 transition font-heading">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    <div id="force-review-modal" class="modal-overlay z-[80]">
+        <div class="modal-box border-2 border-orange-500/50 text-center bg-[#0f172a]">
+            <div class="mb-4 flex justify-center">
+                <span class="material-symbols-rounded text-5xl text-orange-400 animate-pulse">history_edu</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2 font-heading">تنبيه هام</h3>
+            <p class="text-slate-300 text-sm mb-6 leading-relaxed">لديك أسئلة سابقة أخطأت فيها.<br>يجب مراجعتها وتصحيحها أولاً قبل بدء تحدي جديد!</p>
+            <div class="flex gap-3 justify-center">
+                <button id="btn-force-review-confirm" class="btn-gold-action w-1/2 py-2 text-sm">مراجعة الآن</button>
+                <button class="close-modal bg-slate-700 text-white w-1/2 rounded-xl border border-slate-600 hover:bg-slate-600 transition font-heading">إلغاء</button>
             </div>
         </div>
     </div>
