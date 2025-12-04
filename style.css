@@ -547,3 +547,63 @@ z-index: 10;
 }
 .notif-item:hover { background: rgba(255,255,255,0.05); }
 .notif-item:last-child { border-bottom: none; }
+
+/* --- تصحيح ومحاذاة قائمة الأوسمة (Fix Layout) --- */
+
+/* إجبار الحاوية على العرض العمودي */
+.badges-list-container {
+    display: flex !important;
+    flex-direction: column !important; /* يرتب العناصر تحت بعضها */
+    gap: 12px !important; /* مسافة واضحة بين البطاقات */
+    padding: 10px !important;
+    width: 100% !important;
+    max-height: 65vh !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+/* تنسيق البطاقة لتأخذ العرض الكامل */
+.badge-card {
+    display: flex !important;
+    flex-direction: row !important; /* الأيقونة والنص بجانب بعض */
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 80px !important; /* ارتفاع أدنى لمنع الانضغاط */
+    padding: 15px !important;
+    margin: 0 !important;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 12px !important;
+    position: relative !important;
+    flex-shrink: 0 !important; /* يمنع البطاقة من التقلص */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* إصلاح أيقونة الوسام */
+.badge-icon-box {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important; /* يمنع الأيقونة من الانعصار */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 15px !important; /* مسافة بين الأيقونة والنص */
+    background: rgba(255,255,255,0.05);
+}
+
+/* تنسيق النصوص داخل البطاقة */
+.badge-info {
+    flex-grow: 1 !important;
+    overflow: hidden; /* يمنع النص من الخروج */
+}
+
+.badge-info h4 {
+    margin: 0 0 5px 0 !important;
+    font-size: 1rem !important;
+}
+
+/* إخفاء الشبكة القديمة تماماً في حال ظهرت */
+.badges-grid {
+    display: none !important;
+}
