@@ -15,42 +15,41 @@
 </head>
 <body class="flex flex-col items-center justify-center p-4">
 
-    <div id="top-header" class="w-full max-w-2xl flex justify-between items-center mb-4 z-20 relative">
-    <div class="flex items-center gap-3">
-    
-    <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-amber-500/30 shadow-lg">
-        <span id="header-score" class="text-amber-400 font-bold font-heading text-sm pt-1">0</span>
-        <span class="material-symbols-rounded text-amber-500 text-sm">military_tech</span>
-    </div>
+        <div id="top-header" class="w-full max-w-2xl flex items-center gap-2 mb-4 z-20 relative overflow-visible">
 
-        <div class="relative z-50">
-        <button id="notif-btn" class="flex items-center justify-center p-2 rounded-full bg-slate-800/60 border border-white/10 text-slate-400 hover:text-amber-400 hover:bg-slate-700/80 transition relative">
-            <span class="material-symbols-rounded text-xl">notifications</span>
-            <span id="notif-badge" class="hidden absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-sm"></span>
+        <button id="menu-btn" class="p-2 rounded-full bg-slate-800/60 border border-white/10 text-slate-400 hover:text-amber-400 hover:bg-slate-700/80 transition shadow-lg shrink-0">
+            <span class="material-symbols-rounded text-xl">menu</span>
         </button>
 
-        <div id="notif-dropdown" class="hidden absolute top-full mt-2 -right-10 md:right-0 w-72 bg-slate-900 border border-amber-500/30 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[100] origin-top-right">
-            
-            <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800">
-                <span class="text-amber-400 font-bold text-xs font-heading">🔔 الإشعارات</span>
-                <button id="clear-notif-btn" class="text-[10px] text-red-400 hover:text-red-300 hover:bg-red-900/20 px-2 py-0.5 rounded transition">مسح الكل</button>
+        <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-amber-500/30 shadow-lg shrink-0">
+            <span id="header-score" class="text-amber-400 font-bold font-heading text-sm pt-1">0</span>
+            <span class="material-symbols-rounded text-amber-500 text-sm">military_tech</span>
+        </div>
+
+        <div id="user-profile-btn" class="flex items-center gap-2 bg-slate-800/60 pl-4 pr-1.5 py-1.5 rounded-full cursor-pointer border border-white/10 hover:bg-slate-700/80 transition relative overflow-hidden group shrink-0">
+            <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-amber-400/50 overflow-hidden">
+                <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
+                <span id="user-avatar-icon" class="material-symbols-rounded text-amber-400 text-xl">account_circle</span>
             </div>
+            <span id="username-display" class="text-sm text-white font-heading max-w-[80px] truncate">...</span>
+        </div>
+
+        <div class="relative z-50 shrink-0">
+            <button id="notif-btn" class="flex items-center justify-center p-2 rounded-full bg-slate-800/60 border border-white/10 text-slate-400 hover:text-amber-400 hover:bg-slate-700/80 transition relative">
+                <span class="material-symbols-rounded text-xl">notifications</span>
+                <span id="notif-badge" class="hidden absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-sm"></span>
+            </button>
             
-            <div id="notif-list" class="max-h-64 overflow-y-auto scrollbar-thin bg-slate-900/95">
+            <div id="notif-dropdown" class="hidden absolute top-full mt-2 -left-2 w-72 bg-slate-900 border border-amber-500/30 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[100] origin-top-left">
+                <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800">
+                    <span class="text-amber-400 font-bold text-xs font-heading">🔔 الإشعارات</span>
+                    <button id="clear-notif-btn" class="text-[10px] text-red-400 hover:text-red-300 hover:bg-red-900/20 px-2 py-0.5 rounded transition">مسح الكل</button>
                 </div>
+                <div id="notif-list" class="max-h-64 overflow-y-auto scrollbar-thin bg-slate-900/95"></div>
+            </div>
         </div>
-    </div>
 
 
-    <div id="user-profile-btn" class="flex items-center gap-2 bg-slate-800/60 pl-4 pr-1.5 py-1.5 rounded-full cursor-pointer border border-white/10 hover:bg-slate-700/80 transition relative overflow-hidden group">
-        <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-amber-400/50 overflow-hidden">
-            <img id="user-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Avatar">
-            <span id="user-avatar-icon" class="material-symbols-rounded text-amber-400 text-xl">account_circle</span>
-        </div>
-        <span id="username-display" class="text-sm text-white font-heading max-w-[80px] truncate">...</span>
-    </div>
-
-</div>
 
         </div>
     </div>
@@ -107,11 +106,7 @@
         </div>
 
         <div id="welcome-area" class="hidden fade-in">
-            <div class="bg-slate-800/50 p-4 rounded-xl border border-amber-500/20 mb-6 text-center relative group min-h-[80px] flex items-center justify-center">
-
-                <div class="absolute top-0 right-0 bg-amber-500 text-black text-xs px-2 rounded-bl font-bold">رسالة اليوم</div>
-                <p id="wisdom-text" class="text-slate-200 text-sm italic leading-relaxed pt-2">...</p>
-            </div>
+            
 
             <div class="text-center mb-8">
                 <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
@@ -558,6 +553,25 @@
             </div>
         </div>
     </div>
+
+<div id="reward-modal" class="modal-overlay z-[80]">
+    <div class="modal-box border-2 border-amber-500/50 bg-[#0f172a] text-center">
+        <div id="reward-content-area" class="reward-modal-content">
+            </div>
+        <button onclick="document.getElementById('reward-modal').classList.remove('active'); playSound('click');" class="btn-gold-action w-full mt-4">استلام الجوائز</button>
+    </div>
+</div>
+
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => console.log('SW Registered:', registration.scope))
+                .catch(err => console.log('SW Registration Failed:', err));
+        });
+    }
+</script>
 
 </body>
 </html>
