@@ -2411,72 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNotifUI();
 });
 
-// --- دالة حساب التقدم للأوسمة ---
-function getBadgeProgress(badgeId) {
-    const s = userProfile.stats || {};
-    const score = userProfile.highScore || 0;
-    
-    // القيم الافتراضية للعدادات لتجنب الأخطاء
-    const qPlayed = s.quizzesPlayed || 0;
-    const tCorrect = s.totalCorrect || 0;
-    const streak = s.maxStreak || 0;
-    const favs = userProfile.favorites ? userProfile.favorites.length : 0;
 
-    switch (badgeId) {
-        // أوسمة عدد المسابقات
-        case 'scholar': return { cur: qPlayed, max: 10, label: 'مسابقة' };
-        case 'master': return { cur: qPlayed, max: 50, label: 'مسابقة' };
-        case 'grand_master': return { cur: qPlayed, max: 100, label: 'مسابقة' };
-        case 'historian_master': return { cur: qPlayed, max: 200, label: 'مسابقة' };
-        case 'insightful': return { cur: qPlayed, max: 500, label: 'مسابقة' };
-
-        // أوسمة النقاط
-        case 'veteran': return { cur: score, max: 500, label: 'نقطة' };
-        case 'servant': return { cur: score, max: 1000, label: 'نقطة' };
-        case 'supporter': return { cur: score, max: 5000, label: 'نقطة' };
-        case 'treasurer': return { cur: score, max: 10000, label: 'نقطة' };
-
-        // أوسمة الإجابات الصحيحة
-        case 'narrator': return { cur: tCorrect, max: 100, label: 'إجابة' };
-        case 'ally': return { cur: tCorrect, max: 500, label: 'إجابة' };
-
-        // أوسمة الستريك (التتابع)
-        case 'onfire': return { cur: streak, max: 5, label: 'متتالية' };
-        case 'masterpiece': return { cur: streak, max: 10, label: 'متتالية' };
-
-        // أوسمة منوعة
-        case 'consistent': return { cur: (s.lastPlayedDates || []).length, max: 7, label: 'أيام' };
-        case 'challenger': return { cur: s.totalHardQuizzes || 0, max: 5, label: 'جولة صعبة' };
-        case 'self_reliant': return { cur: s.noHelperQuizzesCount || 0, max: 10, label: 'جولة' };
-        case 'fast_learner': return { cur: s.fastAnswerCount || 0, max: 10, label: 'مرة' };
-        case 'dedicated': return { cur: favs, max: 20, label: 'سؤال' };
-        case 'fixer': return { cur: 0, max: 15, label: 'سؤال مصحح' }; // صعب تتبعها بدقة حالياً لذا نجعلها تلميحاً فقط
-        
-        // أوسمة خاصة بالمواضيع (بناءً على topicKey)
-        default:
-            // التحقق من أوسمة التخصص والمعصومين
-            const badgeObj = badgesData.find(b => b.id === badgeId);
-            if (badgeObj && badgeObj.topicKey) {
-                const currentScore = (s.topicCorrect && s.topicCorrect[badgeObj.topicKey]) ? s.topicCorrect[badgeObj.topicKey] : 0;
-                // نحدد الهدف بناء على نوع الوسام (عاشق=200، متخصص=50)
-                const target = badgeId.startsWith('lover_') ? 200 : 50;
-                return { cur: currentScore, max: target, label: 'إجابة' };
-            }
-            
-            // وسام مجمع: عاشق العصمة
-            if (badgeId === 'lover_infallibility') {
-                let earned = 0;
-                infallibles.forEach(p => {
-                    if (userProfile.badges.includes(`lover_${p.id}`)) earned++;
-                });
-                return { cur: earned, max: 14, label: 'وسام' };
-            }
-
-            // الأوسمة التي تعتمد على حدث لحظي (مثل اللعب في الصباح أو الحصول على درجة كاملة مرة واحدة)
-            // لا نعرض لها شريط تقدم لأنها تحدث فجأة
-            return null;
-    }
-}
 
 // --- دوال منطق الأوسمة الجديد (Main Logic) ---
 
