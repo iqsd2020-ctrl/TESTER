@@ -155,19 +155,19 @@ h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 
 .glass-card { 
     background: var(--bg-card); 
-    backdrop-filter: blur(8px); 
-    -webkit-backdrop-filter: blur(8px); 
+    /* backdrop-filter: blur(8px);       <-- ضع علامات التعليق هنا أو احذف السطر */
+    /* -webkit-backdrop-filter: blur(8px); <-- وهذا السطر أيضاً */
+    
     border: 1px solid var(--border-color); 
     border-radius: 1.5rem; 
     box-shadow: var(--card-box-shadow, 0 25px 50px -12px var(--shadow-color)); 
     
-    /* --- الإضافات الجديدة لمنع الوميض --- */
-    transition: background 0.3s, border-color 0.3s; /* تحديد الخصائص بدقة بدلاً من all */
-    transform: translateZ(0); /* يجبر المتصفح على استخدام GPU */
-    -webkit-transform: translateZ(0);
-    will-change: transform, opacity; /* يخبر المتصفح بأن يستعد للتغييرات */
-    backface-visibility: hidden; /* يمنع الوميض الخلفي */
+    /* لاحظ: أبقِ على الترانزيشن المحددة فقط */
+    transition: background 0.3s, border-color 0.3s; 
+    
+    /* احذف translateZ و will-change من هنا إذا كانوا موجودين */
 }
+
 
 
 .input-glass { 
@@ -297,7 +297,7 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 .menu-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; color: var(--text-muted); cursor: pointer; border-bottom: 1px solid var(--border-color); font-family: var(--font-heading); transition: background-color 0.2s, color 0.2s, padding-right 0.2s; }
 .menu-item:hover { background: var(--bg-input); color: var(--accent-color); padding-right: 2rem; }
 
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
 .modal-box { 
     background: var(--bg-side-menu); 
@@ -323,9 +323,26 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 .timer-bar { height: 100%; background: linear-gradient(90deg, #10b981, var(--accent-color), #ef4444); width: 100%; transition: width 1s linear; transform-origin: right; }
 
 #toast-notification { 
-    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(150%); 
-    background: var(--bg-side-menu); border: 1px solid var(--accent-color); 
-    color: var(--text-main); padding: 1rem 2rem; border-radius: 1rem; z-index: 100; 
+    position: fixed; 
+    bottom: 2rem; 
+    left: 50%; 
+    transform: translateX(-50%) translateY(150%); 
+    background: var(--bg-side-menu); 
+    border: 1px solid var(--accent-color); 
+    color: var(--text-main); 
+    padding: 1rem 2rem; 
+    border-radius: 1rem; 
+    z-index: 100; 
+    
+    /* --- التعديلات الجديدة للخط --- */
+    font-family: 'Amiri', serif;
+    font-weight: 700;                 /* خط عريض */
+    font-size: 0.95rem;               /* حجم مناسب */
+    letter-spacing: 0.5px;            /* تباعد خفيف للأحرف */
+    text-align: center;               /* توسيط النص */
+    min-width: 300px;                 /* عرض أدنى ليكون شكله مرتباً */
+    /* --------------------------- */
+
     transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
     box-shadow: 0 10px 30px var(--shadow-color); 
 }
@@ -620,30 +637,4 @@ z-index: 10;
 /* إخفاء الشبكة القديمة تماماً في حال ظهرت */
 .badges-grid {
     display: none !important;
-}
-
-/* --- إصلاح وميض القوائم (Performance Fix for Scrolling) --- */
-#leaderboard-list, 
-#fav-list, 
-#review-items-container, 
-#notif-list {
-    /* تفعيل التسريع العتادي للقوائم */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    will-change: transform, scroll-position;
-    
-    /* جعل التمرير ناعماً */
-    -webkit-overflow-scrolling: touch;
-    
-    /* منع اختفاء العناصر أثناء التمرير */
-    backface-visibility: hidden;
-    perspective: 1000px;
-}
-
-/* تثبيت عناصر القائمة لمنع اهتزازها */
-#leaderboard-list > div,
-#fav-list > div,
-.notif-item {
-    transform: translate3d(0,0,0);
-    backface-visibility: hidden;
 }
