@@ -74,7 +74,7 @@ function applyTheme(themeName) {
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
 const hide = (id) => getEl(id)?.classList.add('hidden');
-const toast = (msg, type='success') => { const t=getEl('toast-notification'); t.textContent=msg; t.className = type==='error'?'bg-red-900 border-red-500':'bg-green-900 border-green-500'; t.classList.add('show'); t.classList.remove('hidden'); setTimeout(()=>{t.classList.remove('show');t.classList.add('hidden')},3000); };
+const toast = (msg, type='success') => { const t=getEl('toast-notification'); t.textContent=msg; t.className = type==='error'?'bg-red-900 border-red-500':'bg-green-900 border-green-500'; t.classList.add('show'); t.classList.remove('hidden'); setTimeout(()=>{t.classList.remove('show');t.classList.add('hidden')},5000); };
 
 function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     if (isMuted) return;
@@ -1332,81 +1332,111 @@ const openModal = (id) => {
 document.querySelectorAll('.close-modal').forEach(b => b.onclick = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')));
 
 bind('nav-home', 'click', () => { toggleMenu(false); navToHome(); });
+
 bind('nav-badges', 'click', () => {
     openModal('badges-modal');
     const container = getEl('badges-list');
     
-    // 1. استخدام التنسيق الجديد (List) بدلاً من Grid
     container.className = 'badges-list-container'; 
     container.innerHTML = '';
 
-    // 2. جلب الأوسمة مرتبة (الأقرب فالأبعد)
     const sortedBadges = sortBadgesSmartly();
 
     sortedBadges.forEach(b => {
-        const isUnlocked = userProfile.badges.includes(b.id);
-        const progress = getBadgeProgress(b);
+        const progressData = getBadgeProgress(b);
+        const targetLvl = progressData.activeLevel;
         
-        // تحديد حالة البطاقة
-        let cardClass = 'locked';
-        if (isUnlocked) cardClass = 'unlocked';
-        else if (progress.percent > 0) cardClass = 'active-target';
+        // --- ضبط الألوان (أحمر -> أبيض -> ذهبي) ---
+        let iconColorClass = 'text-slate-600 opacity-50'; // لون القفل (رمادي غامق)
+        let glowClass = ''; 
+        let tierText = '';
+        let barColor = '#ef4444'; // أحمر افتراضي
+
+        // تحديد اللون بناءً على المستوى الذي وصل له
+        if (progressData.tier === 'bronze' || (progressData.percent > 0 && progressData.tier === 'locked')) {
+            // المستوى 1: برونزي (أحمر حسب طلبك)
+            iconColorClass = 'text-red-500 drop-shadow-sm';
+            tierText = 'مستوى برونزي';
+            barColor = '#ef4444'; // أحمر
+        } else if (progressData.tier === 'silver') {
+            // المستوى 2: فضي (أبيض)
+            iconColorClass = 'text-slate-100 drop-shadow-md'; 
+            glowClass = 'shadow-[0_0_10px_rgba(255,255,255,0.3)]';
+            tierText = 'مستوى فضي';
+            barColor = '#f8fafc'; // أبيض
+        } else if (progressData.tier === 'gold') {
+            // المستوى 3: ذهبي
+            iconColorClass = 'text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)] animate-pulse-slow';
+            tierText = 'مستوى ذهبي 👑';
+            barColor = '#fbbf24'; // ذهبي
+        }
+
+        // --- عرض الجائزة القادمة ---
+        let miniRewardHtml = '';
+        if (targetLvl.rewards && !progressData.isMaxed) {
+             if(targetLvl.rewards.score) {
+                miniRewardHtml += `
+                    <div class="flex items-center justify-center gap-0.5 text-amber-400 mb-0.5">
+                        <span class="material-symbols-rounded text-[10px]">monetization_on</span>
+                        <span class="font-bold text-[9px]" dir="ltr">${formatNumberAr(targetLvl.rewards.score)}</span>
+                    </div>`;
+            }
+             if(targetLvl.rewards.lives) {
+                miniRewardHtml += `
+                    <div class="flex items-center justify-center gap-0.5 text-red-500">
+                        <span class="material-symbols-rounded text-[10px]">favorite</span>
+                        <span class="font-bold text-[9px]" dir="ltr">+${targetLvl.rewards.lives}</span>
+                    </div>`;
+            }
+        } else if (progressData.isMaxed) {
+            miniRewardHtml = '<span class="text-[9px] text-green-400 font-bold">تم الختم</span>';
+        }
+
+        // الأيقونة
+        let iconHtml = `<span class="material-symbols-rounded">${b.icon}</span>`;
+        if(progressData.isMaxed) iconHtml = `<span class="material-symbols-rounded">military_tech</span>`; 
+
+        // حالة البطاقة
+        let cardClass = progressData.percent > 0 ? 'active-target' : 'locked';
+        if (progressData.isMaxed) cardClass = 'unlocked';
 
         const div = document.createElement('div');
-        div.className = `badge-card ${cardClass}`;
+        div.className = `badge-card ${cardClass} ${progressData.tier === 'gold' ? 'border-amber-500/50' : ''}`;
         
-        // تجهيز HTML المحتوى
-        let iconHtml = `<span class="material-symbols-rounded">${b.icon}</span>`;
-        if(isUnlocked) iconHtml = `<span class="material-symbols-rounded">check_circle</span>`;
-
-        // نص التقدم
-        let progressText = isUnlocked 
-            ? '<span class="text-green-400 text-xs font-bold">مكتمل ✅</span>' 
-            : `<span class="text-amber-400 text-xs font-bold" dir="ltr">${formatNumberAr(progress.current)} / ${formatNumberAr(progress.max)}</span>`;
-
         div.innerHTML = `
-            <div class="badge-icon-box ${isUnlocked ? 'text-green-400' : 'text-slate-400'}">
-                ${iconHtml}
-            </div>
-            <div class="badge-info">
-                <div class="flex justify-between items-center mb-1">
-                    <h4 class="font-bold text-white text-sm">${b.name}</h4>
-                    ${progressText}
+            <div class="flex flex-col items-center justify-center gap-1 ml-3 shrink-0" style="min-width: 60px;">
+                <div class="badge-icon-box ${iconColorClass} ${glowClass}" style="margin: 0 !important; width: 50px !important; height: 50px !important; font-size: 1.8rem !important; border: 2px solid currentColor !important; background: rgba(0,0,0,0.2);">
+                    ${iconHtml}
                 </div>
-                <p class="text-[10px] text-slate-400 mb-2">${b.desc}</p>
                 
-                ${!isUnlocked ? `
-                <div class="badge-progress-track">
-                    <div class="badge-progress-fill" style="width: ${progress.percent}%"></div>
+                <div class="flex flex-col w-full mt-1 bg-slate-900/40 rounded px-1 py-1 border border-white/5 items-center min-h-[20px] justify-center">
+                    ${miniRewardHtml || '<span class="text-[9px] text-slate-500">-</span>'}
                 </div>
-                ` : ''}
+            </div>
+
+            <div class="badge-info flex flex-col justify-center h-full w-full">
+                <div class="flex justify-between items-center mb-1">
+                    <div class="flex flex-col">
+                        <h4 class="font-bold text-white text-sm leading-tight">${b.name}</h4>
+                        <span class="text-[9px] ${iconColorClass} font-bold opacity-90">${tierText || 'غير مكتسب'}</span>
+                    </div>
+                    
+                    <div class="bg-slate-900/50 px-2 py-0.5 rounded text-[10px] border border-white/5 shrink-0">
+                         <span class="text-amber-400 font-bold" dir="ltr">${formatNumberAr(progressData.current)} / ${formatNumberAr(progressData.max)}</span>
+                    </div>
+                </div>
+                
+                <p class="text-[10px] text-slate-400 mb-2 leading-tight opacity-80 pl-1">${b.desc}</p>
+                
+                <div class="badge-progress-track" style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                    <div class="badge-progress-fill" style="width: ${progressData.percent}%; background: ${barColor}; transition: width 1s;"></div>
+                </div>
             </div>
         `;
-
-        // عند الضغط (لعرض تفاصيل الجائزة)
-        div.onclick = () => {
-            let rewardHtml = '';
-            if (b.rewards) {
-                rewardHtml = `<div class="mt-3 pt-3 border-t border-slate-700 flex gap-4 justify-center">`;
-                if(b.rewards.score) rewardHtml += `<span class="text-xs text-amber-400 flex items-center gap-1"><span class="material-symbols-rounded text-sm">monetization_on</span> ${b.rewards.score}</span>`;
-                if(b.rewards.lives) rewardHtml += `<span class="text-xs text-red-400 flex items-center gap-1"><span class="material-symbols-rounded text-sm">favorite</span> ${b.rewards.lives}</span>`;
-                rewardHtml += `</div>`;
-            }
-            
-            getEl('badge-desc-display').innerHTML = `
-                <div class="text-center">
-                    <strong class="text-amber-400 text-base block mb-2">${b.name}</strong>
-                    <p class="text-sm text-slate-300">${b.desc}</p>
-                    ${rewardHtml}
-                    ${!isUnlocked ? `<p class="text-xs text-slate-500 mt-2">أكمل المهمة لتحصل على الجوائز!</p>` : ''}
-                </div>
-            `;
-        };
 
         container.appendChild(div);
     });
 });
-
 
 bind('nav-leaderboard', 'click', async () => {
     openModal('leaderboard-modal');
@@ -2412,178 +2442,204 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-
-// --- دوال منطق الأوسمة الجديد (Main Logic) ---
-
-// 1. حساب التقدم بدقة (يعيد كائن به القيمة الحالية والقصوى)
+// --- دالة حساب التقدم والمستوى (المطورة) ---
 function getBadgeProgress(badge) {
     const stats = userProfile.stats || {};
-    let current = 0;
+    let currentScore = 0;
 
-    // حالة: الأوسمة المكتسبة (دائماً مكتملة)
-    if (userProfile.badges.includes(badge.id)) {
-        return { current: badge.target, max: badge.target, percent: 100 };
-    }
-
-    // حساب التقدم بناءً على نوع الوسام
+    // 1. حساب النقاط الحالية بدقة (مع البحث الذكي)
     if (badge.type === 'topic') {
-        // تجميع النقاط من الموضوع المحدد
-        current = (stats.topicCorrect && stats.topicCorrect[badge.topicKey]) ? stats.topicCorrect[badge.topicKey] : 0;
-    } 
-    else if (badge.type === 'keyword') {
-        // البحث في سجل الإجابات الصحيحة عن الكلمات المفتاحية
-        // ملاحظة: هذا يتطلب أن نحفظ "topic" السؤال في الإحصائيات، 
-        // للتبسيط سنعتمد على topicCorrect إذا كان المفتاح هو اسم قسم، 
-        // أو سنفترض 0 حالياً حتى نحدث نظام تتبع الكلمات الدقيقة لاحقاً.
-        // *لغرض هذا التحديث سنعتمد البحث في topicCorrect التقريبي*
-        current = 0; // سيتم تفعيل هذا المنطق الدقيق لاحقاً
-    }
-    else if (badge.type === 'score') {
-        current = userProfile.highScore || 0;
-    }
-    else if (badge.type === 'streak') {
-        current = stats.maxStreak || 0;
-    }
-    else if (badge.type === 'counter') {
-        current = stats[badge.statKey] || 0;
-    }
-    else if (badge.type === 'manual') {
-        // حالات خاصة
-        if (badge.id === 'tastemaker') current = (userProfile.inventory.themes || []).length;
-        else if (badge.id === 'ark_salvation' || badge.id === 'lover_infallibility') {
-             // حساب عدد أوسمة العشق المكتسبة
-             current = userProfile.badges.filter(b => b.startsWith('lover_')).length;
+        if (stats.topicCorrect) {
+            Object.keys(stats.topicCorrect).forEach(key => {
+                // يجمع النقاط إذا كان الاسم يحتوي على الكلمة المفتاحية (حل المشكلة الرمادية)
+                if (key.includes(badge.topicKey) || badge.topicKey.includes(key)) {
+                    currentScore += stats.topicCorrect[key];
+                }
+            });
         }
-        else if (badge.id === 'explorer') current = stats.enrichmentCount || 0; // يحتاج إضافة عداد
+    } else if (badge.type === 'score') {
+        currentScore = userProfile.highScore || 0;
+    } else if (badge.type === 'streak') {
+        currentScore = stats.maxStreak || 0;
+    } else if (badge.type === 'counter') {
+        currentScore = stats[badge.statKey] || 0;
     }
 
-    // تصحيح القيم (لا تتجاوز الهدف)
-    if (current > badge.target) current = badge.target;
+    // 2. تحديد المستوى الذي يعمل عليه اللاعب حالياً
+    let activeLevel = badge.levels[0]; // افتراضياً المستوى الأول
+    let currentTierColor = 'locked';   
+    let nextTierLabel = badge.levels[0].label;
     
+    // معرفة أقصى مستوى تم الوصول إليه
+    for (let i = 0; i < badge.levels.length; i++) {
+        const level = badge.levels[i];
+        
+        if (currentScore >= level.target) {
+            if (i === badge.levels.length - 1) {
+                // ختم الذهبي
+                activeLevel = level;
+                currentTierColor = 'gold';
+                nextTierLabel = 'مكتمل';
+            } else {
+                // انتقل للمستوى التالي
+                activeLevel = badge.levels[i + 1];
+                currentTierColor = level.color; // لون المستوى المنجز
+                nextTierLabel = badge.levels[i + 1].label;
+            }
+        } else {
+            // هذا هو المستوى الحالي المستهدف
+            activeLevel = level;
+            if (i > 0) currentTierColor = badge.levels[i-1].color;
+            nextTierLabel = level.label;
+            break; 
+        }
+    }
+
+    // 3. حساب النسبة المئوية للهدف الحالي
+    let percent = Math.floor((currentScore / activeLevel.target) * 100);
+    if (percent > 100) percent = 100;
+
     return {
-        current: current,
-        max: badge.target,
-        percent: Math.floor((current / badge.target) * 100)
+        current: currentScore,
+        max: activeLevel.target,
+        percent: percent,
+        activeLevel: activeLevel,
+        tier: currentTierColor, // (bronze/silver/gold/locked)
+        isMaxed: currentScore >= badge.levels[badge.levels.length-1].target
     };
 }
 
 // 2. دالة الترتيب الذكي (Smart Sorting)
 function sortBadgesSmartly() {
     return badgesData.sort((a, b) => {
-        const hasA = userProfile.badges.includes(a.id);
-        const hasB = userProfile.badges.includes(b.id);
+        // فحص هل الوسام مختوم بالكامل (الذهبي)
+        const progA = getBadgeProgress(a);
+        const progB = getBadgeProgress(b);
         
-        // القاعدة 1: غير المكتسب يظهر قبل المكتسب
-        if (hasA && !hasB) return 1;
-        if (!hasA && hasB) return -1;
+        const finishedA = progA.isMaxed;
+        const finishedB = progB.isMaxed;
         
-        // القاعدة 2: إذا كان كلاهما غير مكتسب، الأقرب للاكتمال يظهر أولاً
-        if (!hasA && !hasB) {
-            const progA = getBadgeProgress(a).percent;
-            const progB = getBadgeProgress(b).percent;
-            return progB - progA; // الأكبر نسبة أولاً
-        }
-
-        return 0;
+        // القاعدة 1: غير المكتمل يظهر قبل المكتمل (المختوم)
+        if (finishedA && !finishedB) return 1;
+        if (!finishedA && finishedB) return -1;
+        
+        // القاعدة 2: الأقرب للاكتمال يظهر أولاً
+        return progB.percent - progA.percent; 
     });
 }
 
-// --- دوال التحقق من الأوسمة والمكافآت (System Logic) ---
-
+// --- دالة التحقق من الأوسمة (نظام المستويات) ---
 async function checkAndUnlockBadges() {
-    let newBadges = [];
+    let newUnlocks = [];
     
-    // 1. فحص كل وسام في قاعدة البيانات
     badgesData.forEach(badge => {
-        // إذا لم يكن لدى المستخدم هذا الوسام مسبقاً
-        if (!userProfile.badges.includes(badge.id)) {
-            const prog = getBadgeProgress(badge);
-            // إذا اكتمل الهدف (100%)
-            if (prog.percent >= 100) {
-                newBadges.push(badge);
-            }
-        }
-    });
-
-    // 2. إذا وجدنا أوسمة جديدة
-    if (newBadges.length > 0) {
-        let totalScoreAdded = 0;
+        const progressData = getBadgeProgress(badge);
         
-        // تطبيق المكافآت
-        newBadges.forEach(b => {
-            userProfile.badges.push(b.id);
-            if (b.rewards) {
-                if (b.rewards.score) { 
-                    userProfile.highScore += b.rewards.score; 
-                    totalScoreAdded += b.rewards.score;
-                }
-                if (b.rewards.lives) userProfile.inventory.lives = (userProfile.inventory.lives || 0) + b.rewards.lives;
-                if (b.rewards.hint) userProfile.inventory.helpers.hint = (userProfile.inventory.helpers.hint || 0) + b.rewards.hint;
-                if (b.rewards.fifty) userProfile.inventory.helpers.fifty = (userProfile.inventory.helpers.fifty || 0) + b.rewards.fifty;
-                if (b.rewards.skip) userProfile.inventory.helpers.skip = (userProfile.inventory.helpers.skip || 0) + b.rewards.skip;
+        // التحقق من كل مستوى
+        badge.levels.forEach(level => {
+            // المعرف الفريد للمستوى: badgeId_lvlX
+            const uniqueLevelId = `${badge.id}_lvl${level.id}`;
+            
+            // الشرط: حقق الهدف + لم يستلم الجائزة سابقاً
+            if (progressData.current >= level.target && !userProfile.badges.includes(uniqueLevelId)) {
+                newUnlocks.push({
+                    badge: badge,
+                    level: level,
+                    uniqueId: uniqueLevelId
+                });
             }
         });
+    });
 
-        // حفظ التغييرات في السيرفر
+    if (newUnlocks.length > 0) {
+        let totalScoreAdded = 0;
+        
+        newUnlocks.forEach(unlock => {
+            const r = unlock.level.rewards;
+            userProfile.badges.push(unlock.uniqueId); // تسجيل المستوى
+            
+            if (r.score) { 
+                userProfile.highScore += r.score; 
+                totalScoreAdded += r.score;
+            }
+            if (r.lives) userProfile.inventory.lives = (userProfile.inventory.lives || 0) + r.lives;
+            if (r.hint) userProfile.inventory.helpers.hint = (userProfile.inventory.helpers.hint || 0) + r.hint;
+            if (r.fifty) userProfile.inventory.helpers.fifty = (userProfile.inventory.helpers.fifty || 0) + r.fifty;
+            if (r.skip) userProfile.inventory.helpers.skip = (userProfile.inventory.helpers.skip || 0) + r.skip;
+        });
+
         await updateDoc(doc(db, "users", effectiveUserId), {
             badges: userProfile.badges,
             highScore: userProfile.highScore,
             inventory: userProfile.inventory
         });
 
-        // تحديث الواجهة وتشغيل صوت الفوز
+        const lastUnlock = newUnlocks[newUnlocks.length - 1];
         updateProfileUI();
-        playSound('applause'); // صوت تصفيق
+        playSound('applause');
         
-        // عرض نافذة الجائزة لأول وسام (أو يمكن دمجهم)
-        showRewardModal(newBadges[0]); 
+        showRewardModal(lastUnlock.badge, lastUnlock.level); 
         
-        return true; // تم الحصول على وسام
+        return true;
     }
     
-    return false; // لا توجد أوسمة جديدة
+    return false;
 }
 
-function showRewardModal(badge) {
+// تحديث دالة عرض نافذة الجائزة لتأخذ المستوى بعين الاعتبار
+function showRewardModal(badge, level) {
     const modal = getEl('reward-modal');
     const box = getEl('reward-content-area');
     
-    // بناء أيقونات الجوائز
     let rewardsHtml = '';
-    if (badge.rewards) {
-        if (badge.rewards.score) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-amber-400 text-2xl block mb-1">monetization_on</span><span class="text-white text-xs font-bold">+${badge.rewards.score}</span></div>`;
-        if (badge.rewards.lives) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-red-500 text-2xl block mb-1">favorite</span><span class="text-white text-xs font-bold">+${badge.rewards.lives}</span></div>`;
-        if (badge.rewards.hint) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-yellow-400 text-2xl block mb-1">lightbulb</span><span class="text-white text-xs font-bold">+${badge.rewards.hint}</span></div>`;
-        // يمكن إضافة المزيد حسب المساحة
+    if (level.rewards) {
+        if (level.rewards.score) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-amber-400 text-2xl block mb-1">monetization_on</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.score)}</span></div>`;
+        if (level.rewards.lives) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-red-500 text-2xl block mb-1">favorite</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.lives)}</span></div>`;
+        if (level.rewards.hint) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-yellow-400 text-2xl block mb-1">lightbulb</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.hint)}</span></div>`;
+        if (level.rewards.skip) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-green-400 text-2xl block mb-1">skip_next</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.skip)}</span></div>`;
     }
 
+    // لون العنوان حسب الرتبة
+    let titleColor = 'text-white';
+    let levelName = level.label;
+    
+    if(level.color === 'bronze') { titleColor = 'text-red-500'; }
+    if(level.color === 'silver') { titleColor = 'text-slate-200'; }
+    if(level.color === 'gold')   { titleColor = 'text-amber-400'; }
+
     box.innerHTML = `
-        <span class="material-symbols-rounded reward-icon-large">${badge.icon}</span>
-        <h3 class="text-2xl font-bold text-white font-heading mb-2">مبارك! وسام جديد</h3>
-        <p class="text-amber-400 text-lg font-bold mb-4">${badge.name}</p>
-        <p class="text-slate-400 text-sm mb-6">${badge.desc}</p>
+        <span class="material-symbols-rounded reward-icon-large ${titleColor}">${badge.icon}</span>
+        <h3 class="text-xl font-bold text-white font-heading mb-1">إنجاز جديد!</h3>
+        <p class="${titleColor} text-lg font-bold mb-2">${badge.name}</p>
+        <span class="text-xs bg-slate-800 px-3 py-1 rounded-full border border-white/10 mb-4 inline-block">${levelName}</span>
         
-        <div class="text-xs text-slate-500 mb-2">-- الجوائز المكتسبة --</div>
+        <p class="text-slate-400 text-sm mb-6 px-4">${badge.desc}</p>
+        
+        <div class="text-xs text-slate-500 mb-2">-- الجوائز --</div>
         <div class="reward-items-grid">
             ${rewardsHtml}
         </div>
     `;
     
-    launchConfetti(); // احتفال
+    launchConfetti();
     modal.classList.add('active');
 }
 
+
+
 function showMotivator() {
-    // البحث عن أقرب وسام لم يكتمل بعد
-    // نستثني الأوسمة "اللحظية" مثل Streak لأنها تتصفر
-    const candidates = badgesData.filter(b => !userProfile.badges.includes(b.id) && b.type !== 'streak' && b.type !== 'one_shot');
+    // البحث عن أوسمة لم تختم بعد
+    const candidates = badgesData.filter(b => {
+        const prog = getBadgeProgress(b);
+        return !prog.isMaxed && b.type !== 'streak'; // نستثني الستريك لأنه يتصفر
+    });
     
     let bestCandidate = null;
     let highestPercent = 0;
 
     candidates.forEach(b => {
         const prog = getBadgeProgress(b);
-        if (prog.percent >= 60 && prog.percent < 100) { // يظهر فقط إذا تجاوز 60%
+        if (prog.percent >= 60 && prog.percent < 100) { 
             if (prog.percent > highestPercent) {
                 highestPercent = prog.percent;
                 bestCandidate = b;
@@ -2592,10 +2648,10 @@ function showMotivator() {
     });
 
     if (bestCandidate) {
-        const remaining = bestCandidate.target - getBadgeProgress(bestCandidate).current;
-        const msg = `أنت قريب جداً! بقي ${remaining} فقط للحصول على وسام "${bestCandidate.name}"`;
+        const prog = getBadgeProgress(bestCandidate);
+        const remaining = prog.max - prog.current;
+        const msg = `أنت قريب! بقي ${formatNumberAr(remaining)} للحصول على مستوى جديد في "${bestCandidate.name}"`;
         
-        // عرض توست جميل ومطول بدلاً من نافذة مزعجة
         toast(`🚀 ${msg}`, 'success'); 
         playSound('hint');
     }
