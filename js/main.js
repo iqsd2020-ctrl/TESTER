@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { topicsData, staticWisdoms, infallibles, badgesData, badgesMap } from './data.js';
+import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC6FoHbL8CDTPX1MNaNWyDIA-6xheX0t4s",
@@ -34,7 +34,6 @@ let transitionDelay = 2000;
 let isMuted = false;
 let timerInterval = null;
 let audioContext = null; 
-let wisdomInterval = null;
 let marathonInterval = null;
 let currentSelectionMode = null; 
 
@@ -252,9 +251,6 @@ function updateProfileUI() {
 function navToHome() {
     stopTimer(); 
     show('top-header');
-    if(wisdomInterval) clearInterval(wisdomInterval);
-    loadAIWisdom();
-    wisdomInterval = setInterval(loadAIWisdom, 7000);
     quizState.active = false;
     
     // إخفاء الشاشات الأخرى
@@ -698,7 +694,6 @@ async function startMarathon() {
 }
 
 function startQuiz() {
-    if(wisdomInterval) { clearInterval(wisdomInterval); wisdomInterval = null; }
     hide('top-header');
     
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
@@ -1078,7 +1073,7 @@ async function endQuiz() {
     hide('quiz-proper'); 
     show('results-area');
     
-    // التأكد من أن القيم أرقام لضمان عدم ظهور NaN في الواجهة
+    // التأكد من أن القيم أرقام لضمان عدم ظهور NaN
     const safeCorrectCount = Number(quizState.correctCount) || 0;
     const safeTotalQuestions = Number(quizState.questions.length) || 0;
     const accuracy = safeTotalQuestions > 0 ? Math.round((safeCorrectCount / safeTotalQuestions) * 100) : 0;
@@ -1091,52 +1086,28 @@ async function endQuiz() {
     getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${formatNumberAr(safeCorrectCount)}`;
     getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${formatNumberAr(safeTotalQuestions - safeCorrectCount)}`;
 
-    // 2. تحديد رسالة النتيجة والمكافآت
+    // 2. رسالة النتيجة
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { 
         msg = "أداء أسطوري! درجة كاملة"; 
         playSound('applause'); 
-        
-        // التحقق من أن الوضع ليس "مراجعة الأخطاء" لمنح الجوائز
-        if (quizState.contextTopic !== "مراجعة الأخطاء") {
-            launchConfetti(); 
-            
-            const rewards = ['life', 'fifty', 'hint', 'skip'];
-            const rewardType = rewards[Math.floor(Math.random() * rewards.length)];
-            let rewardMsg = "";
-            
-            // تحديث المخزون المحلي فوراً
-            if(!userProfile.inventory) userProfile.inventory = { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] };
-            
-            if(rewardType === 'life') {
-                userProfile.inventory.lives = (Number(userProfile.inventory.lives) || 0) + 1;
-                rewardMsg = "قلب إضافي ❤️";
-            } else {
-                userProfile.inventory.helpers[rewardType] = (Number(userProfile.inventory.helpers[rewardType]) || 0) + 1;
-                rewardMsg = "وسيلة مساعدة ✨";
-            }
-            
-            toast(`🎁 هدية الأداء الكامل: حصلت على ${rewardMsg}`, "success");
-        }
     } else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
     
     getEl('final-message').textContent = msg;
 
-    // 3. حساب الإحصائيات الجديدة (مع الحماية من البيانات التالفة)
+    // 3. حساب الإحصائيات الجديدة (Stats)
     const stats = userProfile.stats || {};
     
-    // استخدام || 0 مع كل قيمة قادمة من البروفايل لمنع NaN
     const oldTotalCorrect = Number(stats.totalCorrect) || 0;
     const oldTotalQs = Number(stats.totalQuestions) || 0;
     const oldBestScore = Number(stats.bestRoundScore) || 0;
     const oldQuizzesPlayed = Number(stats.quizzesPlayed) || 0;
     
-    // --- إصلاح التاريخ (Bug Fix) ---
+    // إصلاح التاريخ
     const currentTodayStr = new Date().toISOString().split('T')[0];
     let lastPlayedDates = Array.isArray(stats.lastPlayedDates) ? stats.lastPlayedDates.filter(d => d !== currentTodayStr).slice(-6) : [];
     if(!lastPlayedDates.includes(currentTodayStr)) lastPlayedDates.push(currentTodayStr);
-    // -----------------------------
 
     const newStats = {
         quizzesPlayed: oldQuizzesPlayed + 1,
@@ -1144,138 +1115,79 @@ async function endQuiz() {
         totalQuestions: oldTotalQs + safeTotalQuestions,
         bestRoundScore: Math.max(oldBestScore, quizState.score),
         
-        // الحفاظ على القيم الأخرى مع التأكد من سلامتها
         topicCorrect: stats.topicCorrect || {},
         lastPlayedDates: lastPlayedDates,
         totalHardQuizzes: Number(stats.totalHardQuizzes) || 0,
         noHelperQuizzesCount: (Number(stats.noHelperQuizzesCount) || 0) + (!quizState.usedHelpers ? 1 : 0),
-        maxStreak: Number(stats.maxStreak) || 0,
-        fastAnswerCount: (Number(stats.fastAnswerCount) || 0) + (quizState.fastAnswers >= 10 ? 1 : 0)
+        maxStreak: Math.max((Number(stats.maxStreak) || 0), quizState.streak), // تحديث الستريك
+        fastAnswerCount: (Number(stats.fastAnswerCount) || 0) + (quizState.fastAnswers >= 10 ? 1 : 0),
+        enrichmentCount: stats.enrichmentCount || 0 // للحفاظ على عداد القراءة
     };
 
-    // تحديث إحصائيات المواضيع
+    // تحديث إحصائيات المواضيع (لأوسمة التخصص)
+    // هنا مربط الفرس: نحتسب الموضوع لكل سؤال تمت إجابته بشكل صحيح
+    // (حالياً نعتمد على موضوع الجولة، لكن يمكن تطويره لاحقاً ليشمل موضوع كل سؤال)
     const currentTopic = quizState.contextTopic;
     if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
         const oldTopicScore = Number(newStats.topicCorrect[currentTopic]) || 0;
         newStats.topicCorrect[currentTopic] = oldTopicScore + safeCorrectCount;
     }
 
-    // 4. نظام الأوسمة (Badges)
-    let newBadges = [];
-    const currentBadges = Array.isArray(userProfile.badges) ? userProfile.badges : ['beginner'];
-    
-    // شروط الأوسمة
-    if(newStats.quizzesPlayed >= 10 && !currentBadges.includes('scholar')) newBadges.push('scholar');
-    if(userProfile.highScore + quizState.score >= 500 && !currentBadges.includes('veteran')) newBadges.push('veteran');
-    if(newStats.quizzesPlayed >= 50 && !currentBadges.includes('master')) newBadges.push('master');
-    if(newStats.quizzesPlayed >= 100 && !currentBadges.includes('grand_master')) newBadges.push('grand_master');
-    if(newStats.quizzesPlayed >= 200 && !currentBadges.includes('historian_master')) newBadges.push('historian_master');
-    if(userProfile.highScore + quizState.score >= 1000 && !currentBadges.includes('servant')) newBadges.push('servant');
-    if(userProfile.highScore + quizState.score >= 5000 && !currentBadges.includes('supporter')) newBadges.push('supporter');
-    if(userProfile.highScore + quizState.score >= 10000 && !currentBadges.includes('treasurer')) newBadges.push('treasurer');
-    if(newStats.quizzesPlayed >= 500 && !currentBadges.includes('insightful')) newBadges.push('insightful');
-    if(newStats.totalCorrect >= 100 && !currentBadges.includes('narrator')) newBadges.push('narrator');
-    if(newStats.totalCorrect >= 500 && !currentBadges.includes('ally')) newBadges.push('ally');
-    
-    // أوسمة الجولة الواحدة
-    if(quizState.score >= 50 && !currentBadges.includes('high_score_v1')) newBadges.push('high_score_v1');
-    if(quizState.score >= 100 && !currentBadges.includes('high_score_v2')) newBadges.push('high_score_v2');
-    if(newStats.lastPlayedDates.length >= 7 && !currentBadges.includes('consistent')) newBadges.push('consistent');
-    if(accuracy === 100 && safeTotalQuestions >= 5 && !currentBadges.includes('sharpshooter')) newBadges.push('sharpshooter');
-    if(quizState.streak >= 5 && !currentBadges.includes('onfire')) newBadges.push('onfire');
-    if(quizState.streak >= 10 && !currentBadges.includes('masterpiece')) newBadges.push('masterpiece');
-    if(safeTotalQuestions >= 15 && accuracy >= 80 && !currentBadges.includes('patient')) newBadges.push('patient');
-    
-    // أوسمة التحدي والصعوبة
-    if(accuracy >= 80) newStats.totalHardQuizzes = (newStats.totalHardQuizzes || 0) + 1;
-    if(newStats.totalHardQuizzes >= 5 && !currentBadges.includes('challenger')) newBadges.push('challenger');
-    
-    if(!quizState.usedHelpers) newStats.noHelperQuizzesCount = (newStats.noHelperQuizzesCount || 0) + 1;
-    if(newStats.noHelperQuizzesCount >= 10 && !currentBadges.includes('self_reliant')) newBadges.push('self_reliant');
-    
-    const overallAccuracy = newStats.totalQuestions > 0 ? (newStats.totalCorrect / newStats.totalQuestions) : 0;
-    if(overallAccuracy >= 0.9 && newStats.totalQuestions >= 50 && !currentBadges.includes('precise')) newBadges.push('precise');
-    
-    if(newStats.fastAnswerCount >= 10 && !currentBadges.includes('fast_learner')) newBadges.push('fast_learner');
-
-    // أوسمة الوقت
-    const hour = new Date().getHours();
-    if(hour >= 5 && hour < 8 && !currentBadges.includes('morning')) newBadges.push('morning');
-    if(hour >= 0 && hour < 4 && !currentBadges.includes('night')) newBadges.push('night');
-
-    // أوسمة التخصص
-    if(currentTopic === 'عشوائي شامل' && safeCorrectCount >= 50 && !currentBadges.includes('general_expert')) newBadges.push('general_expert');
-    
-    // التحقق من أوسمة التخصص الموضوعي
-    badgesData.filter(b => b.topicKey).forEach(b => {
-        const tScore = Number(newStats.topicCorrect[b.topicKey]) || 0;
-        if(tScore >= 50 && !currentBadges.includes(b.id)) newBadges.push(b.id);
-    });
-
-    if(userProfile.favorites.length >= 20 && !currentBadges.includes('dedicated')) newBadges.push('dedicated');
-    if(quizState.contextTopic === 'مراجعة الأخطاء' && safeCorrectCount >= 15 && !currentBadges.includes('fixer')) newBadges.push('fixer');
-
-    // أوسمة المعصومين (Infallibles)
-    let loverBadgesEarned = 0;
-    infallibles.forEach(person => {
-        const badgeId = `lover_${person.id}`;
-        const currentCorrect = Number(newStats.topicCorrect[person.topic]) || 0;
-        if (currentCorrect >= 200 && !currentBadges.includes(badgeId)) {
-            newBadges.push(badgeId);
-            loverBadgesEarned++;
-        } else if (currentBadges.includes(badgeId)) { loverBadgesEarned++; }
-    });
-    if (loverBadgesEarned === infallibles.length && !currentBadges.includes('lover_infallibility')) {
-        newBadges.push('lover_infallibility');
-    }
-
-    // 5. إدارة الأسئلة التي شوهدت وبنك الأخطاء
+    // 4. إدارة الأسئلة وبنك الأخطاء
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     const oldSeen = Array.isArray(userProfile.seenQuestions) ? userProfile.seenQuestions : [];
-    let updatedSeenQuestions = [...new Set([...oldSeen, ...playedIds])]; // الاحتفاظ بآخر 1000 فقط
+    let updatedSeenQuestions = [...new Set([...oldSeen, ...playedIds])]; 
 
     let updatedWrongQuestionsBank = Array.isArray(userProfile.wrongQuestionsBank) ? userProfile.wrongQuestionsBank : [];
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(-15);
 
-    // 6. تجهيز حزمة التحديث وإرسالها لـ Firebase
-    // استخدام increment للنقاط لضمان عدم ضياعها
+    // 5. الحفظ في Firebase
     const firestoreUpdates = {
         highScore: increment(quizState.score), 
         stats: newStats, 
         wrongQuestionsBank: updatedWrongQuestionsBank, 
         seenQuestions: updatedSeenQuestions,
-        inventory: userProfile.inventory // ضروري لحفظ المكافآت العشوائية
+        // inventory: userProfile.inventory // لا نحتاج إرسالها هنا لأننا لم نعدلها في هذه الدالة، سنتركها لدالة الأوسمة
     };
-
-    if(newBadges.length > 0) {
-        firestoreUpdates.badges = arrayUnion(...newBadges);
-    }
 
     try {
         await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
         
-        // 7. التحديث المحلي (بعد نجاح الإرسال أو بالتزامن)
+        // التحديث المحلي المتزامن
         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
         userProfile.stats = newStats;
         userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
         userProfile.seenQuestions = updatedSeenQuestions;
-        if(newBadges.length > 0) userProfile.badges.push(...newBadges);
         
         updateProfileUI(); // تحديث الهيدر
-        
-        if(newBadges.length > 0) {
-            const badgeNames = newBadges.map(b => badgesMap[b]?.name).join(', ');
-            toast(`مبروك! حصلت على أوسمة جديدة: ${badgeNames}`, "success");
-            playSound('win');
-        }
+
+        // --- 🚀 تشغيل النظام الجديد (هنا التغيير) ---
+        // ننتظر ثانية واحدة ثم نفحص الأوسمة والمحفزات
+        setTimeout(async () => {
+            // هذه الدالة ستفحص الأوسمة، تمنح الجوائز، وتُظهر النافذة
+            const gotBadge = await checkAndUnlockBadges();
+            
+            // إذا لم يحصل على وسام جديد، نظهر له المحفز "أنت قريب"
+            if (!gotBadge) {
+                showMotivator(); 
+            }
+        }, 1000);
+        // ---------------------------------------------
 
     } catch(e) {
         console.error("Error saving quiz results:", e);
-        toast("تم حفظ النقاط محلياً، سيتم المزامنة عند استعادة الاتصال", "info");
-        // حتى لو فشل الاتصال، نحدث محلياً ليستمر المستخدم باللعب
+        toast("تم حفظ النقاط محلياً مؤقتاً لضعف الاتصال", "info");
+        // حتى لو فشل الاتصال، نحدث محلياً ليستمر اللعب
         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
         updateProfileUI();
     }
+
+    // إضافة إشعار محلي للنهاية
+    addLocalNotification(
+        'نهاية جولة', 
+        `أتممت جولة في "${quizState.contextTopic}". النتيجة: ${quizState.score} نقطة.`, 
+        'sports_score'
+    );
 
     renderReviewArea();
 }
@@ -1422,21 +1334,79 @@ document.querySelectorAll('.close-modal').forEach(b => b.onclick = () => documen
 bind('nav-home', 'click', () => { toggleMenu(false); navToHome(); });
 bind('nav-badges', 'click', () => {
     openModal('badges-modal');
-    const l = getEl('badges-list');
-    l.innerHTML = '';
-    badgesData.forEach(b => {
-        const has = userProfile.badges.includes(b.id);
-        const badgeEl = document.createElement('div');
-        badgeEl.className = `badge-item ${has ? 'unlocked' : ''}`;
-        badgeEl.innerHTML = `<span class="material-symbols-rounded text-2xl ${has ? 'text-amber-400' : 'text-slate-600'}">${b.icon}</span><p class="text-xs text-white mt-1">${b.name}</p>`;
-        badgeEl.onclick = () => {
-            document.querySelectorAll('.badge-item').forEach(x => x.classList.remove('selected-info'));
-            badgeEl.classList.add('selected-info');
-            getEl('badge-desc-display').innerHTML = `<strong class="text-amber-400 block mb-1">${b.name}</strong>${b.desc}`;
+    const container = getEl('badges-list');
+    
+    // 1. استخدام التنسيق الجديد (List) بدلاً من Grid
+    container.className = 'badges-list-container'; 
+    container.innerHTML = '';
+
+    // 2. جلب الأوسمة مرتبة (الأقرب فالأبعد)
+    const sortedBadges = sortBadgesSmartly();
+
+    sortedBadges.forEach(b => {
+        const isUnlocked = userProfile.badges.includes(b.id);
+        const progress = getBadgeProgress(b);
+        
+        // تحديد حالة البطاقة
+        let cardClass = 'locked';
+        if (isUnlocked) cardClass = 'unlocked';
+        else if (progress.percent > 0) cardClass = 'active-target';
+
+        const div = document.createElement('div');
+        div.className = `badge-card ${cardClass}`;
+        
+        // تجهيز HTML المحتوى
+        let iconHtml = `<span class="material-symbols-rounded">${b.icon}</span>`;
+        if(isUnlocked) iconHtml = `<span class="material-symbols-rounded">check_circle</span>`;
+
+        // نص التقدم
+        let progressText = isUnlocked 
+            ? '<span class="text-green-400 text-xs font-bold">مكتمل ✅</span>' 
+            : `<span class="text-amber-400 text-xs font-bold" dir="ltr">${formatNumberAr(progress.current)} / ${formatNumberAr(progress.max)}</span>`;
+
+        div.innerHTML = `
+            <div class="badge-icon-box ${isUnlocked ? 'text-green-400' : 'text-slate-400'}">
+                ${iconHtml}
+            </div>
+            <div class="badge-info">
+                <div class="flex justify-between items-center mb-1">
+                    <h4 class="font-bold text-white text-sm">${b.name}</h4>
+                    ${progressText}
+                </div>
+                <p class="text-[10px] text-slate-400 mb-2">${b.desc}</p>
+                
+                ${!isUnlocked ? `
+                <div class="badge-progress-track">
+                    <div class="badge-progress-fill" style="width: ${progress.percent}%"></div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        // عند الضغط (لعرض تفاصيل الجائزة)
+        div.onclick = () => {
+            let rewardHtml = '';
+            if (b.rewards) {
+                rewardHtml = `<div class="mt-3 pt-3 border-t border-slate-700 flex gap-4 justify-center">`;
+                if(b.rewards.score) rewardHtml += `<span class="text-xs text-amber-400 flex items-center gap-1"><span class="material-symbols-rounded text-sm">monetization_on</span> ${b.rewards.score}</span>`;
+                if(b.rewards.lives) rewardHtml += `<span class="text-xs text-red-400 flex items-center gap-1"><span class="material-symbols-rounded text-sm">favorite</span> ${b.rewards.lives}</span>`;
+                rewardHtml += `</div>`;
+            }
+            
+            getEl('badge-desc-display').innerHTML = `
+                <div class="text-center">
+                    <strong class="text-amber-400 text-base block mb-2">${b.name}</strong>
+                    <p class="text-sm text-slate-300">${b.desc}</p>
+                    ${rewardHtml}
+                    ${!isUnlocked ? `<p class="text-xs text-slate-500 mt-2">أكمل المهمة لتحصل على الجوائز!</p>` : ''}
+                </div>
+            `;
         };
-        l.appendChild(badgeEl);
+
+        container.appendChild(div);
     });
 });
+
 
 bind('nav-leaderboard', 'click', async () => {
     openModal('leaderboard-modal');
@@ -1729,6 +1699,11 @@ bind('save-user-btn', 'click', async () => {
         try {
             await updateDoc(doc(db,"users",effectiveUserId), updates);
             updateProfileUI(); 
+                        // --- إضافة إشعارات التعديل ---
+            if (updates.password) addLocalNotification('أمان الحساب 🔐', 'تم تغيير كلمة المرور بنجاح', 'lock_reset');
+            if (updates.customAvatar) addLocalNotification('تحديث الملف', 'تم تغيير الصورة الشخصية', 'account_circle');
+            if (updates.username) addLocalNotification('تحديث الملف', `تم تغيير الاسم إلى ${updates.username}`, 'badge');
+
             toast("✅ تم حفظ التغييرات بنجاح");
             
             // إغلاق النافذة
@@ -1874,6 +1849,10 @@ window.buyShopItem = async function(type, cost, id=null) {
                 renderBag(); // تحديث الواجهة
                 updateProfileUI(); // تحديث الرصيد في الهيدر
                 updateThemeSelector(); // تحديث قائمة الثيمات في الإعدادات
+                                // --- إضافة إشعار الشراء ---
+                let itemName = type === 'theme' ? `ثيم` : (type === 'life' ? 'قلب إضافي' : 'وسيلة مساعدة');
+                addLocalNotification('عملية شراء 🛒', `تم شراء ${itemName} مقابل ${cost} نقطة`, 'shopping_bag');
+
             } catch(e) {
                 console.error(e);
                 toast("خطأ في الاتصال", "error");
@@ -1919,16 +1898,7 @@ window.showConfirm = function(title, msg, icon, yesCallback) {
 function bind(id, ev, fn) { const el = getEl(id); if(el) el.addEventListener(ev, fn); }
 function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
 
-function loadAIWisdom() {
-    const wEl = getEl('wisdom-text');
-    wEl.style.opacity = '0';
-    wEl.style.transition = 'opacity 0.5s';
-    setTimeout(() => {
-        const randomWisdom = staticWisdoms[Math.floor(Math.random() * staticWisdoms.length)];
-        wEl.textContent = `"${randomWisdom}"`;
-        wEl.style.opacity = '1';
-    }, 500);
-}
+
 
 function launchConfetti() { const canvas = getEl('confetti-canvas'); const ctx = canvas.getContext('2d'); canvas.width = window.innerWidth; canvas.height = window.innerHeight; let particles = []; for(let i=0; i<100; i++) particles.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height-canvas.height, c:['#fbbf24','#f59e0b','#ffffff'][Math.floor(Math.random()*3)], s:Math.random()*5+2, v:Math.random()*5+2}); function draw() { ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p => { ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.s,0,Math.PI*2); ctx.fill(); p.y+=p.v; if(p.y>canvas.height) p.y=-10; }); requestAnimationFrame(draw); } draw(); setTimeout(()=>canvas.width=0, 5000); }
 
@@ -2440,3 +2410,258 @@ bind('clear-notif-btn', 'click', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     updateNotifUI();
 });
+
+// --- دالة حساب التقدم للأوسمة ---
+function getBadgeProgress(badgeId) {
+    const s = userProfile.stats || {};
+    const score = userProfile.highScore || 0;
+    
+    // القيم الافتراضية للعدادات لتجنب الأخطاء
+    const qPlayed = s.quizzesPlayed || 0;
+    const tCorrect = s.totalCorrect || 0;
+    const streak = s.maxStreak || 0;
+    const favs = userProfile.favorites ? userProfile.favorites.length : 0;
+
+    switch (badgeId) {
+        // أوسمة عدد المسابقات
+        case 'scholar': return { cur: qPlayed, max: 10, label: 'مسابقة' };
+        case 'master': return { cur: qPlayed, max: 50, label: 'مسابقة' };
+        case 'grand_master': return { cur: qPlayed, max: 100, label: 'مسابقة' };
+        case 'historian_master': return { cur: qPlayed, max: 200, label: 'مسابقة' };
+        case 'insightful': return { cur: qPlayed, max: 500, label: 'مسابقة' };
+
+        // أوسمة النقاط
+        case 'veteran': return { cur: score, max: 500, label: 'نقطة' };
+        case 'servant': return { cur: score, max: 1000, label: 'نقطة' };
+        case 'supporter': return { cur: score, max: 5000, label: 'نقطة' };
+        case 'treasurer': return { cur: score, max: 10000, label: 'نقطة' };
+
+        // أوسمة الإجابات الصحيحة
+        case 'narrator': return { cur: tCorrect, max: 100, label: 'إجابة' };
+        case 'ally': return { cur: tCorrect, max: 500, label: 'إجابة' };
+
+        // أوسمة الستريك (التتابع)
+        case 'onfire': return { cur: streak, max: 5, label: 'متتالية' };
+        case 'masterpiece': return { cur: streak, max: 10, label: 'متتالية' };
+
+        // أوسمة منوعة
+        case 'consistent': return { cur: (s.lastPlayedDates || []).length, max: 7, label: 'أيام' };
+        case 'challenger': return { cur: s.totalHardQuizzes || 0, max: 5, label: 'جولة صعبة' };
+        case 'self_reliant': return { cur: s.noHelperQuizzesCount || 0, max: 10, label: 'جولة' };
+        case 'fast_learner': return { cur: s.fastAnswerCount || 0, max: 10, label: 'مرة' };
+        case 'dedicated': return { cur: favs, max: 20, label: 'سؤال' };
+        case 'fixer': return { cur: 0, max: 15, label: 'سؤال مصحح' }; // صعب تتبعها بدقة حالياً لذا نجعلها تلميحاً فقط
+        
+        // أوسمة خاصة بالمواضيع (بناءً على topicKey)
+        default:
+            // التحقق من أوسمة التخصص والمعصومين
+            const badgeObj = badgesData.find(b => b.id === badgeId);
+            if (badgeObj && badgeObj.topicKey) {
+                const currentScore = (s.topicCorrect && s.topicCorrect[badgeObj.topicKey]) ? s.topicCorrect[badgeObj.topicKey] : 0;
+                // نحدد الهدف بناء على نوع الوسام (عاشق=200، متخصص=50)
+                const target = badgeId.startsWith('lover_') ? 200 : 50;
+                return { cur: currentScore, max: target, label: 'إجابة' };
+            }
+            
+            // وسام مجمع: عاشق العصمة
+            if (badgeId === 'lover_infallibility') {
+                let earned = 0;
+                infallibles.forEach(p => {
+                    if (userProfile.badges.includes(`lover_${p.id}`)) earned++;
+                });
+                return { cur: earned, max: 14, label: 'وسام' };
+            }
+
+            // الأوسمة التي تعتمد على حدث لحظي (مثل اللعب في الصباح أو الحصول على درجة كاملة مرة واحدة)
+            // لا نعرض لها شريط تقدم لأنها تحدث فجأة
+            return null;
+    }
+}
+
+// --- دوال منطق الأوسمة الجديد (Main Logic) ---
+
+// 1. حساب التقدم بدقة (يعيد كائن به القيمة الحالية والقصوى)
+function getBadgeProgress(badge) {
+    const stats = userProfile.stats || {};
+    let current = 0;
+
+    // حالة: الأوسمة المكتسبة (دائماً مكتملة)
+    if (userProfile.badges.includes(badge.id)) {
+        return { current: badge.target, max: badge.target, percent: 100 };
+    }
+
+    // حساب التقدم بناءً على نوع الوسام
+    if (badge.type === 'topic') {
+        // تجميع النقاط من الموضوع المحدد
+        current = (stats.topicCorrect && stats.topicCorrect[badge.topicKey]) ? stats.topicCorrect[badge.topicKey] : 0;
+    } 
+    else if (badge.type === 'keyword') {
+        // البحث في سجل الإجابات الصحيحة عن الكلمات المفتاحية
+        // ملاحظة: هذا يتطلب أن نحفظ "topic" السؤال في الإحصائيات، 
+        // للتبسيط سنعتمد على topicCorrect إذا كان المفتاح هو اسم قسم، 
+        // أو سنفترض 0 حالياً حتى نحدث نظام تتبع الكلمات الدقيقة لاحقاً.
+        // *لغرض هذا التحديث سنعتمد البحث في topicCorrect التقريبي*
+        current = 0; // سيتم تفعيل هذا المنطق الدقيق لاحقاً
+    }
+    else if (badge.type === 'score') {
+        current = userProfile.highScore || 0;
+    }
+    else if (badge.type === 'streak') {
+        current = stats.maxStreak || 0;
+    }
+    else if (badge.type === 'counter') {
+        current = stats[badge.statKey] || 0;
+    }
+    else if (badge.type === 'manual') {
+        // حالات خاصة
+        if (badge.id === 'tastemaker') current = (userProfile.inventory.themes || []).length;
+        else if (badge.id === 'ark_salvation' || badge.id === 'lover_infallibility') {
+             // حساب عدد أوسمة العشق المكتسبة
+             current = userProfile.badges.filter(b => b.startsWith('lover_')).length;
+        }
+        else if (badge.id === 'explorer') current = stats.enrichmentCount || 0; // يحتاج إضافة عداد
+    }
+
+    // تصحيح القيم (لا تتجاوز الهدف)
+    if (current > badge.target) current = badge.target;
+    
+    return {
+        current: current,
+        max: badge.target,
+        percent: Math.floor((current / badge.target) * 100)
+    };
+}
+
+// 2. دالة الترتيب الذكي (Smart Sorting)
+function sortBadgesSmartly() {
+    return badgesData.sort((a, b) => {
+        const hasA = userProfile.badges.includes(a.id);
+        const hasB = userProfile.badges.includes(b.id);
+        
+        // القاعدة 1: غير المكتسب يظهر قبل المكتسب
+        if (hasA && !hasB) return 1;
+        if (!hasA && hasB) return -1;
+        
+        // القاعدة 2: إذا كان كلاهما غير مكتسب، الأقرب للاكتمال يظهر أولاً
+        if (!hasA && !hasB) {
+            const progA = getBadgeProgress(a).percent;
+            const progB = getBadgeProgress(b).percent;
+            return progB - progA; // الأكبر نسبة أولاً
+        }
+
+        return 0;
+    });
+}
+
+// --- دوال التحقق من الأوسمة والمكافآت (System Logic) ---
+
+async function checkAndUnlockBadges() {
+    let newBadges = [];
+    
+    // 1. فحص كل وسام في قاعدة البيانات
+    badgesData.forEach(badge => {
+        // إذا لم يكن لدى المستخدم هذا الوسام مسبقاً
+        if (!userProfile.badges.includes(badge.id)) {
+            const prog = getBadgeProgress(badge);
+            // إذا اكتمل الهدف (100%)
+            if (prog.percent >= 100) {
+                newBadges.push(badge);
+            }
+        }
+    });
+
+    // 2. إذا وجدنا أوسمة جديدة
+    if (newBadges.length > 0) {
+        let totalScoreAdded = 0;
+        
+        // تطبيق المكافآت
+        newBadges.forEach(b => {
+            userProfile.badges.push(b.id);
+            if (b.rewards) {
+                if (b.rewards.score) { 
+                    userProfile.highScore += b.rewards.score; 
+                    totalScoreAdded += b.rewards.score;
+                }
+                if (b.rewards.lives) userProfile.inventory.lives = (userProfile.inventory.lives || 0) + b.rewards.lives;
+                if (b.rewards.hint) userProfile.inventory.helpers.hint = (userProfile.inventory.helpers.hint || 0) + b.rewards.hint;
+                if (b.rewards.fifty) userProfile.inventory.helpers.fifty = (userProfile.inventory.helpers.fifty || 0) + b.rewards.fifty;
+                if (b.rewards.skip) userProfile.inventory.helpers.skip = (userProfile.inventory.helpers.skip || 0) + b.rewards.skip;
+            }
+        });
+
+        // حفظ التغييرات في السيرفر
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            badges: userProfile.badges,
+            highScore: userProfile.highScore,
+            inventory: userProfile.inventory
+        });
+
+        // تحديث الواجهة وتشغيل صوت الفوز
+        updateProfileUI();
+        playSound('applause'); // صوت تصفيق
+        
+        // عرض نافذة الجائزة لأول وسام (أو يمكن دمجهم)
+        showRewardModal(newBadges[0]); 
+        
+        return true; // تم الحصول على وسام
+    }
+    
+    return false; // لا توجد أوسمة جديدة
+}
+
+function showRewardModal(badge) {
+    const modal = getEl('reward-modal');
+    const box = getEl('reward-content-area');
+    
+    // بناء أيقونات الجوائز
+    let rewardsHtml = '';
+    if (badge.rewards) {
+        if (badge.rewards.score) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-amber-400 text-2xl block mb-1">monetization_on</span><span class="text-white text-xs font-bold">+${badge.rewards.score}</span></div>`;
+        if (badge.rewards.lives) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-red-500 text-2xl block mb-1">favorite</span><span class="text-white text-xs font-bold">+${badge.rewards.lives}</span></div>`;
+        if (badge.rewards.hint) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-yellow-400 text-2xl block mb-1">lightbulb</span><span class="text-white text-xs font-bold">+${badge.rewards.hint}</span></div>`;
+        // يمكن إضافة المزيد حسب المساحة
+    }
+
+    box.innerHTML = `
+        <span class="material-symbols-rounded reward-icon-large">${badge.icon}</span>
+        <h3 class="text-2xl font-bold text-white font-heading mb-2">مبارك! وسام جديد</h3>
+        <p class="text-amber-400 text-lg font-bold mb-4">${badge.name}</p>
+        <p class="text-slate-400 text-sm mb-6">${badge.desc}</p>
+        
+        <div class="text-xs text-slate-500 mb-2">-- الجوائز المكتسبة --</div>
+        <div class="reward-items-grid">
+            ${rewardsHtml}
+        </div>
+    `;
+    
+    launchConfetti(); // احتفال
+    modal.classList.add('active');
+}
+
+function showMotivator() {
+    // البحث عن أقرب وسام لم يكتمل بعد
+    // نستثني الأوسمة "اللحظية" مثل Streak لأنها تتصفر
+    const candidates = badgesData.filter(b => !userProfile.badges.includes(b.id) && b.type !== 'streak' && b.type !== 'one_shot');
+    
+    let bestCandidate = null;
+    let highestPercent = 0;
+
+    candidates.forEach(b => {
+        const prog = getBadgeProgress(b);
+        if (prog.percent >= 60 && prog.percent < 100) { // يظهر فقط إذا تجاوز 60%
+            if (prog.percent > highestPercent) {
+                highestPercent = prog.percent;
+                bestCandidate = b;
+            }
+        }
+    });
+
+    if (bestCandidate) {
+        const remaining = bestCandidate.target - getBadgeProgress(bestCandidate).current;
+        const msg = `أنت قريب جداً! بقي ${remaining} فقط للحصول على وسام "${bestCandidate.name}"`;
+        
+        // عرض توست جميل ومطول بدلاً من نافذة مزعجة
+        toast(`🚀 ${msg}`, 'success'); 
+        playSound('hint');
+    }
+}

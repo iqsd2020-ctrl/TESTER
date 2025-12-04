@@ -8,34 +8,7 @@ export const topicsData = {
     "أدعية وزيارات": ["دعاء كميل", "دعاء الصباح", "دعاء التوسل", "دعاء العهد", "دعاء الندبة", "دعاء الافتتاح", "دعاء أبي حمزة الثمالي", "دعاء عرفة", "المناجاة الشعبانية", "زيارة عاشوراء", "زيارة الأربعين", "الزيارة الجامعة الكبيرة", "دعاء اهل الثغور", "زيارة آل يس", "زيارة أمين الله"]
 };
 
-export const staticWisdoms = [
-      "﴿وَقُل رَّبِّ زِدْنِي عِلْمًا﴾",
-    "العلم نور يفتح للإنسان أبواب الحكمة والنجاة.",
-    "﴿إِنَّ اللّهَ يُحِبُّ الْمُحْسِنِينَ﴾",
-    "من أصلح سريرته أصلح الله علانيته.",
-    "﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا﴾",
-    "العقل زينة، والرفق مفتاح لكل خير.",
-    "﴿إِنَّ مَعَ الْعُسْرِ يُسْرًا﴾",
-    "من جاهد نفسه ملك قيادها.",
-    "﴿وَاصْبِرْ وَمَا صَبْرُكَ إِلَّا بِاللَّهِ﴾",
-    "من عرف قدر نفسه لم يهن.",
-    "﴿إِنَّ اللّهَ مَعَ الصَّابِرِينَ﴾",
-    "من أحسن إلى الناس أحبّوه.",
-    "﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾",
-    "من توكل على الله كفاه.",
-    "﴿وَمَا تَفْعَلُوا مِنْ خَيْرٍ فَإِنَّ اللَّهَ بِهِ عَلِيمٌ﴾",
-    "من أصلح ما بينه وبين الله أصلح الله ما بينه وبين الناس.",
-    "﴿ادْفَعْ بِالَّتِي هِيَ أَحْسَنُ﴾",
-    "من ملك لسانه ملك أمره.",
-    "﴿وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ﴾",
-    "من كان اليوم خيراً منه بالأمس فقد ربح.",
-    "﴿وَجَعَلْنَا مِنَ الْمَاءِ كُلَّ شَيْءٍ حَيٍّ﴾",
-    "من استقام قلبه استقامت جوارحه.",
-    "﴿إِنَّ رَحْمَتَ اللَّهِ قَرِيبٌ مِّنَ الْمُحْسِنِينَ﴾",
-    "من طلب الحكمة وُفِّق إليها.",
-    "﴿اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ﴾",
-    "من تزكى زاده الله نوراً على نور."
-];
+
 
 export const infallibles = [
     { name: "النبي محمد", topic: "سيرة النبي محمد (ص)", id: "prophet_muhammad" },
@@ -54,60 +27,173 @@ export const infallibles = [
     { name: "الإمام المهدي", topic: "الإمام المهدي (عج)", id: "imam_mahdi" }
 ];
 
+// --- القائمة الجديدة للأوسمة (نظام المكافآت والترقيات) ---
 export let badgesData = [
-    {id:'beginner', name:'طالب العلم', icon:'local_library', desc:'تمنح عند إنشاء الحساب وبدء الرحلة.'},
-    {id:'scholar', name:'المحدّث', icon:'history_edu', desc:'لعب 10 مسابقات وزيادة الرصيد المعرفي.'},
-    {id:'veteran', name:'المجتهد', icon:'psychology', desc:'الوصول لرصيد 500 نقطة.'},
-    {id:'master', name:'الفقيه', icon:'school', desc:'لعب 50 مسابقة واكتساب خبرة واسعة.'},
-    {id:'grand_master', name:'الحكيم', icon:'self_improvement', desc:'لعب 100 مسابقة، دليل على الثبات.'},
-    {id:'historian_master', name:'المؤرخ', icon:'hourglass_empty', desc:'لعب 200 مسابقة.'},
-    {id:'servant', name:'خادم الحسين', icon:'volunteer_activism', desc:'الوصول لرصيد 1,000 نقطة.'},
-    {id:'supporter', name:'ناصر العترة', icon:'flag_circle', desc:'الوصول لرصيد 5,000 نقطة.'},
-    {id:'treasurer', name:'كنز المعرفة', icon:'paid', desc:'الوصول لرصيد 10,000 نقطة.'},
-    {id:'insightful', name:'صاحب البصائر', icon:'visibility', desc:'لعب 500 مسابقة إجمالاً.'},
-    {id:'narrator', name:'راوي الحديث', icon:'record_voice_over', desc:'الإجابة الصحيحة على 100 سؤال إجمالاً.'},
-    {id:'ally', name:'حليف القرآن', icon:'menu_book', desc:'الإجابة الصحيحة على 500 سؤال إجمالاً.'},
-    {id:'high_score_v1', name:'الوصول المتقن', icon:'star', desc:'الحصول على 50 نقطة في جولة واحدة.'},
-    {id:'high_score_v2', name:'الوصول المتقن II', icon:'grade', desc:'الحصول على 100 نقطة في جولة واحدة.'},
-    {id:'consistent', name:'المداوم', icon:'calendar_month', desc:'لعب 7 مسابقات في 7 أيام مختلفة.'},
-    {id:'sharpshooter', name:'البصيرة', icon:'hdr_on', desc:'إجابة صحيحة بنسبة 100% في مسابقة كاملة (5+ أسئلة).'},
-    {id:'onfire', name:'نور الولاية', icon:'wb_sunny', desc:'تحقيق سلسلة إجابات صحيحة (Streak) 5+.'},
-    {id:'masterpiece', name:'الإتقان', icon:'workspace_premium', desc:'تحقيق سلسلة إجابات صحيحة (Streak) 10+.'},
-    {id:'patient', name:'الصابر', icon:'hourglass_bottom', desc:'إتمام مسابقة طويلة (15 سؤال) بدقة 80% أو أعلى.'},
-    {id:'challenger', name:'المتحدي', icon:'gavel', desc:'إتمام 5 جولات بنسبة نجاح 80% أو أعلى.'}, 
-    {id:'self_reliant', name:'الاعتماد على النفس', icon:'hand_bones', desc:'إكمال 10 جولات دون استخدام أي ميزات مساعدة (50/50, تلميح).'},
-    {id:'precise', name:'المتفوق', icon:'exposure_plus_1', desc:'الحفاظ على دقة إجمالية 90% (من إجمالي الأسئلة).'},
-    {id:'fast_learner', name:'رد الفعل السريع', icon:'bolt', desc:'الإجابة على 10 أسئلة متتالية خلال 5 ثوانٍ لكل سؤال.'},
-    {id:'general_expert', name:'الخبير العام', icon:'public', desc:'الإجابة الصحيحة على 50 سؤال في فئة "عشوائي شامل".'},
-    {id:'morning', name:'دعاء الصباح', icon:'wb_twilight', desc:'اللعب في وقت الفجر (بين 5 و 8 صباحاً).'},
-    {id:'night', name:'صلاة الليل', icon:'nights_stay', desc:'اللعب في وقت السحر (بين 12 و 4 فجراً).'},
-    {id:'master_history', name:'متخصص التاريخ', icon:'museum', desc:'الإجابة الصحيحة على 50 سؤال في فئة "تاريخ ومعارك".', topicKey: "تاريخ ومعارك"},
-    {id:'master_theology', name:'متخصص العقائد', icon:'diamond', desc:'الإجابة الصحيحة على 50 سؤال في فئة "عقائد وفقه".', topicKey: "عقائد وفقه"},
-    {id:'master_prophets', name:'متخصص الأنبياء', icon:'menu_book', desc:'الإجابة الصحيحة على 50 سؤال في فئة "الأنبياء والرسل".', topicKey: "الأنبياء والرسل"},
-    {id:'master_companions', name:'متخصص الصحابة', icon:'groups', desc:'الإجابة الصحيحة على 50 سؤال في فئة "شخصيات (أصحاب وعلماء ونساء)".', topicKey: "شخصيات (أصحاب وعلماء ونساء)"},
-    {id:'master_ziyarat', name:'حافظ الزيارات', icon:'handshake', desc:'الإجابة الصحيحة على 50 سؤال في فئة "أدعية وزيارات".', topicKey: "أدعية وزيارات"},
-    {id:'dedicated', name:'المُخلص', icon:'favorite', desc:'إضافة 20 سؤال إلى قائمة المفضلة.'},
-    {id:'fixer', name:'المُصحح', icon:'auto_fix_high', desc:'مراجعة والإجابة الصحيحة على 15 سؤال من بنك الأخطاء.'},
+    // 1. أوسمة التخصص (مستوى فضي)
+    {
+        id: 'heir_prophets', name: 'وريث الأنبياء', icon: 'history_edu',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً في قصص الأنبياء والرسل.',
+        target: 50, type: 'topic', topicKey: 'الأنبياء والرسل',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+    {
+        id: 'ally_quran', name: 'حليف القرآن', icon: 'menu_book',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً في القرآن ونهج البلاغة.',
+        target: 50, type: 'topic', topicKey: 'القرآن ونهج البلاغة',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+    {
+        id: 'trustworthy_historian', name: 'المؤرخ الأمين', icon: 'flag_circle',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً في التاريخ والسيرة والمعارك.',
+        target: 50, type: 'topic', topicKey: 'تاريخ ومعارك',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+    {
+        id: 'faqih', name: 'المُتفِقّه', icon: 'balance',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً في الفقه والعقائد.',
+        target: 50, type: 'topic', topicKey: 'عقائد وفقه',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+    {
+        id: 'dhakir', name: 'الذاكر', icon: 'volunteer_activism',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً في الأدعية والزيارات.',
+        target: 50, type: 'topic', topicKey: 'أدعية وزيارات',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+    {
+        id: 'supporter_family', name: 'ناصر العترة', icon: 'diversity_3',
+        desc: 'الإجابة الصحيحة على 50 سؤالاً تخص الشخصيات والأصحاب.',
+        target: 50, type: 'topic', topicKey: 'شخصيات (أصحاب وعلماء ونساء)',
+        rewards: { score: 500, hint: 2, fifty: 1 }
+    },
+
+    // 2. أوسمة التخصص الدقيق (مستوى ذهبي)
+    {
+        id: 'eloquence', name: 'بلاغة الوصي', icon: 'campaign',
+        desc: 'الإجابة الصحيحة على 30 سؤالاً من نهج البلاغة وخطب الإمام علي (ع).',
+        target: 30, type: 'keyword', keywords: ['نهج البلاغة', 'خطبة', 'الشقشقية', 'همام', 'المتقين'],
+        rewards: { score: 1000, lives: 2, hint: 1, fifty: 1, skip: 1 }
+    },
+    {
+        id: 'tears', name: 'الدمعة الساكبة', icon: 'water_drop',
+        desc: 'الإجابة الصحيحة على 40 سؤالاً تتعلق بواقعة الطف وكربلاء.',
+        target: 40, type: 'keyword', keywords: ['كربلاء', 'الحسين', 'العباس', 'عاشوراء', 'الطف', 'زينب'],
+        rewards: { score: 1500, lives: 3, hint: 1, fifty: 1, skip: 1 }
+    },
+    {
+        id: 'ark_salvation', name: 'سفينة النجاة', icon: 'sailing',
+        desc: 'الإجابة الصحيحة على سؤال واحد على الأقل يخص كل معصوم من المعصومين الأربعة عشر.',
+        target: 14, type: 'manual', // يتم حسابه بجمع المعصومين
+        rewards: { score: 2000, lives: 3, hint: 2, fifty: 2 }
+    },
+
+    // 3. أوسمة المهارة (مستوى ماسي/ذهبي)
+    {
+        id: 'insight', name: 'البصيرة', icon: 'target',
+        desc: 'إتمام جولة كاملة (10 أسئلة) بنسبة نجاح 100%.',
+        target: 1, type: 'one_shot',
+        rewards: { score: 1000, lives: 2, skip: 2 }
+    },
+    {
+        id: 'alert', name: 'النبيه', icon: 'bolt',
+        desc: 'الإجابة على 5 أسئلة متتالية بسرعة فائقة (أقل من 5 ثوانٍ).',
+        target: 5, type: 'streak',
+        rewards: { score: 800, hint: 3 }
+    },
+    {
+        id: 'steadfast', name: 'الثبات', icon: 'timeline',
+        desc: 'تحقيق سلسلة إجابات صحيحة (Streak) تصل إلى 15.',
+        target: 15, type: 'streak',
+        rewards: { score: 1200, lives: 2 }
+    },
+    {
+        id: 'confident', name: 'الواثق', icon: 'lock_person',
+        desc: 'الفوز في 10 جولات دون استخدام أي وسيلة مساعدة.',
+        target: 10, type: 'counter', statKey: 'noHelperQuizzesCount',
+        rewards: { score: 1500, fifty: 5 }
+    },
+    {
+        id: 'corrector', name: 'المُصحح', icon: 'build_circle',
+        desc: 'الدخول لقسم مراجعة الأخطاء وتصحيح 20 سؤالاً سابقاً.',
+        target: 20, type: 'manual',
+        rewards: { score: 1000, lives: 2 }
+    },
+
+    // 4. أوسمة الاقتصاد والنشر (مستوى فضي)
+    {
+        id: 'tastemaker', name: 'صاحب الذوق', icon: 'palette',
+        desc: 'شراء واقتناء 3 ثيمات مختلفة من المتجر.',
+        target: 3, type: 'manual',
+        rewards: { score: 1000 } // استرجاع قيمة ثيمين تقريباً
+    },
+    {
+        id: 'generous', name: 'الكريم', icon: 'shopping_bag',
+        desc: 'صرف ما مجموعه 2000 نقطة في المتجر.',
+        target: 2000, type: 'manual',
+        rewards: { score: 500 }
+    },
+    {
+        id: 'guide_good', name: 'الدال على الخير', icon: 'share',
+        desc: 'مشاركة النتيجة مع الآخرين 10 مرات.',
+        target: 10, type: 'manual',
+        rewards: { score: 500, hint: 5 }
+    },
+    {
+        id: 'explorer', name: 'المُتبحّر', icon: 'tips_and_updates',
+        desc: 'قراءة المعلومة الإثرائية (المصباح) 50 مرة.',
+        target: 50, type: 'manual',
+        rewards: { score: 1000, skip: 3 }
+    },
+
+    // 5. أوسمة الرتب (تعتمد على مجموع النقاط)
+    {
+        id: 'scholar', name: 'المجتهد', icon: 'psychology',
+        desc: 'الوصول لرصيد 1,000 نقطة.',
+        target: 1000, type: 'score',
+        rewards: { score: 250, lives: 1 }
+    },
+    {
+        id: 'grand_master', name: 'الحكيم', icon: 'self_improvement',
+        desc: 'الوصول لرصيد 5,000 نقطة.',
+        target: 5000, type: 'score',
+        rewards: { score: 1000, lives: 3, hint: 3 }
+    },
+    {
+        id: 'reference', name: 'المرجع', icon: 'workspace_premium',
+        desc: 'الوصول لرصيد 20,000 نقطة.',
+        target: 20000, type: 'score',
+        rewards: { score: 5000, lives: 10, hint: 10, fifty: 10, skip: 10 } // الجائزة الكبرى
+    }
 ];
 
+// توليد أوسمة المعصومين ديناميكياً وإضافتها للقائمة
 infallibles.forEach(person => {
     badgesData.push({
         id: `lover_${person.id}`,
-        name: `عاشق ${person.name}`,
-        icon: 'volunteer_activism',
-        desc: `الإجابة الصحيحة على 200 سؤال في موضوع ${person.name}.`,
-        topicKey: person.topic 
+        name: `عاشق ${person.name.split(' ').slice(0, 2).join(' ')}`, // يأخذ أول كلمتين من الاسم
+        icon: 'favorite',
+        desc: `الإجابة الصحيحة على 20 سؤالاً تخص ${person.name}.`,
+        target: 20,
+        type: 'topic',
+        topicKey: person.topic,
+        rewards: { score: 300, lives: 1 }
     });
 });
 
+// إضافة وسام عاشق العصمة (الختامي)
 badgesData.push({
-    id:'lover_infallibility', 
-    name:'عاشق العصمة', 
-    icon:'mosque', 
-    desc:'الحصول على جميع أوسمة "عشق المعصومين" الأربعة عشر.'
+    id: 'lover_infallibility',
+    name: 'عاشق العصمة',
+    icon: 'mosque',
+    desc: 'الحصول على جميع أوسمة المعصومين الأربعة عشر.',
+    target: 14,
+    type: 'manual',
+    rewards: { score: 5000, lives: 10, hint: 10, fifty: 10, skip: 10 }
 });
 
 export const badgesMap = badgesData.reduce((acc, badge) => {
     acc[badge.id] = badge;
     return acc;
 }, {});
+
+
