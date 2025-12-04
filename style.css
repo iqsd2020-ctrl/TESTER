@@ -155,12 +155,20 @@ h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 
 .glass-card { 
     background: var(--bg-card); 
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); 
+    backdrop-filter: blur(8px); 
+    -webkit-backdrop-filter: blur(8px); 
     border: 1px solid var(--border-color); 
     border-radius: 1.5rem; 
     box-shadow: var(--card-box-shadow, 0 25px 50px -12px var(--shadow-color)); 
-    transition: background 0.3s, border-color 0.3s;
+    
+    /* --- الإضافات الجديدة لمنع الوميض --- */
+    transition: background 0.3s, border-color 0.3s; /* تحديد الخصائص بدقة بدلاً من all */
+    transform: translateZ(0); /* يجبر المتصفح على استخدام GPU */
+    -webkit-transform: translateZ(0);
+    will-change: transform, opacity; /* يخبر المتصفح بأن يستعد للتغييرات */
+    backface-visibility: hidden; /* يمنع الوميض الخلفي */
 }
+
 
 .input-glass { 
     width: 100%; 
@@ -459,7 +467,7 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 .selection-item:hover { background: rgba(251, 191, 36, 0.1); color: var(--accent-color); padding-right: 1.5rem; }
 .selection-item:last-child { border-bottom: none; }
 .trigger-icon { color: var(--accent-color); font-size: 1.2rem; transition: 0.3s; }
-#toggle-enrichment-btn { transition: all 0.3s ease; }
+
 #toggle-enrichment-btn:hover { transform: scale(1.1); }
 
 .btn-marathon-silver {
