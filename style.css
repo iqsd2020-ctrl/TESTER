@@ -5,8 +5,8 @@
     --base-size: 16px;
 
     /* --- المتغيرات الافتراضية (ثيم الولاء) --- */
-    --bg-body: radial-gradient(circle at top, #0f172a 0%, #064E3B 100%);
-    --bg-card: rgba(15, 23, 42, 0.90);
+    --bg-body: radial-gradient(circle at top, #002A0A 0%, #064E3B 100%);
+    --bg-card: linear-gradient(to bottom right, rgba(23, 37, 84, 0.9), rgba(2, 6, 23, 0.98));
     --bg-input: rgba(30, 41, 59, 0.6);
     --bg-side-menu: #0f172a;
     --text-main: #f8fafc;
@@ -14,10 +14,15 @@
     --accent-color: #fbbf24; /* الذهبي الأساسي */
     --accent-dark: #b45309;
     --accent-contrast: #ffffff;
-    --border-color: rgba(251, 191, 36, 0.15);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --card-3d-depth: 3px;
+    --card-3d-shadow-spread: 0 10px 30px rgba(0, 0, 0, 0.6);
+    --bg-card-gradient: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+    --bg-pattern-image: none;
+    --bg-pattern-opacity: 0.5;
     --shadow-color: rgba(0, 0, 0, 0.8);
     --btn-gradient-start: #d97706;
-    --btn-gradient-end: #ca8a04;
+    --btn-gradient-end: #FF9D01;
     --correct-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
     --wrong-bg: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
 }
@@ -25,7 +30,7 @@
 /* 1. ثيم النور الياقوتي (Ruby) - أسود وقرمزي وذهبي */
 [data-theme="ruby"] {
     --bg-body: radial-gradient(circle at center, #2C0606 0%, #100000 100%);
-    --bg-card: rgba(44, 6, 6, 0.9);
+    --bg-card-gradient: linear-gradient(145deg, rgba(44, 6, 6, 0.95), rgba(16, 0, 0, 0.98));
     --bg-input: rgba(160, 0, 0, 0.2);
     --bg-side-menu: #1a0000;
     --text-main: #F7F0E0;
@@ -36,13 +41,15 @@
     --btn-gradient-start: #A00000;
     --btn-gradient-end: #7a0000;
     --shadow-color: rgba(255, 195, 0, 0.2);
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFC300' fill-opacity='1'%3E%3Cpath d='M20 0v20h-4v-4H0v-4h16V0h4zM40 80v20h-4v-4H0v-4h36v-4h4z'/%3E%3C/g%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.05;
 }
 
 
 /* 3. ثيم الزجاجي الليلي (Midnight Glass) - أزرق وزبرجدي */
 [data-theme="midnight"] {
     --bg-body: linear-gradient(135deg, #1a1a2e 0%, #0f3460 50%, #16213e 100%);
-    --bg-card: rgba(255, 255, 255, 0.1);
+    --bg-card-gradient: linear-gradient(145deg, rgba(50, 70, 100, 0.2), rgba(15, 52, 96, 0.5));
     --bg-input: rgba(15, 52, 96, 0.5);
     --bg-side-menu: #0f3460;
     --text-main: #f4f4f4;
@@ -53,12 +60,14 @@
     --btn-gradient-start: #2cb67d;
     --btn-gradient-end: #2cb67d;
     --shadow-color: rgba(121, 242, 192, 0.1);
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='1' fill='%23FFFFFF' fill-opacity='0.1'/%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.1;
 }
 
 /* 4. ثيم نور الإمام (Royal) - ملكي فاخر */
 [data-theme="royal"] {
     --bg-body: radial-gradient(circle, #1E3A24 0%, #0a191e 100%);
-    --bg-card: rgba(52, 78, 65, 0.95);
+    --bg-card-gradient: linear-gradient(145deg, rgba(62, 98, 75, 0.95), rgba(20, 30, 20, 0.98));
     --bg-input: rgba(30, 58, 36, 0.6);
     --bg-side-menu: #1E3A24;
     --text-main: #F0E6D2;
@@ -69,55 +78,64 @@
     --btn-gradient-start: #D4AF37;
     --btn-gradient-end: #aa8c2c;
     --shadow-color: rgba(212, 175, 55, 0.3);
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 5L5 0L10 5L5 10z' fill='%23D4AF37' fill-opacity='0.1'/%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.08;
 }
 
 /* 5. ثيم الزجاج الأسود المصنفر (Black Frost) */
 [data-theme="blackfrost"] {
     --bg-body: #000000;
-    --bg-card: rgba(20, 20, 20, 0.8);
+    --bg-card-gradient: linear-gradient(145deg, rgba(40, 40, 40, 0.9), rgba(10, 10, 10, 0.98));
     --bg-input: rgba(50, 50, 50, 0.5);
     --bg-side-menu: #000000;
     --text-main: #ffffff;
     --text-muted: #888888;
-    --accent-color: #ffffff; /* تباين عالي */
+    --accent-color: #ffffff; 
     --accent-dark: #cccccc;
     --accent-contrast: #000000;
     --border-color: rgba(255, 255, 255, 0.1);
     --btn-gradient-start: #333333;
     --btn-gradient-end: #111111;
     --shadow-color: rgba(255, 255, 255, 0.05);
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cline x1='0' y1='10' x2='20' y2='10' stroke='%23888888' stroke-width='0.5'/%3E%3Cline x1='10' y1='0' x2='10' y2='20' stroke='%23888888' stroke-width='0.5'/%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.04;
 }
 
-/* 6. ثيم المنمنمات الفارسية (Persian) - فيروزي ولازوردي */
+/* 6. ثيم المنمنمات الفارسية (Persian) - فيروزي ولازوردي محسن */
 [data-theme="persian"] {
-    --bg-body: linear-gradient(135deg, #006064 0%, #00363a 100%);
-    --bg-card: rgba(0, 96, 100, 0.8);
-    --bg-input: rgba(0, 54, 58, 0.6);
+    --bg-body: linear-gradient(135deg, #006064 0%, #082f49 100%); 
+    --bg-card-gradient: linear-gradient(145deg, rgba(10, 70, 90, 0.95), rgba(8, 47, 73, 0.98));
+    --bg-input: rgba(8, 47, 73, 0.7); 
     --bg-side-menu: #00363a;
-    --text-main: #E0F7FA;
-    --text-muted: #4DD0E1;
-    --accent-color: #00BCD4; /* تركواز */
-    --accent-dark: #00838F;
-    --border-color: #FFD700; /* حدود ذهبية */
+    --text-main: #E0F7FA; 
+    --text-muted: #4DD0E1; 
+    --accent-color: #FFD700; 
+    --accent-dark: #ccad00;
+    --border-color: #FFD700; 
     --btn-gradient-start: #00838F;
-    --btn-gradient-end: #006064;
-    --shadow-color: rgba(0, 188, 212, 0.3);
+    --btn-gradient-end: #082f49; 
+    --shadow-color: rgba(255, 215, 0, 0.3); 
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFD700' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M30 0L45 15L30 30L15 15L30 0zM30 30L45 45L30 60L15 45L30 30z'/%3E%3C/g%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.04;
 }
 
-/* 8. ثيم الحزن العاشورائي (Ashura) - معدل */
+
+/* 8. ثيم الحزن العاشورائي (Ashura) - معدل للملائمة */
 [data-theme="ashura"] {
-    --bg-body: linear-gradient(to bottom, #000000 0%, #1a0505 100%);
-    --bg-card: rgba(20, 0, 0, 0.9);
+    --bg-body: linear-gradient(to bottom, #050505 0%, #1a0505 100%); /* أسود عميق */
+    --bg-card-gradient: linear-gradient(145deg, rgba(40, 0, 0, 0.95), rgba(10, 0, 0, 0.98));
     --bg-input: rgba(50, 0, 0, 0.3);
-    --bg-side-menu: #0a0000;
+    --bg-side-menu: #050000;
     --text-main: #cfcfcf;
-    --text-muted: #fca5a5; /* تم التعديل: وردي فاتح للقراءة */
-    --accent-color: #ef4444;
+    --text-muted: #94a3b8; /* رمادي هادئ (يشبه لون الرماد) ليعكس الحزن */
+    --accent-color: #d82e2e; /* أحمر داكن قوي (للدلالة على المصاب) */
     --accent-dark: #991b1b;
-    --border-color: #b91c1c; /* تم التعديل: أحمر أوضح للحدود */
+    --border-color: #b91c1c; 
     --btn-gradient-start: #7f1d1d;
     --btn-gradient-end: #450a0a;
-    --shadow-color: rgba(239, 68, 68, 0.2);
+    --shadow-color: rgba(216, 46, 46, 0.2); 
+    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 6.5C11 9.5 8.5 12 5.5 12S0 9.5 0 6.5 2.5 1 5.5 1 11 3.5 11 6.5zM6 11V7H2v4h4z' fill='%23d82e2e' fill-opacity='0.8'/%3E%3C/svg%3E");
+    --bg-pattern-opacity: 0.06;
 }
 
 
@@ -146,27 +164,53 @@ body::before {
     width: 100%;
     height: 100%;
     background: var(--bg-body); /* الخلفية تأتي هنا */
-    z-index: -1; /* لتكون خلف كل شيء */
+    z-index: -2;
+    
     transition: background 0.5s ease; /* التنعيم للخلفية فقط */
 }
+
+
+/* طبقة الزخرفة (body::after) - يجب أن تكون موجودة لتظهر الأشكال */
+body::after {
+    content: "";
+    position: fixed;
+    top: 0; 
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* يجب أن تكون هنا */
+    
+    background-image: var(--bg-pattern-image); /* هذا المتغير يحمل الـ SVG */
+    opacity: var(--bg-pattern-opacity);
+    background-size: 60px 60px; 
+    
+    pointer-events: none;
+}
+
 
 h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 #question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px var(--shadow-color); color: var(--text-main); }
 
-.glass-card { 
-    background: var(--bg-card); 
-    /* backdrop-filter: blur(8px);       <-- ضع علامات التعليق هنا أو احذف السطر */
-    /* -webkit-backdrop-filter: blur(8px); <-- وهذا السطر أيضاً */
+.glass-card {
+    background: var(--bg-card-gradient); 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-radius: 1.5rem;
     
-    border: 1px solid var(--border-color); 
-    border-radius: 1.5rem; 
-    box-shadow: var(--card-box-shadow, 0 25px 50px -12px var(--shadow-color)); 
+    /* 1. العمق: أصبح متغيراً */
+    border-top: 1px solid var(--accent-color); 
+    border-bottom: var(--card-3d-depth) solid var(--accent-dark); 
     
-    /* لاحظ: أبقِ على الترانزيشن المحددة فقط */
-    transition: background 0.3s, border-color 0.3s; 
-    
-    /* احذف translateZ و will-change من هنا إذا كانوا موجودين */
+    /* 2. الظل: أصبح متغيراً */
+    box-shadow: 
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
+        var(--card-3d-shadow-spread); /* استخدام المتغير الجديد */
+
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transform: translateZ(0); 
 }
+
+
 
 
 
@@ -637,4 +681,344 @@ z-index: 10;
 /* إخفاء الشبكة القديمة تماماً في حال ظهرت */
 .badges-grid {
     display: none !important;
+}
+
+/* --- تحسين حدود البطاقات (3D Borders) --- */
+
+/* 1. أزرار الخيارات */
+.option-btn {
+    /* خط محيطي فاتح قليلاً */
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    /* الحافة السفلية سميكة وداكنة (هي التي تصنع الـ 3D) */
+    border-bottom: 4px solid rgba(0, 0, 0, 0.4) !important;
+    background: var(--bg-input) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(0); /* نقطة البداية */
+}
+
+/* تأثير الضغط (ينزل الزر للأسفل) */
+.option-btn:active {
+    border-bottom-width: 1px !important; /* تقليل سمك الحافة */
+    transform: translateY(3px) !important; /* تحريك الزر للأسفل */
+    box-shadow: none;
+}
+
+/* 2. بطاقة السؤال (كلاس جديد) */
+.question-card-3d {
+    background: linear-gradient(to bottom, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 6px solid rgba(0, 0, 0, 0.5) !important; /* حافة سميكة جداً للسؤال */
+    border-radius: 1.5rem !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* --- تحويل عناصر الهيدر إلى 3D (3D Header Elements) --- */
+
+/* استهداف: زر القائمة، حاوية النقاط، زر البروفايل، زر الإشعارات */
+#menu-btn,
+#user-profile-btn,
+#notif-btn,
+#top-header > div:nth-child(2) { /* هذا يستهدف صندوق النقاط في الوسط */
+    /* خلفية متدرجة لتعزيز البروز */
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.9), rgba(15, 23, 42, 0.95)) !important;
+    
+    /* حدود علوية وجانبية فاتحة */
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    
+    /* الحافة السفلية السميكة (السر في الـ 3D) */
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
+    
+    /* شكل دائري كامل */
+    border-radius: 9999px !important;
+    
+    /* ظل لإعطاء ارتفاع */
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3) !important;
+    
+    /* إعداد الحركة */
+    transition: transform 0.1s, border-bottom-width 0.1s !important;
+    transform: translateY(0);
+}
+
+/* تأثير الضغط (للأزرار القابلة للضغط فقط) */
+/* عند الضغط: يقل سمك الحافة السفلية وينزل الزر للأسفل */
+#menu-btn:active,
+#user-profile-btn:active,
+#notif-btn:active {
+    border-bottom-width: 1px !important; /* تقليص الحافة */
+    transform: translateY(3px) !important; /* النزول للأسفل */
+    box-shadow: none !important;
+}
+
+/* --- تحسين حدود زر القائمة المنسدلة (3D Select Trigger) --- */
+
+.custom-select-trigger {
+    /* خلفية متدرجة لتعطي بروزاً */
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.6), rgba(30, 41, 59, 0.9)) !important;
+    
+    /* حدود واضحة: فاتحة من الأعلى والجوانب */
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    
+    /* الحافة السفلية السميكة (السر في الـ 3D) */
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
+    
+    /* تحسين الاستدارة والظل */
+    border-radius: 0.75rem !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    
+    /* حركة ناعمة عند الضغط */
+    transition: transform 0.1s, border-bottom-width 0.1s !important;
+    transform: translateY(0);
+}
+
+/* تأثير الضغط: الزر ينزل للأسفل ويقل سمك الحافة */
+.custom-select-trigger:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important;
+    box-shadow: none !important;
+}
+
+/* --- تحسين عناصر القائمة المنسدلة (3D Selection Items) --- */
+
+.selection-item {
+    /* فصل العناصر عن بعضها */
+    margin-bottom: 0.75rem !important;
+    background: linear-gradient(to bottom, rgba(40, 50, 70, 0.6), rgba(20, 30, 50, 0.8)) !important;
+    
+    /* حدود 3D واضحة */
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* السمك السفلي */
+    
+    /* تدوير الحواف */
+    border-radius: 0.75rem !important;
+    
+    /* تحسين النص والمحاذاة */
+    padding: 0.8rem 1rem !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    
+    /* إعداد الحركة */
+    transition: transform 0.1s, border-bottom-width 0.1s, background-color 0.2s, border-color 0.2s !important;
+    transform: translateY(0);
+}
+
+/* حالة التحويم (Hover): إضاءة خفيفة */
+.selection-item:hover {
+    background: linear-gradient(to bottom, rgba(50, 60, 80, 0.7), rgba(30, 40, 60, 0.9)) !important;
+    border-color: var(--accent-color) !important; /* تلوين الحد بالذهبي عند اللمس */
+}
+
+/* حالة الضغط (Active): الهبوط للأسفل */
+.selection-item:active {
+    border-bottom-width: 1px !important; /* تقليل السمك */
+    transform: translateY(3px) !important; /* النزول للأسفل */
+    box-shadow: none !important;
+}
+
+/* إلغاء الستايل القديم (لأننا فصلنا العناصر) */
+.selection-item:last-child {
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* الحفاظ على الـ 3D للعنصر الأخير */
+    margin-bottom: 0.75rem !important;
+}
+
+/* --- تحويل القائمة الجانبية وعناصرها إلى 3D (Sidebar 3D) --- */
+
+/* 1. خلفية القائمة الجانبية نفسها */
+#side-menu {
+    /* تدرج لوني داكن يعطي عمقاً */
+    background: linear-gradient(to bottom, #1e293b, #020617) !important;
+    border-left: 1px solid rgba(255,255,255,0.1) !important;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.8) !important;
+}
+
+/* 2. عناصر القائمة (تحويلها من نصوص إلى أزرار) */
+.menu-item {
+    /* فصل العناصر عن بعضها */
+    margin: 0.8rem 1rem !important; 
+    
+    /* خلفية متدرجة للأزرار */
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.4), rgba(15, 23, 42, 0.6)) !important;
+    
+    /* حدود 3D */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* السمك السفلي */
+    border-radius: 1rem !important;
+    
+    /* إلغاء الخط السفلي القديم */
+    border-right: none !important; 
+    
+    /* تحسين النص */
+    padding: 1rem 1.2rem !important;
+    color: var(--text-muted) !important;
+    
+    /* إعداد الحركة */
+    transition: transform 0.1s, border-bottom-width 0.1s, background 0.2s, border-color 0.2s !important;
+    transform: translateY(0);
+}
+
+/* حالة التحويم (Hover) */
+.menu-item:hover {
+    /* إضاءة الزر وتلوين الحدود */
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.6), rgba(30, 41, 59, 0.8)) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--accent-color) !important;
+    padding-right: 1.2rem !important; /* إلغاء الإزاحة الجانبية القديمة */
+}
+
+/* حالة الضغط (Active) */
+.menu-item:active {
+    border-bottom-width: 1px !important; /* تقليل السمك */
+    transform: translateY(3px) !important; /* النزول للأسفل */
+    box-shadow: none !important;
+}
+
+/* 3. زر تسجيل الخروج داخل القائمة */
+#logout-btn-menu {
+    /* لون أحمر متدرج */
+    background: linear-gradient(to bottom, rgba(127, 29, 29, 0.5), rgba(69, 10, 10, 0.8)) !important;
+    
+    /* حدود 3D */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
+    border-radius: 1rem !important;
+    
+    /* مسافات */
+    margin: 0 1rem !important;
+    width: auto !important; /* ليتناسب مع الهوامش */
+    
+    transition: transform 0.1s, border-bottom-width 0.1s !important;
+}
+
+#logout-btn-menu:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important;
+}
+/* =========================================
+   MASTER 3D OVERHAUL - تحويل شامل للنظام
+   ========================================= */
+
+/* 1. الأزرار الذهبية الرئيسية (بدء اللعب، تأكيد، شراء) */
+.btn-gold-action {
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    border-bottom: 5px solid #b45309 !important; /* سمك ذهبي داكن */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4) !important;
+    transform: translateY(0);
+    transition: transform 0.1s, border-bottom-width 0.1s, filter 0.2s !important;
+}
+
+.btn-gold-action:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(4px) !important;
+    box-shadow: none !important;
+}
+
+/* 2. حقول الإدخال (تسجيل الدخول، البحث) */
+.input-glass {
+    background: linear-gradient(to bottom, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.8)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* حافة سميكة للحقل */
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.2) !important;
+    transition: border-color 0.3s, border-bottom-width 0.1s, transform 0.1s !important;
+}
+
+.input-glass:focus {
+    border-color: var(--accent-color) !important;
+    border-bottom-color: var(--accent-dark) !important;
+    transform: translateY(1px); /* تأثير ضغط خفيف عند الكتابة */
+}
+
+/* 3. النوافذ المنبثقة (Modals) - تحويلها لألواح صلبة */
+.modal-box {
+    /* تدرج لوني للخلفية */
+    background: linear-gradient(160deg, #1e293b 0%, #020617 100%) !important;
+    
+    /* حدود 3D قوية جداً */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 8px solid rgba(0, 0, 0, 0.6) !important; /* قاعدة سميكة للنافذة */
+    
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5) !important;
+    transform: translateZ(0); /* للأداء */
+}
+
+/* 4. بطاقات المتجر والحقيبة (Shop Items) */
+/* استهداف الحاويات داخل المتجر والحقيبة */
+#shop-view button, 
+#inventory-view .grid > div {
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.5), rgba(30, 41, 59, 0.8)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
+    border-radius: 1rem !important;
+    transition: transform 0.1s, border-bottom-width 0.1s !important;
+}
+
+#shop-view button:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important;
+}
+
+/* 5. بطاقة النتيجة النهائية (Score Card) */
+#score-card {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-bottom: 8px solid #000 !important; /* حافة سوداء فخمة */
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important;
+}
+
+/* 6. الأزرار الثانوية (مثل زر المشاركة، الإلغاء) */
+.btn-secondary, 
+.close-modal,
+#restart-button {
+    border-bottom: 3px solid rgba(0,0,0,0.4) !important;
+    transition: transform 0.1s, border-bottom-width 0.1s !important;
+}
+
+.btn-secondary:active,
+.close-modal:active,
+#restart-button:active {
+    border-bottom-width: 0px !important;
+    transform: translateY(3px) !important;
+}
+
+/* 7. زر الماراثون الفضي */
+.btn-marathon-silver {
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-bottom: 5px solid #4b5563 !important; /* رمادي غامق */
+}
+.btn-marathon-silver:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(4px) !important;
+}
+
+/* --- تحسين صفوف لوحة المتصدرين إلى 3D --- */
+
+#leaderboard-list > div {
+    /* 1. استبدال الخلفية بخلفية متدرجة 3D */
+    background: linear-gradient(to bottom, rgba(51, 65, 85, 0.5), rgba(30, 41, 59, 0.8)) !important;
+    
+    /* 2. حدود 3D */
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 4px solid rgba(0, 0, 0, 0.6) !important; /* الحافة السفلية السميكة */
+    
+    /* 3. إعداد الحركة والظل */
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3) !important;
+    transform: translateY(0) !important;
+    
+    /* إلغاء التحويلات القديمة واستبدالها بحركة الضغط */
+    transition: transform 0.1s, border-bottom-width 0.1s, background-color 0.2s !important;
+}
+
+/* تأثير التحويم (Hover) */
+#leaderboard-list > div:hover {
+    background: linear-gradient(to bottom, rgba(60, 75, 95, 0.6), rgba(40, 50, 70, 0.9)) !important;
+    transform: translateY(-1px) !important; /* رفع بسيط */
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* تأثير الضغط (Active Press) */
+#leaderboard-list > div:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important; /* النزول للأسفل */
+    box-shadow: none !important;
 }
