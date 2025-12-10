@@ -2,23 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging.js";
-// ==========================================
-// 3. استقبال الإشعارات والتطبيق مفتوح (Foreground)
-// ==========================================
-onMessage(messaging, (payload) => {
-    console.log('Message received. ', payload);
-    const { title, body, icon } = payload.notification || {};
-    
-    // أ. عرض إشعار داخلي (يظهر في قائمة الجرس)
-    addLocalNotification(title || 'إشعار جديد', body || '', 'campaign');
-
-    // ب. عرض تنبيه منبثق فوري (Toast)
-    toast(`🔔 ${title}`, "info");
-    
-    // ج. تشغيل صوت تنبيه خفيف (إذا كان الصوت مفعلاً)
-    if(typeof playSound === 'function') playSound('hint');
-});
-
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
@@ -30,11 +13,33 @@ const firebaseConfig = {
   appId: "1:160722124006:web:1c52066fe8dbbbb8f80f27",
   measurementId: "G-9XJ425S41C"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// 1. تعريف خدمة الرسائل أولاً
 const messaging = getMessaging(app);
 const VAPID_KEY = "BFoHaonHhxeVR8ZHtvoVm_j4Khh3Gfdspkr0ftD61T_vdgzWm4cyd7wGmO_wLw-hcdIRcHpnUd5uPLNtZpfxLWM";
+
+// 2. تفعيل الاستقبال والواجهة مفتوحة (بعد التعريف)
+onMessage(messaging, (payload) => {
+    console.log('Message received. ', payload);
+    const { title, body, icon } = payload.notification || {};
+    
+    // أ. عرض إشعار داخلي
+    if(typeof addLocalNotification === 'function') {
+        addLocalNotification(title || 'إشعار جديد', body || '', 'campaign');
+    }
+
+    // ب. عرض تنبيه منبثق
+    if(typeof toast === 'function') {
+        toast(`🔔 ${title}`, "info");
+    }
+    
+    // ج. تشغيل صوت
+    if(typeof playSound === 'function') playSound('hint');
+});
 
 let currentUser = null;
 let effectiveUserId = null;
