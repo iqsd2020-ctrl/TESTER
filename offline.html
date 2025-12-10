@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لا يوجد اتصال | اختبار أهل البيت</title>
+    
+    <!-- نفس إعدادات التطبيق الرئيسي -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./Icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Amiri', serif;
+            background: linear-gradient(135deg, #1a237e 0%, #311b92 100%);
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            direction: rtl;
+        }
+        
+        .offline-container {
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            color: #ffd54f;
+        }
+        
+        h1 {
+            font-family: 'Reem Kufi', sans-serif;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #bb86fc;
+        }
+        
+        p {
+            font-size: 1.3rem;
+            line-height: 1.8;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .features {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            font-size: 1.1rem;
+        }
+        
+        .feature-icon {
+            margin-left: 15px;
+            color: #4fc3f7;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4fc3f7, #2979ff);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 15px;
+            font-family: 'Reem Kufi', sans-serif;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(41, 121, 255, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(41, 121, 255, 0.6);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        .secondary-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .secondary-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        footer {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 600px) {
+            .offline-container {
+                padding: 25px;
+                margin: 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            p {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <!-- أيقونة -->
+        <div class="icon">
+            📶
+        </div>
+        
+        <h1>لا يوجد اتصال بالإنترنت</h1>
+        
+        <p>
+            يبدو أنك غير متصل بالإنترنت حالياً. لا تقلق، يمكنك الاستمرار في استخدام بعض ميزات التطبيق:
+        </p>
+        
+        <div class="features">
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>الاختبارات المحملة مسبقاً</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>نتائجك السابقة</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>أسئلة التحدي المحفوظة</span>
+            </div>
+        </div>
+        
+        <p>
+            حاول إعادة الاتصال بالإنترنت للحصول على تجربة كاملة مع جميع الميزات.
+        </p>
+        
+        <div class="buttons">
+            <button onclick="location.reload()">
+                ↻ إعادة المحاولة
+            </button>
+            
+            <button onclick="window.location.href='./'" class="secondary-btn">
+                🏠 الرجوع للتطبيق
+            </button>
+        </div>
+        
+        <footer>
+            تطبيق اختبار أهل البيت - يعمل حتى بدون اتصال
+        </footer>
+    </div>
+
+    <script>
+        // محاولة إعادة الاتصال تلقائياً كل 10 ثواني
+        setInterval(() => {
+            // محاولة جلب ملف صغير لاختبار الاتصال
+            fetch('./', { method: 'HEAD', cache: 'no-cache' })
+                .then(() => {
+                    // إذا نجح الاتصال، نعود للتطبيق الرئيسي
+                    window.location.href = './';
+                })
+                .catch(() => {
+                    // لا نزال بدون اتصال، نعرض حالة الاتصال
+                    console.log('لا يوجد اتصال بالإنترنت');
+                });
+        }, 10000);
+        
+        // زر العودة للخلف في حالة عدم وجود زر في المتصفح
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.history.back();
+            }
+        });
+        
+        // إظهار حالة الاتصال عند تحميل الصفحة
+        window.addEventListener('load', () => {
+            if (!navigator.onLine) {
+                console.log('الجهاز غير متصل بالإنترنت');
+            } else {
+                window.location.href = './';
+            }
+        });
+        
+        // مراقبة تغيرات حالة الاتصال
+        window.addEventListener('online', () => {
+            console.log('تم استعادة الاتصال بالإنترنت');
+            setTimeout(() => {
+                window.location.href = './';
+            }, 1000);
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('فقد الاتصال بالإنترنت');
+        });
+    </script>
+</body>
+</html>
