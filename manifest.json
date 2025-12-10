@@ -1,22 +1,46 @@
 {
   "name": "من وحي أهل البيت (ع)",
   "short_name": "وحي أهل البيت",
+  "id": "/",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#064E3B",
   "description": "مسابقات عقائدية وتاريخية في تراث أهل البيت (عليهم السلام)",
   "orientation": "portrait",
+  "categories": [
+    "education",
+    "games"
+  ],
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png",
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Pic/192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png",
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Pic/512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Pic/1.jpg",
+      "form_factor": "narrow",
+      "label": "الشاشة الرئيسية"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Pic/2.jpg",
+      "form_factor": "narrow",
+      "label": "قائمة المسابقات"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Pic/3.jpg",
+      "form_factor": "narrow",
+      "label": "داخل اللعبة"
     }
   ]
 }

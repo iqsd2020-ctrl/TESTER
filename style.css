@@ -5,7 +5,7 @@
     --base-size: 16px;
 
     /* --- المتغيرات الافتراضية (ثيم الولاء) --- */
-    --bg-body: radial-gradient(circle at top, #002A0A 0%, #064E3B 100%);
+    --bg-body: radial-gradient(circle at top, #1e293b 0%, #020617 100%);
     --bg-card: linear-gradient(to bottom right, rgba(23, 37, 84, 0.9), rgba(2, 6, 23, 0.98));
     --bg-input: rgba(30, 41, 59, 0.6);
     --bg-side-menu: #0f172a;
@@ -18,11 +18,8 @@
     --card-3d-depth: 3px;
     --card-3d-shadow-spread: 0 10px 30px rgba(0, 0, 0, 0.6);
     --bg-card-gradient: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-    --bg-pattern-image: none;
-    --bg-pattern-opacity: 0.5;
-    --shadow-color: rgba(0, 0, 0, 0.8);
-    --btn-gradient-start: #d97706;
-    --btn-gradient-end: #FF9D01;
+    --bg-pattern-image:url("https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Css.png");
+    --bg-pattern-opacity: 0.10; /* غير الرقم لتغيير شفافية الصورة الخلفية */
     --correct-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
     --wrong-bg: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
 }
@@ -42,7 +39,7 @@
     --btn-gradient-end: #7a0000;
     --shadow-color: rgba(255, 195, 0, 0.2);
     --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFC300' fill-opacity='1'%3E%3Cpath d='M20 0v20h-4v-4H0v-4h16V0h4zM40 80v20h-4v-4H0v-4h36v-4h4z'/%3E%3C/g%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.05;
+    --bg-pattern-opacity: 0.01;
 }
 
 
@@ -138,21 +135,22 @@
     --bg-pattern-opacity: 0.06;
 }
 
-
-
-/* هذا الكود الجديد للـ body */
 body { 
     font-family: var(--font-body); 
     font-size: var(--base-size); 
     line-height: 1.8; 
     user-select: none; 
-    /* حذفنا الخلفية من هنا */
     color: var(--text-main); 
     min-height: 100vh; 
     min-height: 100dvh; 
     overflow-x: hidden; 
-    position: relative; /* ضروري */
-    /* حذفنا الـ transition العام الذي يسبب الوميض */
+    position: relative; 
+    overscroll-behavior-y: none !important;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+html {
+    overscroll-behavior-y: none !important;
 }
 
 /* هذه الطبقة الجديدة للخلفية فقط */
@@ -182,7 +180,7 @@ body::after {
     
     background-image: var(--bg-pattern-image); /* هذا المتغير يحمل الـ SVG */
     opacity: var(--bg-pattern-opacity);
-    background-size: 60px 60px; 
+    background-size: 300px auto; 
     
     pointer-events: none;
 }
@@ -192,31 +190,20 @@ h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 #question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px var(--shadow-color); color: var(--text-main); }
 
 .glass-card {
-    background: var(--bg-card-gradient); 
-    border: 1px solid rgba(255, 255, 255, 0.08); 
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1); 
     border-radius: 1.5rem;
-    
-    /* 1. العمق: أصبح متغيراً */
     border-top: 1px solid var(--accent-color); 
     border-bottom: var(--card-3d-depth) solid var(--accent-dark); 
-    
-    /* 2. الظل: أصبح متغيراً */
-    box-shadow: 
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
-        var(--card-3d-shadow-spread); /* استخدام المتغير الجديد */
-
+    box-shadow: var(--card-3d-shadow-spread);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     transform: translateZ(0); 
 }
 
 
-
-
-
 .input-glass { 
     width: 100%; 
-    background: var(--bg-input); 
+    background: #1e293b; 
     border: 1px solid var(--border-color); 
     color: var(--text-main); 
     border-radius: 0.75rem; 
@@ -305,11 +292,25 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
     display: flex; align-items: center; gap: 0.75rem; 
     cursor: pointer; position: relative; overflow: hidden; 
 }
-.option-btn:hover { background: var(--bg-card); border-color: var(--accent-color); transform: translateX(-4px); }
+/* --- تعديل القوة لضمان تغيير لون النص --- */
 
-.btn-correct { background: var(--correct-bg) !important; border-color: #34d399 !important; color: white !important; }
-.btn-incorrect { background: var(--wrong-bg) !important; border-color: #f87171 !important; color: white !important; }
+.btn-correct,
+.btn-correct > span:not(.material-symbols-rounded), /* يستهدف النص والرقم داخل الزر */
+.btn-correct > .option-number {
+    background: var(--correct-bg) !important;
+    border-color: #34d399 !important;
+    /* 👇 اللون الجديد للنص الصحيح (ذهبي) 👇 */
+    color: #FFC300 !important; 
+}
 
+.btn-incorrect,
+.btn-incorrect > span:not(.material-symbols-rounded), /* يستهدف النص والرقم داخل الزر */
+.btn-incorrect > .option-number {
+    background: var(--wrong-bg) !important;
+    border-color: #f87171 !important;
+    /* 👇 اللون الجديد للنص الخاطئ (فضي) 👇 */
+    color: #E0E0E0 !important; 
+}
 .option-number { 
     width: 32px; height: 32px; 
     background: rgba(0,0,0,0.2); 
@@ -325,7 +326,7 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 
 .option-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
-#side-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); }
+#side-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 #side-menu-overlay.open { opacity: 1; pointer-events: auto; }
 
 #side-menu { 
@@ -339,11 +340,15 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 #side-menu.open { right: 0; }
 
 .menu-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; color: var(--text-muted); cursor: pointer; border-bottom: 1px solid var(--border-color); font-family: var(--font-heading); transition: background-color 0.2s, color 0.2s, padding-right 0.2s; }
-.menu-item:hover { background: var(--bg-input); color: var(--accent-color); padding-right: 2rem; }
 
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-.modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal-box { 
+.menu-item:hover { 
+    background: #1e293b; 
+    color: var(--accent-color); 
+    padding-right: 2rem; 
+}
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-box { 
     background: var(--bg-side-menu); 
     width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; 
     border-radius: 1.5rem; padding: 1.5rem; 
@@ -553,10 +558,6 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 @keyframes pulse-shine { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.01); opacity: 0.95; } }
 .btn-marathon-silver-anim { animation: pulse-shine 2s infinite; }
 
-::-webkit-scrollbar { width: 6px; } 
-::-webkit-scrollbar-track { background: var(--bg-input); } 
-::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
-
 .count-badge {
 position: absolute;
 top: -5px;
@@ -570,24 +571,6 @@ border-radius: 10px;
 border: 1px solid #fff;
 box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 z-index: 10;
-}
-.shop-item-locked {
-    opacity: 0.7;
-    position: relative;
-    cursor: pointer;
-}
-.shop-item-locked::after {
-    content: 'locked';
-    font-family: 'Material Symbols Rounded';
-    position: absolute;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    color: var(--text-muted);
-    border-radius: 0.75rem;
 }
 .shop-item-owned {
     border-color: var(--accent-color) !important;
@@ -678,10 +661,6 @@ z-index: 10;
     font-size: 1rem !important;
 }
 
-/* إخفاء الشبكة القديمة تماماً في حال ظهرت */
-.badges-grid {
-    display: none !important;
-}
 
 /* --- تحسين حدود البطاقات (3D Borders) --- */
 
@@ -832,30 +811,27 @@ z-index: 10;
     box-shadow: -10px 0 40px rgba(0,0,0,0.8) !important;
 }
 
-/* 2. عناصر القائمة (تحويلها من نصوص إلى أزرار) */
+/* تنسيق عناصر القائمة الجانبية (تم التصغير) */
 .menu-item {
-    /* فصل العناصر عن بعضها */
-    margin: 0.8rem 1rem !important; 
+    /* تقليل الهامش الخارجي (المسافة بين الأزرار) */
+    margin: 0.4rem 0.8rem !important; 
     
-    /* خلفية متدرجة للأزرار */
+    /* تقليل الحشوة الداخلية (ارتفاع الزر نفسه) */
+    padding: 0.7rem 1rem !important;
+    
     background: linear-gradient(to bottom, rgba(51, 65, 85, 0.4), rgba(15, 23, 42, 0.6)) !important;
-    
-    /* حدود 3D */
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* السمك السفلي */
-    border-radius: 1rem !important;
-    
-    /* إلغاء الخط السفلي القديم */
+    border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
+    border-radius: 0.75rem !important; /* تقليل الانحناء قليلاً ليتناسب مع الحجم */
     border-right: none !important; 
-    
-    /* تحسين النص */
-    padding: 1rem 1.2rem !important;
     color: var(--text-muted) !important;
-    
-    /* إعداد الحركة */
     transition: transform 0.1s, border-bottom-width 0.1s, background 0.2s, border-color 0.2s !important;
     transform: translateY(0);
+    
+    /* تقليل حجم الخط قليلاً ليتناسب مع الزر الأصغر */
+    font-size: 0.95rem !important; 
 }
+
 
 /* حالة التحويم (Hover) */
 .menu-item:hover {
@@ -873,22 +849,22 @@ z-index: 10;
     box-shadow: none !important;
 }
 
-/* 3. زر تسجيل الخروج داخل القائمة */
+/* تنسيق زر الخروج في القائمة (تم التصغير) */
 #logout-btn-menu {
-    /* لون أحمر متدرج */
     background: linear-gradient(to bottom, rgba(127, 29, 29, 0.5), rgba(69, 10, 10, 0.8)) !important;
-    
-    /* حدود 3D */
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
-    border-radius: 1rem !important;
+    border-radius: 0.75rem !important;
     
-    /* مسافات */
-    margin: 0 1rem !important;
-    width: auto !important; /* ليتناسب مع الهوامش */
+    /* نفس الهوامش الجديدة */
+    margin: 0 0.8rem !important;
+    padding: 0.7rem 1rem !important; /* نفس الحشوة الجديدة */
     
+    width: auto !important;
     transition: transform 0.1s, border-bottom-width 0.1s !important;
+    font-size: 0.95rem !important;
 }
+
 
 #logout-btn-menu:active {
     border-bottom-width: 1px !important;
@@ -1021,4 +997,709 @@ z-index: 10;
     border-bottom-width: 1px !important;
     transform: translateY(3px) !important; /* النزول للأسفل */
     box-shadow: none !important;
+}
+
+/* --- Avatar Frames System --- */
+
+/* الإطار الذهبي (لمعان ثابت) */
+.frame-gold {
+    box-shadow: 0 0 0 2px #d97706, 0 0 10px #fbbf24;
+    border: 2px solid #fbbf24;
+}
+
+/* الإطار المشتعل (متحرك) */
+.frame-fire {
+    box-shadow: 0 0 5px #ef4444, 0 0 10px #f97316;
+    border: 2px solid #ef4444;
+    animation: firePulse 1.5s infinite alternate;
+}
+@keyframes firePulse {
+    0% { box-shadow: 0 0 5px #ef4444, 0 0 10px #f97316; }
+    100% { box-shadow: 0 0 15px #ef4444, 0 0 25px #f59e0b; border-color: #f59e0b; }
+}
+
+/* إطار الزهور (أخضر ووردي) */
+.frame-floral {
+    border: 3px dashed #10b981;
+    box-shadow: 0 0 0 2px #ec4899;
+}
+
+/* الإطار الماسي (سماوي متوهج) */
+.frame-diamond {
+    border: 2px solid #06b6d4;
+    box-shadow: 0 0 10px #22d3ee, inset 0 0 10px #22d3ee;
+    animation: diamondSparkle 2s infinite;
+}
+@keyframes diamondSparkle {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+/* الإطار النيون (سايبر) */
+.frame-neon {
+    border: 2px solid #d946ef;
+    box-shadow: 0 0 5px #d946ef, 0 0 10px #8b5cf6;
+}
+
+/* حاوية الإطار لضبط التموضع */
+.avatar-wrapper {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    z-index: 1;
+}
+/* عنصر الإطار الفعلي */
+.avatar-frame-overlay {
+    position: absolute;
+    inset: -3px; /* الإطار يخرج قليلاً عن الصورة */
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* --- حزمة الإطارات الجديدة والمتقدمة --- */
+
+/* 1. إطار الشمس (Sun) - وهج برتقالي وأصفر */
+.frame-sun {
+    border: 2px solid #fbbf24;
+    box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24, inset 0 0 10px #f59e0b;
+    background: radial-gradient(circle at center, transparent 60%, rgba(251, 191, 36, 0.2) 100%);
+    animation: sunPulse 2s infinite alternate;
+}
+@keyframes sunPulse {
+    0% { box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24; }
+    100% { box-shadow: 0 0 20px #f59e0b, 0 0 40px #d97706; border-color: #fff; }
+}
+
+/* 2. إطار النجم (Star) - تأثير وميض */
+.frame-star {
+    border: 2px dashed #eab308;
+    box-shadow: 0 0 5px #ca8a04;
+    animation: spinSlow 10s linear infinite;
+}
+.frame-star::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px dotted #fff;
+    animation: spinReverse 5s linear infinite;
+}
+
+/* 3. إطار النسر/الجناح الذهبي (Eagle Wing) - تدرج ملكي حاد */
+.frame-eagle {
+    border: 3px double #92400e;
+    border-top-color: #f59e0b; /* لون ذهبي من الأعلى */
+    border-bottom-color: #f59e0b;
+    box-shadow: 0 0 0 2px #451a03, 0 0 10px #b45309;
+    border-radius: 40% 40% 50% 50%; /* شكل انسيابي */
+}
+
+/* 4. إطار المجرة (Galaxy) - ألوان الفضاء */
+.frame-galaxy {
+    border: 2px solid transparent;
+    background: linear-gradient(#000, #000) padding-box,
+                linear-gradient(45deg, #6366f1, #a855f7, #ec4899) border-box;
+    animation: spinSlow 4s linear infinite; /* دوران الألوان */
+}
+
+/* 5. إطار التكنولوجيا (Tech) - سايبر بانك */
+.frame-tech {
+    border: 2px solid #06b6d4;
+    border-left: 2px solid transparent;
+    border-right: 2px solid transparent;
+    box-shadow: 0 0 5px #06b6d4;
+    animation: spinTech 2s linear infinite;
+}
+.frame-tech::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 1px solid #0891b2;
+    border-top: transparent;
+    border-bottom: transparent;
+    border-radius: 50%;
+    animation: spinReverse 1s linear infinite;
+}
+
+/* 6. إطار الطبيعة (Leaf) - أخضر مورق */
+.frame-nature {
+    border: 3px solid #22c55e;
+    box-shadow: inset 0 0 10px #15803d;
+    border-style: double;
+}
+
+/* 7. إطار الطاقة (Energy) - كهرباء زرقاء */
+.frame-energy {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 15px #2563eb, inset 0 0 10px #60a5fa;
+    animation: electricPulse 0.2s infinite;
+}
+@keyframes electricPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+/* 8. إطار السداسي (Hexagon Look) */
+.frame-hex {
+    border: 2px solid #e2e8f0;
+    outline: 2px dashed #64748b;
+    outline-offset: 2px;
+}
+
+/* 9. إطار ياقوتي (Ruby Gem) */
+.frame-ruby {
+    border: 3px solid #9f1239;
+    box-shadow: 0 0 5px #e11d48, inset 0 0 10px #881337;
+}
+
+/* 10. إطار الشبح (Ghost) - ضبابي */
+.frame-ghost {
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 0 15px rgba(255,255,255,0.5);
+    animation: ghostFloat 3s ease-in-out infinite;
+}
+@keyframes ghostFloat {
+    0%, 100% { box-shadow: 0 0 15px rgba(255,255,255,0.5); transform: scale(1); }
+    50% { box-shadow: 0 0 25px rgba(255,255,255,0.8); transform: scale(1.02); }
+}
+
+/* حركات الدوران المساعدة */
+@keyframes spinSlow { 100% { transform: rotate(360deg); } }
+@keyframes spinReverse { 100% { transform: rotate(-360deg); } }
+@keyframes spinTech { 
+    0% { transform: rotate(0deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
+    50% { border-color: transparent #06b6d4 transparent #06b6d4; }
+    100% { transform: rotate(360deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
+}
+
+/* =========================================
+   رتب الأوسمة الجديدة (ماسي وأسطوري)
+   ========================================= */
+
+/* 1. الرتبة الماسية (Diamond) - سماوي متوهج */
+.badge-card.diamond {
+    border-color: #06b6d4 !important; /* لون سماوي للإطار */
+    background: linear-gradient(to left, rgba(6, 182, 212, 0.15), var(--bg-input));
+}
+.badge-card.diamond .badge-progress-fill { 
+    background: linear-gradient(90deg, #06b6d4, #22d3ee) !important; 
+}
+.badge-card.diamond .badge-icon-box { 
+    color: #22d3ee !important; 
+    border-color: #06b6d4 !important; 
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); 
+}
+
+/* 2. الرتبة الأسطورية (Legendary) - أحمر ناري مرعب */
+.badge-card.legendary { 
+    border: 1px solid #ef4444 !important; 
+    background: linear-gradient(to left, rgba(239, 68, 68, 0.2), var(--bg-input)); 
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+}
+.badge-card.legendary .badge-progress-fill { 
+    background: linear-gradient(90deg, #b91c1c, #ef4444) !important; 
+}
+.badge-card.legendary .badge-icon-box { 
+    color: #ef4444 !important; 
+    border-color: #b91c1c !important; 
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); 
+    animation: pulse-slow 2s infinite; /* نبض مستمر */
+}
+
+/* تحسين الأداء: إزالة الظلال الثقيلة عن الأوسمة المقفلة لتقليل الضغط على المعالج */
+.badge-card.locked {
+    box-shadow: none !important;
+    border-color: rgba(255,255,255,0.05) !important;
+}
+
+/* تفعيل تسريع الهاردوير للقوائم الطويلة */
+.badges-list-container, #leaderboard-list {
+    will-change: transform; /* يخبر المتصفح بتجهيز المعالج مسبقاً */
+}
+
+/* =========================================
+   إخفاء شريط التمرير (Scrollbar Hiding)
+   ========================================= */
+
+/* استهداف جميع الحاويات القابلة للتمرير في تطبيقك */
+.modal-box,
+#side-menu,
+.badges-list-container,
+#leaderboard-list,
+#notif-list,
+#review-items-container,
+#shop-view,
+#inventory-view,
+.overflow-y-auto { 
+    -ms-overflow-style: none;  /* لمتصفحات IE و Edge القديمة */
+    scrollbar-width: none;  /* لمتصفح Firefox */
+}
+
+/* لمتصفحات Chrome, Safari, Opera (معظم الهواتف) */
+.modal-box::-webkit-scrollbar,
+#side-menu::-webkit-scrollbar,
+.badges-list-container::-webkit-scrollbar,
+#leaderboard-list::-webkit-scrollbar,
+#notif-list::-webkit-scrollbar,
+#review-items-container::-webkit-scrollbar,
+#shop-view::-webkit-scrollbar,
+#inventory-view::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+    display: none;
+}
+
+/* تحسين نص المعلومة الإثرائية */
+#enrichment-content {
+    color: #ffffff !important;       /* لون أبيض ناصع 100% */
+    font-weight: 500 !important;     /* زيادة سمك الخط قليلاً ليصبح أوضح */
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8) !important; /* ظل أسود خلف النص لبروزه */
+    line-height: 2.2 !important;     /* تباعد مريح بين الأسطر للقراءة */
+    font-size: 1.1rem !important;    /* تكبير الخط قليلاً */
+}
+
+/* --- تحسين شارة عدد المساعدات (Counter Badge) --- */
+.count-badge {
+    position: absolute !important;
+    top: -8px !important;       /* رفع الشارة للأعلى قليلاً لتبرز */
+    left: -5px !important;      /* محاذاة لليسار */
+    
+    /* المظهر والألوان */
+    background: var(--accent-color) !important;  /* خلفية ذهبية */
+    color: #000000 !important;                   /* نص أسود (لأفضل تباين مع الذهبي) */
+    border: 2px solid #006002 !important;        /* إطار أبيض واضح */
+    
+    /* الخط والأبعاد */
+    font-family: 'Reem Kufi', sans-serif !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    padding: 1px 6px !important;
+    border-radius: 20px !important;
+    
+    /* ظل لإبرازها فوق الزر */
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4) !important;
+    z-index: 20;
+}
+
+/* =========================================
+   حزمة الإطارات السيبرانية والمتحركة (New)
+   ========================================= */
+
+/* 1. السايبر بلس (Cyber Pulse) */
+.frame-cyber-pulse {
+    box-shadow: 0 0 0 2px #0ea5e9, 0 0 15px #0ea5e9, inset 0 0 10px #0ea5e9;
+    border: 2px solid #fff;
+    animation: cyberPulseAnim 1.5s infinite;
+}
+@keyframes cyberPulseAnim { 0% { box-shadow: 0 0 0 2px #0ea5e9, 0 0 10px #0ea5e9; } 50% { box-shadow: 0 0 0 4px #0ea5e9, 0 0 25px #0ea5e9; } 100% { box-shadow: 0 0 0 2px #0ea5e9, 0 0 10px #0ea5e9; } }
+
+/* 2. الماتريكس (Matrix) */
+.frame-matrix {
+    border: 2px dashed #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+    animation: matrixSpin 3s linear infinite;
+}
+@keyframes matrixSpin { 0% { transform: rotate(0deg); filter: hue-rotate(0deg); } 100% { transform: rotate(360deg); filter: hue-rotate(90deg); } }
+
+/* 3. الحمم البركانية (Magma) */
+.frame-magma {
+    border: 3px solid #7f1d1d;
+    box-shadow: 0 0 10px #ef4444, inset 0 0 10px #ef4444;
+    animation: magmaFlow 2s infinite alternate;
+}
+@keyframes magmaFlow { 0% { border-color: #ef4444; box-shadow: 0 0 5px #ef4444; } 100% { border-color: #fca5a5; box-shadow: 0 0 20px #ef4444, 0 0 10px #fca5a5; } }
+
+/* 4. الهولوغرام (Hologram) */
+.frame-holo {
+    border: 2px solid rgba(6, 182, 212, 0.5);
+    box-shadow: 0 0 10px #06b6d4;
+    animation: holoFlicker 0.1s infinite;
+}
+@keyframes holoFlicker { 0% { opacity: 1; } 95% { opacity: 1; } 96% { opacity: 0.8; transform: translateX(1px); } 100% { opacity: 1; } }
+
+/* 5. الرادار (Radar) */
+.frame-radar {
+    border: 2px solid #10b981;
+    position: relative;
+    overflow: hidden;
+}
+.frame-radar::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0%, rgba(16, 185, 129, 0.5) 20%, transparent 40%);
+    animation: radarSweep 2s linear infinite;
+}
+@keyframes radarSweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* 6. الكمومي (Quantum) */
+.frame-quantum {
+    border: 2px double #8b5cf6;
+    box-shadow: 0 0 5px #a78bfa, inset 0 0 10px #8b5cf6;
+    animation: quantumShake 3s infinite ease-in-out;
+}
+@keyframes quantumShake { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); box-shadow: 0 0 15px #a78bfa; } }
+
+/* 7. الذهبي الملكي المتحرك (Royal Flow) */
+.frame-royal-flow {
+    border: 3px solid #fbbf24;
+    box-shadow: 0 0 15px #d97706;
+    animation: borderFlow 2s infinite;
+}
+@keyframes borderFlow { 0% { box-shadow: 0 0 5px #d97706; } 50% { box-shadow: 0 0 20px #fbbf24, 0 0 10px #fff; } 100% { box-shadow: 0 0 5px #d97706; } }
+
+/* 8. النيون الوردي (Neon Pink) */
+.frame-neon-pink { border: 2px solid #ec4899; box-shadow: 0 0 10px #db2777, 0 0 20px #db2777; animation: neonBreath 1.5s infinite alternate; }
+@keyframes neonBreath { from { opacity: 0.8; } to { opacity: 1; box-shadow: 0 0 15px #ec4899, 0 0 30px #ec4899; } }
+
+/* 9. الكهرباء (Electric) */
+.frame-electric { border: 2px dashed #eab308; animation: electricJitter 0.3s infinite; }
+@keyframes electricJitter { 0% { transform: translate(0,0); } 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 1px); } 100% { transform: translate(0,0); } }
+
+/* 10. المجرة المظلمة (Dark Matter) */
+.frame-dark-matter { border: 2px solid #000; box-shadow: 0 0 10px #6366f1, inset 0 0 10px #000; background: #000; }
+
+/* 11. الصقيع (Frost) */
+.frame-frost { border: 2px solid #bae6fd; box-shadow: 0 0 10px #e0f2fe, inset 0 0 10px #bae6fd; animation: frostGlow 3s infinite; }
+@keyframes frostGlow { 50% { box-shadow: 0 0 20px #bae6fd; } }
+
+/* 12. الحقل الطاقي (Forcefield) */
+.frame-forcefield { border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3); animation: forceRipple 1s infinite; }
+@keyframes forceRipple { 0% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); } 100% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); } }
+
+/* 13. البكسل (Pixel Retro) */
+.frame-pixel { border: 4px dashed #fff; box-shadow: 0 0 0 4px #000; border-radius: 0 !important; } /* مربع */
+
+/* 14. التنين (Dragon Scale) */
+.frame-dragon { border: 3px solid #166534; border-top-color: #4ade80; border-bottom-color: #14532d; animation: spinSlow 5s linear infinite; }
+
+/* 15. القوس قزح (Rainbow RGB) */
+.frame-rgb { 
+    border: 3px solid transparent; 
+    background: linear-gradient(#000, #000) padding-box, linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) border-box; 
+    animation: rgbSpin 2s linear infinite;
+}
+@keyframes rgbSpin { 100% { filter: hue-rotate(360deg); } }
+
+/* --- تنسيق معاينة الثيم في المتجر --- */
+.theme-preview-box {
+    height: 60px;
+    width: 100%;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    position: relative;
+    overflow: hidden;
+}
+.theme-preview-box::after {
+    content: 'Aa';
+    position: absolute;
+    bottom: 5px; right: 8px;
+    font-family: 'Amiri';
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.5);
+}
+
+/* =========================================
+   1. تحسينات حقول كلمة المرور (Password Eye)
+   ========================================= */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+.password-toggle-btn {
+    position: absolute;
+    left: 10px; /* لأن التطبيق عربي RTL، الأيقونة تكون على اليسار */
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px;
+    z-index: 10;
+    transition: color 0.3s;
+}
+.password-toggle-btn:hover {
+    color: var(--accent-color);
+}
+/* تعديل الحقل لترك مسافة للأيقونة */
+.input-glass.has-icon {
+    padding-left: 2.5rem !important; 
+}
+
+/* =========================================
+   2. تأثير التحميل الهيكلي (Skeleton Loading)
+   ========================================= */
+@keyframes skeleton-pulse {
+    0% { background-color: rgba(255, 255, 255, 0.05); }
+    50% { background-color: rgba(255, 255, 255, 0.15); }
+    100% { background-color: rgba(255, 255, 255, 0.05); }
+}
+
+.skeleton {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    animation: skeleton-pulse 1.5s infinite ease-in-out;
+    pointer-events: none; /* يمنع الضغط أثناء التحميل */
+}
+
+/* تنسيق خاص لهيكل لوحة المتصدرين */
+.skeleton-row {
+    height: 60px;
+    width: 100%;
+    margin-bottom: 10px;
+    border-radius: 12px;
+}
+
+/* تنسيق خاص لهيكل السؤال (عند بدء المسابقة) */
+.skeleton-question {
+    height: 120px;
+    width: 100%;
+    margin-bottom: 20px;
+    border-radius: 1.5rem;
+}
+.skeleton-option {
+    height: 55px;
+    width: 100%;
+    margin-bottom: 12px;
+    border-radius: 0.75rem;
+}
+
+/* =========================================
+   Skeleton Loading Animation (الهيكل العظمي)
+   ========================================= */
+.skeleton {
+    background: #1e293b; /* لون أساسي */
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+    opacity: 0.7;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* تنسيق عناصر الهيكل */
+.sk-row { display: flex; align-items: center; gap: 1rem; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; }
+.sk-circle { width: 40px; height: 40px; border-radius: 50%; }
+.sk-line { height: 12px; border-radius: 6px; }
+.sk-line.short { width: 30%; }
+.sk-line.long { width: 70%; }
+.sk-card { height: 120px; width: 100%; margin-bottom: 2rem; border-radius: 1.5rem; }
+.sk-btn { height: 50px; width: 100%; margin-bottom: 0.75rem; border-radius: 0.75rem; }
+
+/* =========================================
+   Step 4: Visual Effects (Vignette & Pulse)
+   ========================================= */
+
+/* 1. نبض الخطر (Red Vignette) */
+/* خلفية متدرجة: شفافة في الوسط وحمراء في الأطراف */
+#low-health-vignette {
+    background: radial-gradient(circle, transparent 40%, rgba(220, 38, 38, 0.8) 100%);
+    box-shadow: inset 0 0 50px rgba(220, 38, 38, 0.5);
+    /* z-index مضبوط في HTML لكن نؤكد عليه هنا */
+    pointer-events: none; 
+}
+
+/* كلاس الحركة للنبض (سنضيفه بالجافاسكربت عند الحاجة) */
+.animate-danger-pulse {
+    animation: dangerPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes dangerPulse {
+    0%, 100% { opacity: 0.2; } /* أحمر خفيف */
+    50% { opacity: 0.9; }      /* أحمر قوي */
+}
+
+/* 2. النبضة الذهبية (Golden Touch Ripple) */
+.touch-ripple {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    /* لون ذهبي مشع يتلاشى للأطراف */
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.8) 0%, rgba(251, 191, 36, 0) 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    animation: rippleEffect 0.5s ease-out forwards;
+    pointer-events: none; /* ضروري جداً لعدم منع النقر */
+    z-index: 9999;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+@keyframes rippleEffect {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(6); opacity: 0; }
+}
+
+/* --- مؤثر الأرقام العائمة (Floating Feedback) --- */
+.float-feedback {
+    position: fixed;
+    font-family: 'Reem Kufi', sans-serif;
+    font-weight: 700;
+    font-size: 1.8rem;
+    pointer-events: none;
+    z-index: 10000;
+    animation: floatUpFade 1.2s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    direction: ltr; 
+}
+
+@keyframes floatUpFade {
+    0% { transform: translateY(0) scale(0.5); opacity: 0; }
+    20% { transform: translateY(-30px) scale(1.3); opacity: 1; }
+    100% { transform: translateY(-80px) scale(1); opacity: 0; }
+}
+
+/* --- تحديث الصور الحقيقية للأوسمة --- */
+.badge-icon-box {
+    width: 60px !important;  /* تكبير قليلاً لاحتواء الصورة */
+    height: 60px !important;
+    min-width: 60px !important;
+    
+    /* إزالة الخلفيات القديمة والحدود الافتراضية */
+    background: transparent !important;
+    border: 3px solid rgba(255, 255, 255, 0.1) !important; /* حدود أولية */
+    
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    margin-left: 15px !important;
+    overflow: hidden !important; /* لقص الصورة الزائدة */
+    position: relative;
+    padding: 0 !important; /* إزالة الحشوة لتملأ الصورة المكان */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* تنسيق الصورة داخل الدائرة */
+.badge-icon-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* ملء الدائرة بالكامل */
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+/* تأثير التكبير عند التحويم */
+.badge-card:hover .badge-icon-box img {
+    transform: scale(1.1);
+}
+
+/* --- ألوان الحدود حسب الرتبة (تطبق على الحاوية) --- */
+/* برونزي */
+.badge-card .badge-icon-box.text-red-500 { 
+    border-color: #cd7f32 !important; 
+    box-shadow: 0 0 10px rgba(205, 127, 50, 0.3);
+}
+/* فضي */
+.badge-card .badge-icon-box.text-slate-100 { 
+    border-color: #c0c0c0 !important;
+    box-shadow: 0 0 15px rgba(192, 192, 192, 0.4);
+}
+/* ذهبي */
+.badge-card .badge-icon-box.text-amber-400 { 
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+/* ماسي */
+.badge-card .badge-icon-box.text-cyan-400 { 
+    border-color: #22d3ee !important;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+}
+/* أسطوري */
+.badge-card .badge-icon-box.text-red-600 { 
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+}
+
+/* الوسام المقفل يكون باهتاً وأسود وأبيض */
+.badge-card.locked .badge-icon-box img {
+    filter: grayscale(1) brightness(0.7);
+    opacity: 0.6;
+}
+.badge-card.locked .badge-icon-box {
+    border-color: rgba(255,255,255,0.05) !important;
+}
+
+/* تنسيق الصورة الكبيرة في نافذة الجائزة */
+.reward-icon-large {
+    display: block !important;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem auto;
+    border-radius: 50%;
+    border: 4px solid #ffd700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+    object-fit: cover;
+    background: #000;
+}
+
+/* تنسيق خاص لنافذة الذكاء الاصطناعي */
+#ai-explanation-modal .modal-box {
+    border-color: rgba(6, 182, 212, 0.5) !important;
+    background: linear-gradient(160deg, #0f172a 0%, #164e63 100%) !important;
+}
+
+#ai-result-content {
+    display: block !important;       /* إلغاء الفليكس لترتيب النصوص كفقرة */
+    font-family: 'Amiri', serif;
+    font-size: 1.1rem;
+    line-height: 2;                  /* تباعد أسطر مريح */
+    color: #ffffff !important;
+    text-align: justify;             /* محاذاة النص من الجانبين (ضبط) */
+    text-align-last: center;         /* السطر الأخير في المنتصف */
+    direction: rtl;                  /* ضمان اتجاه النص */
+    white-space: normal !important;  /* السماح بالنزول لسطر جديد بشكل طبيعي */
+    overflow-y: auto;
+    padding: 10px;
+}
+/* السماح بتحديد النصوص للسؤال والشرح لكي يعمل الذكاء الاصطناعي */
+#question-text, 
+#enrichment-content,
+#ai-result-content {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text; /* يغير شكل المؤشر ليعرف المستخدم أنه يمكنه التحديد */
+}
+.ai-highlight {
+    color: #22d3ee; /* لون سماوي ساطع */
+    font-weight: bold;
+    text-shadow: 0 0 15px rgba(34, 211, 238, 0.5); /* توهج للكلمة */
+    padding: 0 2px;
+/* تحسين شكل التحديد (اختياري) */
+::selection {
+    background: rgba(6, 182, 212, 0.3); /* لون سماوي شفاف عند التحديد */
+    color: white;
+}
+
+
+/* إجبار المتصفح على إظهار سهم القائمة في حقل اختيار الموديل */
+input[list]::-webkit-calendar-picker-indicator {
+    display: block !important;
+    opacity: 1 !important;
+    height: 20px;
+    width: 20px;
+    cursor: pointer;
+    background-color: transparent;
+    filter: invert(1); /* تحويل لون السهم للأبيض ليناسب الخلفية الداكنة */
+    transition: transform 0.2s;
+    margin-left: -10px; /* تحسين المحاذاة */
+}
+
+input[list]:hover::-webkit-calendar-picker-indicator {
+    transform: scale(1.2); /* تكبير بسيط عند التحويم */
+}
+/* --- إصلاح نهائي للمقابض الزرقاء --- */
+.force-deselect,
+.force-deselect body,
+.force-deselect * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important; /* يمنع ظهور فقاعة النسخ/اللصق */
+}
+
+/* منع تحديد عنوان النافذة لتجنب ظهور المقابض عليه بالخطأ */
+#ai-word-target {
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
