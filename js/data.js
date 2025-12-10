@@ -1,3 +1,7 @@
+// ==========================================
+// ملف البيانات الأساسي ومصنع الأوسمة (نظام الصور)
+// ==========================================
+
 export const topicsData = {
     "المعصومون (عليهم السلام)": ["سيرة النبي محمد (ص)", "سيرة الإمام علي (ع)", "السيدة فاطمة الزهراء (ع)", "سيرة الإمام الحسن المجتبى (ع)", "سيرة الإمام الحسين (ع)", "سيرة الإمام السجاد (ع)", "سيرة الإمام الباقر (ع)", "سيرة الإمام الصادق (ع)", "سيرة الإمام الكاظم (ع)", "سيرة الإمام الرضا (ع)", "سيرة الإمام الجواد (ع)", "سيرة الإمام الهادي (ع)", "سيرة الإمام العسكري (ع)", "الإمام المهدي (عج)"],
     "الأنبياء والرسل": ["قصص آدم وحواء وأولادهما", "في قصص إدريس (عليه السلام)", "قصص النبي نوح (ع)", "النبي هود (عليه السلام) وقومه عاد", "النبي صالح (عليه السلام) وقومه ثمود", "النبي إبراهيم (عليه السلام)", "النبي لوط (عليه السلام) وقومه", "سيرة ذي القرنين (ع)", "سيرة النبي يعقوب ويوسف (عليهما السلام)", "سيرة النبي شعيب (عليه السلام)", "سيرة النبي أيوب (ع)", "موسى وهارون (عليهما السلام)", "النبي داود (عليه السلام)", "لقمان الحكيم", "النبي سليمان (عليه السلام)", "النبي زكريا ويحيى (عليهما السلام)", "النبي عيسى وأمه (عليهما السلام)", "النبي يونس (عليه السلام)", "قصة أصحاب الكهف والرقيم", "في أخبار بني إسرائيل وأحوال بعض الملوك", "قصة قوم سبأ (سيل العرم)", "قصص أرميا ودانيال وعزير وبختنصر", "أصحاب الأخدود وجرجيس وخالد بن سنان", "أصحاب الرس وحنظلة النبي", "قصة شعيا وحبقوق", "متفرقات"],
@@ -9,212 +13,161 @@ export const topicsData = {
     "أدعية وزيارات": ["دعاء كميل", "دعاء الصباح", "دعاء التوسل", "دعاء العهد", "دعاء الندبة", "دعاء الافتتاح", "دعاء أبي حمزة الثمالي", "دعاء عرفة", "المناجاة الشعبانية", "زيارة عاشوراء", "زيارة الأربعين", "الزيارة الجامعة الكبيرة", "دعاء اهل الثغور", "زيارة آل يس", "زيارة أمين الله"]
 };
 
+// رابط قاعدة الصور (للسهولة)
+const BASE_IMG_URL = "https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Pic/";
+
+// قائمة المعصومين (تم استبدال الأيقونات بأرقام الصور)
+// ملاحظة: تأكد من أن لديك صور باسم 1.png, 2.png وهكذا في الرابط
 export const infallibles = [
-    { name: "النبي محمد", topic: "سيرة النبي محمد (ص)", id: "prophet_muhammad" },
-    { name: "الإمام علي", topic: "سيرة الإمام علي (ع)", id: "imam_ali" },
-    { name: "السيدة فاطمة الزهراء", topic: "السيدة فاطمة الزهراء (ع)", id: "fatima_zahra" },
-    { name: "الإمام الحسن المجتبى", topic: "سيرة الإمام الحسن المجتبى (ع)", id: "imam_hasan" },
-    { name: "الإمام الحسين", topic: "سيرة الإمام الحسين (ع)", id: "imam_hussein" },
-    { name: "الإمام السجاد", topic: "سيرة الإمام السجاد (ع)", id: "imam_sajjad" },
-    { name: "الإمام الباقر", topic: "سيرة الإمام الباقر (ع)", id: "imam_baqir" },
-    { name: "الإمام الصادق", topic: "سيرة الإمام الصادق (ع)", id: "imam_sadiq" },
-    { name: "الإمام الكاظم", topic: "سيرة الإمام الكاظم (ع)", id: "imam_kadhim" },
-    { name: "الإمام الرضا", topic: "سيرة الإمام الرضا (ع)", id: "imam_ridha" },
-    { name: "الإمام الجواد", topic: "سيرة الإمام الجواد (ع)", id: "imam_jawad" },
-    { name: "الإمام الهادي", topic: "سيرة الإمام الهادي (ع)", id: "imam_hadi" },
-    { name: "الإمام العسكري", topic: "سيرة الإمام العسكري (ع)", id: "imam_askari" },
-    { name: "الإمام المهدي", topic: "الإمام المهدي (عج)", id: "imam_mahdi" }
+    { name: "النبي محمد", topic: "سيرة النبي محمد (ص)", id: "prophet_muhammad", img: "1.png" },
+    { name: "الإمام علي", topic: "سيرة الإمام علي (ع)", id: "imam_ali", img: "2.png" },
+    { name: "السيدة فاطمة", topic: "السيدة فاطمة الزهراء (ع)", id: "fatima_zahra", img: "3.png" },
+    { name: "الإمام الحسن", topic: "سيرة الإمام الحسن المجتبى (ع)", id: "imam_hasan", img: "4.png" },
+    { name: "الإمام الحسين", topic: "سيرة الإمام الحسين (ع)", id: "imam_hussein", img: "5.png" },
+    { name: "الإمام السجاد", topic: "سيرة الإمام السجاد (ع)", id: "imam_sajjad", img: "6.png" },
+    { name: "الإمام الباقر", topic: "سيرة الإمام الباقر (ع)", id: "imam_baqir", img: "7.png" },
+    { name: "الإمام الصادق", topic: "سيرة الإمام الصادق (ع)", id: "imam_sadiq", img: "8.png" },
+    { name: "الإمام الكاظم", topic: "سيرة الإمام الكاظم (ع)", id: "imam_kadhim", img: "9.png" },
+    { name: "الإمام الرضا", topic: "سيرة الإمام الرضا (ع)", id: "imam_ridha", img: "10.png" },
+    { name: "الإمام الجواد", topic: "سيرة الإمام الجواد (ع)", id: "imam_jawad", img: "11.png" },
+    { name: "الإمام الهادي", topic: "سيرة الإمام الهادي (ع)", id: "imam_hadi", img: "12.png" },
+    { name: "الإمام العسكري", topic: "سيرة الإمام العسكري (ع)", id: "imam_askari", img: "13.png" },
+    { name: "الإمام المهدي", topic: "الإمام المهدي (عج)", id: "imam_mahdi", img: "14.png" }
 ];
 
-// --- إعدادات المستويات والجوائز ---
+// --- إعدادات المستويات الخمسة (نظام الرتب) ---
+const TIER_CONFIG = [
+    { id: 1, label: 'برونزي', color: 'bronze', multiplier: 1, rewards: { score: 200 } },
+    { id: 2, label: 'فضي', color: 'silver', multiplier: 3, rewards: { score: 500, hint: 2 } },
+    { id: 3, label: 'ذهبي', color: 'gold', multiplier: 8, rewards: { score: 1500, fifty: 2 } },
+    { id: 4, label: 'ماسي', color: 'diamond', multiplier: 20, rewards: { score: 5000, lives: 2 } },
+    { id: 5, label: 'أسطوري', color: 'legendary', multiplier: 50, rewards: { score: 10000, lives: 5, skip: 5 } }
+];
+
 export let badgesData = [];
 
-// ==========================================
-// 1. أوسمة المعصومين (14 معصوم * 3 مستويات = 42 رتبة)
-// ==========================================
-infallibles.forEach(p => {
-    badgesData.push({
-        id: `lover_${p.id}`, 
-        name: `عاشق ${p.name.split(' ')[1] || p.name}`,
-        icon: 'favorite', 
-        type: 'topic', 
-        topicKey: p.topic,
-        levels: [
-            { id: 1, label: 'محب (برونزي)', target: 20, color: 'bronze', rewards: { score: 250, lives: 1 } },
-            { id: 2, label: 'موالي (فضي)', target: 60, color: 'silver', rewards: { score: 1000, hint: 3 } },
-            { id: 3, label: 'عاشق (ذهبي)', target: 150, color: 'gold', rewards: { score: 5000, lives: 5, fifty: 5 } }
-        ],
-        desc: `أثبت مودتك لـ ${p.name} عبر الإجابة الصحيحة على الأسئلة المتعلقة بسيرته.`
+// دالة المصنع المعدلة (تقبل رابط الصورة)
+function generateBadge(baseId, name, imageName, type, targetBase, descTemplate, extraData = {}) {
+    const levels = TIER_CONFIG.map(tier => {
+        const calculatedTarget = Math.floor(targetBase * tier.multiplier);
+        return {
+            id: tier.id,
+            label: tier.label,
+            target: calculatedTarget,
+            color: tier.color,
+            rewards: tier.rewards
+        };
     });
+
+    return {
+        id: baseId,
+        name: name,
+        image: BASE_IMG_URL + imageName, // تكوين الرابط الكامل
+        type: type,
+        levels: levels,
+        desc: descTemplate,
+        ...extraData
+    };
+}
+
+// 1. أوسمة الولاية (الصور من 1 إلى 14)
+infallibles.forEach(p => {
+    badgesData.push(generateBadge(
+        `lover_${p.id}`,
+        `عاشق ${p.name.split(' ').pop()}`,
+        p.img, // تمرير اسم الصورة
+        'topic',
+        10,
+        `أثبت ولاءك لـ ${p.name} بالإجابة الصحيحة على الأسئلة.`,
+        { topicKey: p.topic }
+    ));
 });
 
-// ==========================================
-// 2. أوسمة التخصصات (8 أقسام * 3 مستويات = 24 رتبة)
-// ==========================================
+// 2. أوسمة التبحر (صور من 15 إلى 21)
 const topicBadges = [
-    { id: 'prophets', name: 'وريث الأنبياء', key: 'الأنبياء والرسل', icon: 'history_edu' },
-    { id: 'quran', name: 'حليف القرآن', key: 'القرآن ونهج البلاغة', icon: 'menu_book' },
-    { id: 'history', name: 'المؤرخ الأمين', key: 'تاريخ ومعارك', icon: 'flag_circle' },
-    { id: 'fiqh', name: 'الفقيه', key: 'عقائد وفقه', icon: 'balance' },
-    { id: 'mahdi', name: 'المنتظر', key: 'الثقافة المهدوية', icon: 'hourglass_top' },
-    { id: 'dua', name: 'الذاكر', key: 'أدعية وزيارات', icon: 'volunteer_activism' },
-    { id: 'companions', name: 'ناصر العترة', key: 'شخصيات (أصحاب وعلماء ونساء)', icon: 'diversity_3' }
+    { id: 'prophets', name: 'قصص الأنبياء', key: 'الأنبياء والرسل', img: '15.png' },
+    { id: 'quran', name: 'علوم القرآن', key: 'القرآن ونهج البلاغة', img: '16.png' },
+    { id: 'history', name: 'التاريخ الإسلامي', key: 'تاريخ ومعارك', img: '17.png' },
+    { id: 'fiqh', name: 'الفقه والعقائد', key: 'عقائد وفقه', img: '18.png' },
+    { id: 'mahdi', name: 'الثقافة المهدوية', key: 'الثقافة المهدوية', img: '19.png' },
+    { id: 'dua', name: 'الدعاء والزيارة', key: 'أدعية وزيارات', img: '20.png' },
+    { id: 'companions', name: 'سير الصحابة', key: 'شخصيات (أصحاب وعلماء ونساء)', img: '21.png' }
 ];
 
 topicBadges.forEach(t => {
-    badgesData.push({
-        id: `spec_${t.id}`, 
-        name: t.name, 
-        icon: t.icon, 
-        type: 'topic', 
-        topicKey: t.key,
-        levels: [
-            { id: 1, label: 'مستوى 1', target: 30, color: 'bronze', rewards: { score: 300 } },
-            { id: 2, label: 'مستوى 2', target: 100, color: 'silver', rewards: { score: 1500, fifty: 2 } },
-            { id: 3, label: 'مستوى 3', target: 300, color: 'gold', rewards: { score: 6000, lives: 5 } }
-        ],
-        desc: `تخصص في قسم ${t.key} وأجب على الأسئلة ببراعة.`
-    });
+    badgesData.push(generateBadge(
+        `master_${t.id}`,
+        `خبير ${t.name}`,
+        t.img,
+        'topic',
+        15,
+        `تخصص في قسم ${t.name} وأجب ببراعة.`,
+        { topicKey: t.key }
+    ));
 });
 
-// ==========================================
-// 3. أوسمة الإتقان والمهارة (Gameplay)
-// ==========================================
+// 3. أوسمة المهارة واللعب (صور من 22 فما فوق)
+// يمكنك تغيير أسماء الصور هنا حسب ما ترفعه على Github
+badgesData.push(generateBadge(
+    'streak_master', 'الثبات العظيم', '22.png', 'streak',
+    5, 'حقق سلسلة إجابات صحيحة متتالية دون أي خطأ.', {}
+));
 
-// الثبات (Streak)
-badgesData.push({
-    id: 'streak_master', name: 'الثبات', icon: 'timeline', type: 'streak',
-    desc: 'حقق سلسلة إجابات صحيحة متتالية دون أي خطأ.',
-    levels: [
-        { id: 1, target: 5, color: 'bronze', rewards: { score: 150 } },
-        { id: 2, target: 15, color: 'silver', rewards: { score: 800, hint: 2 } },
-        { id: 3, target: 40, color: 'gold', rewards: { score: 5000, lives: 3 } } // تحدي صعب جداً
-    ]
-});
+badgesData.push(generateBadge(
+    'speed_demon', 'البرق الخاطف', '23.png', 'counter',
+    5, 'أجب بسرعة فائقة (أقل من 5 ثوانٍ).', { statKey: 'fastAnswerCount' }
+));
 
-// السرعة (Speed)
-badgesData.push({
-    id: 'speed_master', name: 'البرق الخاطف', icon: 'bolt', type: 'counter', statKey: 'fastAnswerCount',
-    desc: 'أجب بسرعة فائقة (أقل من 5 ثوانٍ) على الأسئلة.',
-    levels: [
-        { id: 1, target: 10, color: 'bronze', rewards: { score: 200 } },
-        { id: 2, target: 50, color: 'silver', rewards: { score: 1000, skip: 2 } },
-        { id: 3, target: 200, color: 'gold', rewards: { score: 4000, skip: 10 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'perfectionist', 'العلامة الكاملة', '24.png', 'counter',
+    2, 'أكمل جولات كاملة (10/10) دون خطأ.', { statKey: 'perfectRounds' }
+));
 
-// الدقة (Accuracy - Perfect Rounds)
-badgesData.push({
-    id: 'perfectionist', name: 'البصيرة', icon: 'target', type: 'counter', statKey: 'perfectRounds',
-    desc: 'أكمل جولات كاملة (10/10) دون أي خطأ.',
-    levels: [
-        { id: 1, target: 1, color: 'bronze', rewards: { score: 500 } },
-        { id: 2, target: 10, color: 'silver', rewards: { score: 2000, lives: 2 } },
-        { id: 3, target: 50, color: 'gold', rewards: { score: 10000, lives: 10 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'purist', 'الواثق بنفسه', '25.png', 'counter',
+    3, 'أكمل جولات كاملة دون مساعدات.', { statKey: 'noHelperQuizzesCount' }
+));
 
-// ==========================================
-// 4. أوسمة النشاط والوقت (Engagement)
-// ==========================================
+badgesData.push(generateBadge(
+    'score_tycoon', 'جامع النقاط', '26.png', 'score',
+    1000, 'اجمع النقاط لتصل إلى أعلى المراتب.', {}
+));
 
-// قيام الليل (اللعب بعد منتصف الليل)
-badgesData.push({
-    id: 'night_owl', name: 'أنيس الليل', icon: 'bedtime', type: 'counter', statKey: 'nightPlayCount',
-    desc: 'اللعب في أوقات السحر والهدوء (بعد منتصف الليل).',
-    levels: [
-        { id: 1, target: 5, color: 'bronze', rewards: { score: 300 } },
-        { id: 2, target: 20, color: 'silver', rewards: { score: 1000 } },
-        { id: 3, target: 50, color: 'gold', rewards: { score: 3000, hint: 5 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'knowledge_seeker', 'الموسوعة', '27.png', 'counter',
+    50, 'راكم عدد الإجابات الصحيحة الكلية.', { statKey: 'totalCorrect' }
+));
 
-// البكور (اللعب صباحاً)
-badgesData.push({
-    id: 'early_bird', name: 'وسام البكور', icon: 'wb_twilight', type: 'counter', statKey: 'morningPlayCount',
-    desc: 'اللعب في الصباح الباكر (بورك لأمتي في بكورها).',
-    levels: [
-        { id: 1, target: 5, color: 'bronze', rewards: { score: 300 } },
-        { id: 2, target: 20, color: 'silver', rewards: { score: 1000 } },
-        { id: 3, target: 50, color: 'gold', rewards: { score: 3000, hint: 5 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'veteran', 'المحارب القديم', '28.png', 'counter',
+    10, 'شارك في عدد كبير من المسابقات.', { statKey: 'quizzesPlayed' }
+));
 
-// جمعة مباركة (اللعب يوم الجمعة)
-badgesData.push({
-    id: 'friday_lover', name: 'جمعة الانتظار', icon: 'calendar_month', type: 'counter', statKey: 'fridayPlayCount',
-    desc: 'تسجيل الدخول ولعب جولة في يوم الجمعة المبارك.',
-    levels: [
-        { id: 1, target: 1, color: 'bronze', rewards: { score: 500 } },
-        { id: 2, target: 10, color: 'silver', rewards: { score: 2000, lives: 2 } },
-        { id: 3, target: 40, color: 'gold', rewards: { score: 5000, lives: 5 } } // مواظبة سنة تقريباً
-    ]
-});
+badgesData.push(generateBadge(
+    'night_owl', 'أنيس الليل', '29.png', 'counter',
+    3, 'اللعب في أوقات السحر والهدوء.', { statKey: 'nightPlayCount' }
+));
 
-// ==========================================
-// 5. أوسمة المتجر والمشاركة (Social & Shop)
-// ==========================================
+badgesData.push(generateBadge(
+    'early_bird', 'بركة البكور', '30.png', 'counter',
+    3, 'اللعب في الصباح الباكر.', { statKey: 'morningPlayCount' }
+));
 
-// الشراء (Spender)
-badgesData.push({
-    id: 'generous_buyer', name: 'الكريم', icon: 'shopping_cart', type: 'counter', statKey: 'itemsBought',
-    desc: 'شراء عناصر ومساعدات من المتجر.',
-    levels: [
-        { id: 1, target: 5, color: 'bronze', rewards: { score: 200 } },
-        { id: 2, target: 20, color: 'silver', rewards: { score: 1000 } },
-        { id: 3, target: 100, color: 'gold', rewards: { score: 5000 } } // استرجاع نقدي ضخم
-    ]
-});
+badgesData.push(generateBadge(
+    'friday_loyal', 'جمعة الانتظار', '31.png', 'counter',
+    2, 'المواظبة على اللعب في يوم الجمعة.', { statKey: 'fridayPlayCount' }
+));
 
-// المشاركة (Share)
-badgesData.push({
-    id: 'social_star', name: 'الدال على الخير', icon: 'share', type: 'counter', statKey: 'shareCount',
-    desc: 'مشاركة نتائجك أو التطبيق مع الآخرين.',
-    levels: [
-        { id: 1, target: 3, color: 'bronze', rewards: { score: 300 } },
-        { id: 2, target: 10, color: 'silver', rewards: { score: 1500, hint: 3 } },
-        { id: 3, target: 50, color: 'gold', rewards: { score: 5000, lives: 5 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'reader', 'المُطّلع', '32.png', 'counter',
+    10, 'قراءة المعلومات الإثرائية.', { statKey: 'enrichmentCount' }
+));
 
-// القراءة (Enrichment)
-badgesData.push({
-    id: 'knowledge_seeker', name: 'المُتبحّر', icon: 'tips_and_updates', type: 'counter', statKey: 'enrichmentCount',
-    desc: 'قراءة المعلومات الإثرائية (المصباح) للاستزادة من العلم.',
-    levels: [
-        { id: 1, target: 10, color: 'bronze', rewards: { score: 500 } },
-        { id: 2, target: 50, color: 'silver', rewards: { score: 2000, skip: 3 } },
-        { id: 3, target: 200, color: 'gold', rewards: { score: 8000, skip: 10 } }
-    ]
-});
+badgesData.push(generateBadge(
+    'supporter', 'الداعم السخي', '33.png', 'counter',
+    2, 'شراء عناصر ومساعدات من المتجر.', { statKey: 'itemsBought' }
+));
 
-// ==========================================
-// 6. أوسمة الرتب والمثابرة (Total Score & Plays)
-// ==========================================
-
-// عدد الجولات (Veteran)
-badgesData.push({
-    id: 'veteran_player', name: 'المحارب القديم', icon: 'swords', type: 'counter', statKey: 'quizzesPlayed',
-    desc: 'لعب عدد كبير من الجولات والمسابقات.',
-    levels: [
-        { id: 1, target: 10, color: 'bronze', rewards: { score: 200 } },
-        { id: 2, target: 100, color: 'silver', rewards: { score: 2000, lives: 3 } },
-        { id: 3, target: 500, color: 'gold', rewards: { score: 10000, lives: 10 } }
-    ]
-});
-
-// الرتب العلمية (Total Score)
-badgesData.push({
-    id: 'rank_master', name: 'العالم الرباني', icon: 'workspace_premium', type: 'score',
-    desc: 'اجمع النقاط لتصل إلى أعلى المراتب العلمية.',
-    levels: [
-        { id: 1, target: 1000, color: 'bronze', rewards: { score: 100, lives: 1 } },
-        { id: 2, target: 20000, color: 'silver', rewards: { score: 2000, lives: 5 } },
-        { id: 3, target: 100000, color: 'gold', rewards: { score: 20000, lives: 20 } } // رقم صعب جداً
-    ]
-});
-
-// تصدير الخريطة
 export const badgesMap = badgesData.reduce((acc, badge) => {
     acc[badge.id] = badge;
     return acc;
