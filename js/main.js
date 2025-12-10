@@ -1,6 +1,24 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging.js";
+// ==========================================
+// 3. استقبال الإشعارات والتطبيق مفتوح (Foreground)
+// ==========================================
+onMessage(messaging, (payload) => {
+    console.log('Message received. ', payload);
+    const { title, body, icon } = payload.notification || {};
+    
+    // أ. عرض إشعار داخلي (يظهر في قائمة الجرس)
+    addLocalNotification(title || 'إشعار جديد', body || '', 'campaign');
+
+    // ب. عرض تنبيه منبثق فوري (Toast)
+    toast(`🔔 ${title}`, "info");
+    
+    // ج. تشغيل صوت تنبيه خفيف (إذا كان الصوت مفعلاً)
+    if(typeof playSound === 'function') playSound('hint');
+});
+
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
@@ -15,6 +33,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
+const VAPID_KEY = "BFoHaonHhxeVR8ZHtvoVm_j4Khh3Gfdspkr0ftD61T_vdgzWm4cyd7wGmO_wLw-hcdIRcHpnUd5uPLNtZpfxLWM";
 
 let currentUser = null;
 let effectiveUserId = null;
@@ -632,15 +652,17 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-
-bind('ai-generate-btn', 'click', async () => {
-    // 1. التحقق من بنك الأخطاء
+// ==========================================
+// 1. دالة بدء اللعبة (المنطق الأصلي تم فصله هنا)
+// ==========================================
+async function proceedToGame() {
+    // أ. التحقق من بنك الأخطاء
     if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         openModal('force-review-modal');
         return;
     }
 
-    // 2. إعداد المتغيرات
+    // ب. إعداد المتغيرات
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
     const topicValue = getEl('topic-select').value;
@@ -665,7 +687,7 @@ bind('ai-generate-btn', 'click', async () => {
         }
 
         const snap = await getDocs(qQuery);
-
+        
         // التحقق من وجود أسئلة
         if (cat !== 'random' && cat !== '' && snap.empty) {
             toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
@@ -685,14 +707,11 @@ bind('ai-generate-btn', 'click', async () => {
         shuffleArray(freshQuestions);
 
         if (freshQuestions.length >= count) {
-            // حالة: أسئلة جديدة كافية
             quizState.questions = freshQuestions.slice(0, count);
         } else if (freshQuestions.length > 0) {
-            // حالة: أسئلة جديدة قليلة
             quizState.questions = freshQuestions;
             toast(`تبقى لديك ${freshQuestions.length} أسئلة جديدة فقط في هذا القسم!`, "info");
         } else {
-            // حالة: نفاد الأسئلة الجديدة (تكرار)
             let recycledQuestions = [...allAvailableQuestions];
             shuffleArray(recycledQuestions);
             quizState.questions = recycledQuestions.slice(0, count);
@@ -705,14 +724,58 @@ bind('ai-generate-btn', 'click', async () => {
         }
 
         startQuiz();
-
     } catch (e) {
         console.error(e);
         if (e.message !== "No questions") toast("حدث خطأ في تحميل الأسئلة", "error");
     }
 
-    btn.disabled = false;
-    btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
+    // إعادة تفعيل الزر في حال حدث خطأ ولم تبدأ اللعبة (لأن startQuiz تخفي الزر أصلاً)
+    if (!quizState.active) {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
+    }
+}
+
+// ==========================================
+// 2. زر بدء التحدي (مع بوابة الإشعارات الذكية)
+// ==========================================
+bind('ai-generate-btn', 'click', async () => {
+    // أ. التحقق أولاً: هل سبق وحفظنا التوكن لهذا المستخدم؟
+    // إذا كان لديه توكن، نبدأ اللعبة فوراً لتجنب الإزعاج
+    if (userProfile.fcmToken) {
+        proceedToGame();
+        return;
+    }
+
+    // ب. إذا لم يكن لديه، نحاول طلب الإذن
+    try {
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+            // وافق المستخدم: نجلب التوكن ونحفظه
+            const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+            if (token) {
+                // حفظ التوكن في بروفايل المستخدم
+                await updateDoc(doc(db, "users", effectiveUserId), { 
+                    fcmToken: token,
+                    notificationsEnabled: true,
+                    lastTokenUpdate: serverTimestamp()
+                });
+                userProfile.fcmToken = token; // تحديث محلي
+                toast("تم تفعيل الإشعارات بنجاح! 🔔");
+            }
+        } else {
+            // رفض المستخدم أو حظر الإشعارات
+            toast("نحترم خصوصيتك. يمكنك تفعيل الإشعارات لاحقاً لتصلك التحديات.", "info");
+            // نسجل أنه رفض حتى لا نلح عليه كثيراً مستقبلاً (اختياري)
+        }
+    } catch (error) {
+        console.error("Error requesting notification permission:", error);
+        // لا نزعج المستخدم بالخطأ، فقط نكمل اللعبة
+    }
+
+    // ج. في جميع الأحوال (وافق أو رفض أو حدث خطأ)، ننتقل للعبة
+    proceedToGame();
 });
 
 
