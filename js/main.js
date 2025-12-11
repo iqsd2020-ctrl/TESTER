@@ -851,7 +851,7 @@ async function startLightChallenge() {
 
     } catch(e) {
         console.error(e);
-        toast("حدث خطأ في الاتصال أو نفدت المفاتيح، حاول لاحقاً", "error");
+        toast("حدث خطأ في الاتصال أو نفدت المحاولات، حاول لاحقاً", "error");
     } finally {
         btn.disabled = false; 
         btn.innerHTML = `بدء التحدي الآن!`;
@@ -881,20 +881,20 @@ async function fetchGeminiQuestions() {
     // البرومبت الصارم
     const prompt = `
     قم بتوليد 20 سؤالاً بصيغة "أكمل الفراغ" (Fill in the blank) باللغة العربية.
-    المصادر حصراً: القرآن الكريم، أحاديث أهل البيت (ع)، نهج البلاغة.
+    المصادر حصراً: القرآن الكريم.
     المعتقد: الشيعة الإمامية حصراً.
     المستوى: متوسط.
-    
+    طريقة العمل: تجلب آية من القران الكريم وتحذف منها كلمه.
     الشروط:
     1. السؤال يجب أن يحتوي على فراغ واحد ".........".
     2. الخيارات يجب أن تكون 4، واحد منها فقط صحيح.
     3. طول السؤال: متوسط (ليس قصيراً جداً ولا طويلاً).
     4. الإخراج: مصفوفة JSON نقية فقط (Array of Objects) بدون أي نصوص إضافية أو markdown.
+    5. يجب ان تتحقق من صحة الآيات بدقة وصحة السؤال لا وجود لاي مجال للخطا ابدا.
     
     Banned: Do not use Markdown code blocks. Just raw JSON.
     Structure: [{"question": "...", "options": ["A","B","C","D"], "correctAnswer": 0, "topic": "أكمل النور"}]
     `;
-
     // 2. حلقة التكرار (Rotation Logic)
     for (let k = 0; k < keys.length; k++) {
         const apiKey = keys[k];
@@ -2670,14 +2670,14 @@ bind('btn-marathon-start', 'click', () => {
     // تغيير النصوص لتناسب الوضع الجديد
     const modal = getEl('marathon-rules-modal');
     modal.querySelector('h3').textContent = "✨ تحدي أكمل النور";
-    modal.querySelector('.btn-gold-action').textContent = "توليد الأسئلة وبدء التحدي";
+    modal.querySelector('.btn-gold-action').textContent = "تجهيز الأسئلة وبدء التحدي";
     
     // تحديث القواعد
     const rulesContainer = modal.querySelector('.space-y-3');
     rulesContainer.innerHTML = `
         <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-amber-400 mt-1">light_mode</span> الهدف: أكمل 20 "قبساً من النور" (سؤالاً) بنجاح.</p>
         <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-red-500 mt-1">favorite</span> لديك 3 قلوب. كل خطأ يطفئ جزءاً من النور.</p>
-        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-blue-400 mt-1">psychology</span> الأسئلة من توليد الذكاء الاصطناعي (أكمل الفراغ).</p>
+        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-blue-400 mt-1">psychology</span> الأسئلة من توليد الذكاء الاصطناعي (قد تحتوي على أخطاء).</p>
     `;
 
     modal.classList.add('active'); 
@@ -4179,7 +4179,7 @@ async function handleAiTrigger() {
     const apiKey = localStorage.getItem('ai_api_key');
     if (!apiKey) {
         if (selection.removeAllRanges) selection.removeAllRanges();
-        toast("⚠️ أدخل مفتاح AI في الإعدادات", "error");
+        toast(" أدخل مفتاح AI في الإعدادات", "error");
         const settingsModal = document.getElementById('settings-modal');
         if(settingsModal) settingsModal.classList.add('active');
         return;
