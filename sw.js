@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ahlulbayt-quiz-v16'; // غير هذا الاسم عند إطلاق تحديث جديد (مثلاً v2)
+const CACHE_NAME = 'ahlulbayt-quiz-v10'; // غير هذا الاسم عند إطلاق تحديث جديد (مثلاً v2)
 
 // قائمة الملفات الأساسية التي سيتم تحميلها فوراً وتخزينها
 const STATIC_ASSETS = [
