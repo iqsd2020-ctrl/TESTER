@@ -20,6 +20,7 @@ let currentUser = null;
 let effectiveUserId = null;
 let userProfile = null;
 let dbTopicCounts = {};
+let apiKeysCache = null;
 
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
@@ -374,7 +375,7 @@ function navToHome() {
     }
 
     setTimeout(checkWhatsNew, 1500); 
-    checkMarathonStatus();
+    checkLightStatus();
     initTheme(); 
 
     updateThemeSelector();
@@ -632,31 +633,6 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-// دالة جديدة لجلب أسئلة حسب نوع اللعب (light/insight)
-async function fetchGameModeQuestions(type) {
-    const QUERY_LIMIT = 500; // نحدد سقفاً عالياً لجلب جميع الأسئلة المتاحة للوضع
-    
-    // الاستعلام: جلب الأسئلة التي تم مراجعتها (isReviewed) وتطابق نوع اللعب (type)
-    const qQuery = query(
-        collection(db, "questions"), 
-        where("isReviewed", "==", true), 
-        where("type", "==", type), // هذا هو المفتاح للفلترة
-        limit(QUERY_LIMIT)
-    );
-
-    const snap = await getDocs(qQuery);
-    
-    let questions = [];
-    snap.forEach(d => questions.push({ id: d.id, ...d.data() }));
-
-    if (questions.length === 0) {
-        throw new Error(`No questions found for type: ${type}`);
-    }
-
-    // يجب خلط الأسئلة قبل إرجاعها
-    shuffleArray(questions);
-    return questions;
-}
 
 bind('ai-generate-btn', 'click', async () => {
     // 1. التحقق من بنك الأخطاء
@@ -831,57 +807,135 @@ function renderLives() {
 }
 
 
-async function startMarathon() {
+// الدالة الجديدة لبدء تحدي النور
+async function startLightChallenge() {
     const btn = getEl('btn-marathon-confirm');
     
-    if (userProfile.lastMarathonDate) {
-        const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
-        const now = Date.now();
-        const diff = now - lastPlayed;
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        
-        if (diff < twentyFourHours) {
-            toast("⛔️ لا يمكنك لعب الماراثون إلا مرة واحدة كل 24 ساعة.", "error");
+    // التحقق من الوقت مرة أخرى (أمان إضافي)
+    if (userProfile.lastLightDate) {
+        const lastPlayed = userProfile.lastLightDate.toMillis ? userProfile.lastLightDate.toMillis() : new Date(userProfile.lastLightDate).getTime();
+        if (Date.now() - lastPlayed < 24 * 60 * 60 * 1000) {
+            toast("⛔️ لا يمكنك اللعب إلا مرة واحدة كل 24 ساعة.", "error");
             getEl('marathon-rules-modal').classList.remove('active');
-            checkMarathonStatus();
+            checkLightStatus();
             return;
         }
     }
 
-    btn.disabled = true; btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التحقق...`;
+    btn.disabled = true; 
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري تجهيز النور...`;
 
     try {
+        // 1. تحديث تاريخ اللعب في السيرفر فوراً
         await updateDoc(doc(db, "users", effectiveUserId), {
-            lastMarathonDate: serverTimestamp()
+            lastLightDate: serverTimestamp()
         });
+        userProfile.lastLightDate = { toMillis: () => Date.now() }; // تحديث محلي
+
+        // 2. طلب الأسئلة من Gemini
+        const aiQuestions = await fetchGeminiQuestions();
         
-        userProfile.lastMarathonDate = { toMillis: () => Date.now() };
-
-        let qQuery = query(collection(db, "questions"), where("isReviewed", "==", true));
-        const snap = await getDocs(qQuery);
-        let qs = [];
-        snap.forEach(d => qs.push({ id: d.id, ...d.data() }));
-
-        if (qs.length < 10) {
-            toast("لا توجد أسئلة كافية لبدء الماراثون.", "error");
-            throw new Error("Not enough questions");
+        if (!aiQuestions || aiQuestions.length === 0) {
+            throw new Error("فشل توليد الأسئلة");
         }
 
-        shuffleArray(qs); 
-        quizState.questions = qs.slice(0, Math.min(qs.length, 500)); 
+        // 3. إعداد وضع اللعب
+        quizState.questions = aiQuestions;
+        quizState.mode = 'light'; // وضع "أكمل النور"
+        quizState.contextTopic = "✨ أكمل النور ✨";
+        quizState.difficulty = "متوسط";
 
-        quizState.mode = 'marathon'; 
-        quizState.contextTopic = "تحدي الماراثون";
-
+        // إغلاق النافذة وبدء اللعب
         getEl('marathon-rules-modal').classList.remove('active'); 
         startQuiz();
 
     } catch(e) {
         console.error(e);
-        toast("حدث خطأ أثناء الاتصال بالسيرفر", "error");
+        toast("حدث خطأ في الاتصال أو نفدت المفاتيح، حاول لاحقاً", "error");
     } finally {
-        btn.disabled = false; btn.innerHTML = `بدء التحدي الآن!`;
+        btn.disabled = false; 
+        btn.innerHTML = `بدء التحدي الآن!`;
     }
+}
+
+// دالة المحرك الذكي (Gemini Engine) مع التبديل التلقائي
+async function fetchGeminiQuestions() {
+    // 1. جلب المفاتيح من الفايربيس (إذا لم تكن مخزنة محلياً)
+    if (!apiKeysCache) {
+        try {
+            const docSnap = await getDoc(doc(db, "system", "api_keys"));
+            if (docSnap.exists()) {
+                apiKeysCache = docSnap.data();
+            } else {
+                throw new Error("No keys found in DB");
+            }
+        } catch (e) {
+            console.error("Error fetching keys:", e);
+            return null;
+        }
+    }
+
+    const keys = apiKeysCache.keys || [];
+    const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]; // ترتيب الموديلات
+    
+    // البرومبت الصارم
+    const prompt = `
+    قم بتوليد 20 سؤالاً بصيغة "أكمل الفراغ" (Fill in the blank) باللغة العربية.
+    المصادر حصراً: القرآن الكريم، أحاديث أهل البيت (ع)، نهج البلاغة.
+    المعتقد: الشيعة الإمامية حصراً.
+    المستوى: متوسط.
+    
+    الشروط:
+    1. السؤال يجب أن يحتوي على فراغ واحد ".........".
+    2. الخيارات يجب أن تكون 4، واحد منها فقط صحيح.
+    3. طول السؤال: متوسط (ليس قصيراً جداً ولا طويلاً).
+    4. الإخراج: مصفوفة JSON نقية فقط (Array of Objects) بدون أي نصوص إضافية أو markdown.
+    
+    Banned: Do not use Markdown code blocks. Just raw JSON.
+    Structure: [{"question": "...", "options": ["A","B","C","D"], "correctAnswer": 0, "topic": "أكمل النور"}]
+    `;
+
+    // 2. حلقة التكرار (Rotation Logic)
+    for (let k = 0; k < keys.length; k++) {
+        const apiKey = keys[k];
+        for (let m = 0; m < models.length; m++) {
+            const model = models[m];
+            console.log(`Trying Key ${k+1} with Model: ${model}...`);
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.7 }
+                    })
+                });
+
+                if (!response.ok) {
+                    // إذا كان الخطأ 429 (Too Many Requests) ننتقل للمحاولة التالية
+                    if (response.status === 429) continue; 
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                let text = data.candidates[0].content.parts[0].text;
+                
+                // تنظيف النص من علامات الـ Markdown إذا وجدت
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const json = JSON.parse(text);
+                
+                // إضافة ID عشوائي لكل سؤال لضمان العمل السليم
+                return json.map(q => ({ ...q, id: 'ai_' + Math.random().toString(36).substr(2, 9) }));
+
+            } catch (err) {
+                console.warn(`Failed with Key ${k+1} / ${model}:`, err);
+                // استمر للحلقة التالية
+            }
+        }
+    }
+    return null; // فشل الكل
 }
 
 function startQuiz() {
@@ -916,7 +970,7 @@ function startQuiz() {
     
     getEl('ai-question-count').disabled = false;
     getEl('ai-generate-btn').disabled = false;
-    
+    getEl('btn-marathon-start').disabled = false;
     
     updateHelpersUI();
     updateStreakUI();
@@ -960,41 +1014,62 @@ function renderQuestion() {
     quizState.usedHelpers = false; 
     updateHelpersUI(); 
 
-    const helperBar = getEl('helper-bar');
-    if (helperBar) {
-        // إخفاء/إظهار المساعدات حسب الوضع
-        if (quizState.mode === 'insight') {
-            helperBar.classList.add('hidden');
-        } else {
-            helperBar.classList.remove('hidden');
-            // في وضع النور، نسمح فقط بـ 50/50
-            if (quizState.mode === 'light') {
-                 // --- تعديل أمني: التحقق من وجود الأزرار ---
-                 const btnSkip = getEl('helper-skip');
-                 const btnHint = getEl('helper-hint');
-                 const btnFifty = getEl('helper-fifty-fifty');
-                 
-                 if(btnSkip) btnSkip.disabled = true;
-                 if(btnHint) btnHint.disabled = true;
-                 if(btnFifty) btnFifty.disabled = false;
-            }
-        }
-    }
-
     quizState.active = true; 
     const q = quizState.questions[quizState.idx];
     
-    // إعداد النصوص
     getEl('quiz-topic-display').textContent = q.topic || quizState.contextTopic;
-    getEl('live-score-text').textContent = formatNumberAr(quizState.score);
+
+    // كتابة نص السؤال
+    typeWriter('question-text', q.question);
     
-    // عداد الأسئلة (في الأوضاع الجديدة لا يهم العدد الكلي، فقط الحالي)
-    if (quizState.mode === 'insight' || quizState.mode === 'light') {
-        getEl('question-counter-text').textContent = formatNumberAr(quizState.idx + 1);
-        getEl('progress-dots').innerHTML = ''; // إخفاء النقاط
+    // ==========================================
+    // 📋 إضافة زر نسخ السؤال (جديد)
+    // ==========================================
+    const questionCard = document.querySelector('.question-card-3d');
+    
+    // التحقق لمنع تكرار الزر إذا كان موجوداً
+    let qCopyBtn = document.getElementById('btn-copy-question');
+    if (!qCopyBtn) {
+        qCopyBtn = document.createElement('button');
+        qCopyBtn.id = 'btn-copy-question';
+        // تنسيق الزر: في الزاوية اليسرى العليا
+        qCopyBtn.className = 'absolute top-2 left-2 text-slate-500 hover:text-amber-400 transition p-1.5 rounded-full hover:bg-white/5 z-20 opacity-50 hover:opacity-100';
+        qCopyBtn.title = "نسخ نص السؤال";
+        qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg">content_copy</span>';
+        
+        // إضافته للبطاقة
+        if(questionCard) {
+            // تأكد أن البطاقة relative ليعمل الـ absolute
+            questionCard.style.position = 'relative'; 
+            questionCard.appendChild(qCopyBtn);
+        }
+    }
+    
+    // برمجة وظيفة النسخ (تتحدث مع كل سؤال جديد)
+    if(qCopyBtn) {
+        qCopyBtn.onclick = (e) => {
+            e.stopPropagation(); // لمنع تفعيل أي حدث آخر
+            const currentText = q.question; // نأخذ النص من المصدر مباشرة
+            navigator.clipboard.writeText(currentText).then(() => {
+                toast('تم نسخ نص السؤال 📋');
+                if(window.triggerHaptic) window.triggerHaptic('light');
+                
+                // تأثير بصري بسيط
+                qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg text-green-400">check</span>';
+                setTimeout(() => qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg">content_copy</span>', 1500);
+                
+            }).catch(() => toast('فشل النسخ', 'error'));
+        };
+    }
+    // ==========================================
+
+    if (quizState.mode === 'marathon') {
+        getEl('question-counter-text').textContent = `${quizState.idx+1}`;
+        const dots = getEl('progress-dots'); 
+        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 وضع الماراثون</span>';
     } else {
-        getEl('question-counter-text').textContent = `${formatNumberAr(quizState.idx+1)}/${formatNumberAr(quizState.questions.length)}`;
-        // ... (كود النقاط القديم للوضع العادي) ...
+       getEl('question-counter-text').textContent = `${formatNumberAr(quizState.idx+1)}/${formatNumberAr(quizState.questions.length)}`;
+
         const dots = getEl('progress-dots'); dots.innerHTML = '';
         for(let i=0; i<quizState.questions.length; i++) {
             let cls = "w-2 h-2 rounded-full bg-slate-700";
@@ -1004,81 +1079,52 @@ function renderQuestion() {
         }
     }
 
-    // --- منطق العرض حسب الوضع ---
-    const qTextEl = getEl('question-text');
-    const box = getEl('options-container'); 
-    box.innerHTML = ''; // تنظيف الخيارات السابقة
+    getEl('live-score-text').textContent = formatNumberAr(quizState.score);
 
-    // 1. وضع "أكمل النور" 🕯️
+        const box = getEl('options-container'); 
+    box.innerHTML = '';
+
+    // --- كود الشبكة الجديد ---
     if (quizState.mode === 'light') {
-        qTextEl.className = "text-xl font-bold text-white leading-relaxed light-mode-text";
-        // استبدال النقاط بـ الفراغ المنسق
-        qTextEl.innerHTML = q.text.replace(/\.\.\.+/g, '<span class="gap-placeholder">.....</span>');
-        
-        // خلط الإجابات (الصحيحة + المشتتات)
-        let allOptions = [q.answer, ...q.options];
-        shuffleArray(allOptions);
-        
-        // حفظ مكان الإجابة الصحيحة الجديد للمقارنة لاحقاً
-        q.correctIndex = allOptions.indexOf(q.answer);
-
-        allOptions.forEach((o, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerHTML = `<span class="option-number">${i+1}</span> ${o}`;
-            btn.onclick = () => selectAnswer(i, btn);
-            box.appendChild(btn);
-        });
-
-    // 2. وضع "تحدي البصيرة" ⚡
-    // 2. وضع "تحدي البصيرة" ⚡
-    } else if (quizState.mode === 'insight') {
-        // تنسيق نص السؤال (لاحظ أن المتغير يبدأ بحرف q صغير)
-        qTextEl.className = "text-2xl font-bold text-white leading-relaxed text-center py-4"; 
-        qTextEl.textContent = q.text;
-        
-        // --- هنا التغيير المهم للأزرار ---
-        
-        // 1. تطبيق كلاس الشبكة على الحاوية
-        box.className = "insight-options-grid"; 
-        
-        // 2. زر صح (True) - لاحظ الكلاسات btn-insight
-        const btnTrue = document.createElement('button');
-        btnTrue.className = 'btn-insight btn-insight-true';
-        btnTrue.innerHTML = `<span class="material-symbols-rounded">check_circle</span> صح`;
-        btnTrue.onclick = () => selectAnswer(true, btnTrue);
-
-        // 3. زر خطأ (False) - لاحظ الكلاسات btn-insight
-        const btnFalse = document.createElement('button');
-        btnFalse.className = 'btn-insight btn-insight-false';
-        btnFalse.innerHTML = `<span class="material-symbols-rounded">cancel</span> خطأ`;
-        btnFalse.onclick = () => selectAnswer(false, btnFalse);
-
-        box.appendChild(btnTrue);
-        box.appendChild(btnFalse);
-
-
-    // 3. الوضع العادي (القديم)
+        box.classList.add('options-grid-view'); // تفعيل الشبكة (مربعين)
+        getEl('question-counter-text').textContent = `✨ ${formatNumberAr(quizState.idx + 1)} / ${formatNumberAr(20)}`; // عداد خاص
+        hide('toggle-timer-btn'); // إخفاء زر المؤقت
+        hide('toggle-enrichment-btn'); // إخفاء زر المعلومة
+        hide('progress-dots'); // إخفاء النقاط
     } else {
-        qTextEl.className = "text-xl font-bold text-white leading-relaxed";
-        typeWriter('question-text', q.question);
-        box.className = "space-y-3 mb-6"; // إعادة الكلاس الأصلي
-        
-        q.options.forEach((o, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerHTML = `<span class="option-number">${i+1}</span> ${o}`;
-            btn.onclick = () => selectAnswer(i, btn);
-            box.appendChild(btn);
-        });
-        startTimer(); // المؤقت يعمل فقط هنا
+        box.classList.remove('options-grid-view'); // الوضع العادي
+        show('toggle-timer-btn');
+        show('toggle-enrichment-btn');
+        show('progress-dots');
     }
-    
+    // -----------------------
+
+    q.options.forEach((o, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="option-number">${i+1}</span> ${o}`;
+        btn.onclick = () => selectAnswer(i, btn);
+        box.appendChild(btn);
+    });
+    getEl('feedback-text').textContent = '';
     quizState.startTime = Date.now(); 
+    startTimer();
 }
 
 function nextQuestion() {
     quizState.idx++;
+
+    // شرط الفوز الخاص بوضع "أكمل النور"
+    // إذا وصل اللاعب للسؤال رقم 20 (أي أتم 20 سؤالاً)
+    if (quizState.mode === 'light' && quizState.idx >= 20) {
+        quizState.score += 500; // نمنحه 500 نقطة هدية إضافية
+        toast("🎉 مبارك! أكملت النور بنجاح (+500 نقطة)", "success");
+        playSound('applause'); // تشغيل صوت التصفيق
+        endQuiz(); // إنهاء المسابقة
+        return;
+    }
+
+    // الوضع الطبيعي لباقي الأوضاع
     if(quizState.idx < quizState.questions.length) {
         renderQuestion();
     } else {
@@ -1153,106 +1199,153 @@ function showEnrichment(text) {
 }
 
 
-function selectAnswer(choice, btn) {
+function selectAnswer(idx, btn) {
     if(!quizState.active) return;
     quizState.active = false;
     stopTimer();
-    
+    const answerTime = Date.now() - quizState.startTime;
     const q = quizState.questions[quizState.idx];
-    let isCorrect = false;
+    const isCorrect = idx === q.correctAnswer;
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
+    const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
 
-    // --- التحقق من الإجابة حسب الوضع ---
-    if (quizState.mode === 'insight') {
-        // في البصيرة: choice هو (true/false) و q.isCorrect هو (true/false)
-        isCorrect = (choice === q.isCorrect);
-    } else if (quizState.mode === 'light') {
-        // في النور: choice هو رقم المؤشر، ونقارنه مع المؤشر الصحيح المخلوط
-        isCorrect = (choice === q.correctIndex);
-    } else {
-        // الوضع العادي
-        isCorrect = (choice === q.correctAnswer);
-    }
+    if(isCorrect) {
+        if (answerTime <= 5000) { quizState.fastAnswers++; }
 
-    // --- تحديد النقاط والخصم ---
-    let pointsWin = 1;
-    let pointsLose = 0; // الخصم الافتراضي
+        let basePoints = 1;
+        let multiplier = 1;
+        let multiplierText = "";
 
-    if (quizState.mode === 'insight') {
-        pointsWin = 3;
-        pointsLose = 1; // خصم نقطة واحدة
-    } else if (quizState.mode === 'light') {
-        pointsWin = 10;
-        pointsLose = 3; // خصم 3 نقاط
-    } else {
-        // المنطق القديم للماراثون والنقاط المضاعفة
-        // ... (يمكن إبقاؤه بسيطاً 1 للوضع العادي)
-    }
+        if (quizState.mode === 'marathon') {
+            quizState.streak++;
 
-    // --- معالجة النتيجة ---
-    const allBtns = document.querySelectorAll('button'); // تعطيل الكل
+            if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; }
 
-    if (isCorrect) {
-        playSound('win');
-        quizState.score += pointsWin;
-        quizState.correctCount++; // تزيد 1 فقط
-        
-        // تحديث الواجهة
-        if(btn) {
-            // كلاسات مختلفة للبصيرة
-            if(quizState.mode === 'insight') {
-                 btn.style.transform = "scale(0.95)";
-                 btn.style.filter = "brightness(1.2)";
-            } else {
-                 btn.classList.add('btn-correct');
+            quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
+            if(quizState.marathonCorrectStreak === 15) {
+                unlockRandomThemeReward();
+                quizState.marathonCorrectStreak = 0;
             }
-            showFloatingFeedback(btn, `+${pointsWin}`, 'text-amber-400');
-        }
-        
-        getEl('live-score-text').textContent = formatNumberAr(quizState.score);
-        getEl('feedback-text').innerHTML = `<span class="text-green-400">أحسنت! (+${formatNumberAr(pointsWin)})</span>`;
-        
-        // إظهار المصدر في وضع النور
-        if(quizState.mode === 'light' && q.source) {
-             getEl('feedback-text').innerHTML += `<span class="block text-xs text-slate-400 mt-1">(${q.source})</span>`;
-        }
 
-        setTimeout(nextQuestion, transitionDelay);
+            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 🪙"; }
+            else if (quizState.streak >= 9) { multiplier = 3; multiplierText = "x3 ✨"; }
+            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2🔸"; }
 
-    } else {
-        playSound('lose');
-        
-        // خصم النقاط (إذا وجد)
-        if (pointsLose > 0 && quizState.score >= pointsLose) {
-            quizState.score -= pointsLose;
-             if(btn) showFloatingFeedback(btn, `-${pointsLose}`, 'text-red-500');
-        }
-        
-        // خصم القلب
-        quizState.lives--;
-        if(quizState.lives > 3) { // إذا كان عنده قلوب إضافية في الحقيبة
-             userProfile.inventory.lives--;
-             updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives }).catch(()=>{});
-        }
-        renderLives();
-
-        // تحديث الواجهة
-        if(btn) {
-             if(quizState.mode === 'insight') {
-                 btn.style.opacity = "0.5";
-             } else {
-                 btn.classList.add('btn-incorrect');
-             }
-        }
-        
-        getEl('live-score-text').textContent = formatNumberAr(quizState.score);
-        getEl('feedback-text').innerHTML = `<span class="text-red-400">إجابة خاطئة ${pointsLose > 0 ? `(-${pointsLose})` : ''}</span>`;
-
-        // التحقق من الخسارة النهائية
-        if (quizState.lives <= 0) {
-            setTimeout(showReviveModal, transitionDelay);
+            if(quizState.streak >= 5) playSound('streak'); else playSound('win');
         } else {
-            setTimeout(nextQuestion, transitionDelay);
+            quizState.streak = 0;
+            playSound('win');
         }
+
+        let pointsAdded = Math.floor(basePoints * multiplier);
+
+        if(btn) {
+            btn.classList.remove('opacity-60');
+            btn.classList.add('btn-correct');
+            showFloatingFeedback(btn, `+${pointsAdded}`, 'text-amber-400');
+        }
+
+        quizState.score += pointsAdded;
+        quizState.correctCount++;
+        const scoreEl = getEl('live-score-text');
+        scoreEl.textContent = formatNumberAr(quizState.score);
+
+        scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
+
+        if(qBankIdx > -1) userProfile.wrongQuestionsBank.splice(qBankIdx, 1);
+        const currentTopic = q.topic || quizState.contextTopic;
+        if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
+            userProfile.stats.topicCorrect[currentTopic] = (userProfile.stats.topicCorrect[currentTopic] || 0) + 1;
+        }
+
+        getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${formatNumberAr(pointsAdded)})</span> ${multiplierText ? `<span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>` : ''}`;
+        getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
+
+        if(q.explanation && quizState.enrichmentEnabled) {
+            setTimeout(() => showEnrichment(q.explanation), transitionDelay);
+            return;
+        }
+        setTimeout(nextQuestion, transitionDelay);
+    } else {
+        quizState.marathonCorrectStreak = 0;
+        quizState.fastAnswers = 0;
+
+        if(btn) {
+            btn.classList.remove('opacity-60');
+            btn.classList.add('btn-incorrect');
+            const deductDisplay = (quizState.score >= 2) ? 2 : quizState.score;
+            showFloatingFeedback(btn, `-${deductDisplay}`, 'text-red-500');
+        }
+
+        if(q.correctAnswer >= 0 && q.correctAnswer < btns.length) {
+            btns[q.correctAnswer].classList.remove('opacity-60');
+            btns[q.correctAnswer].classList.add('btn-correct');
+        }
+
+        if (quizState.mode === 'marathon') {
+            if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); }
+            else if (quizState.streak >= 5) { quizState.streak = 2; }
+            else { quizState.streak = 0; }
+        } else {
+            quizState.streak = 0;
+        }
+
+        if(quizState.lives > 3) {
+            userProfile.inventory.lives = Math.max(0, userProfile.inventory.lives - 1);
+            updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
+        }
+        quizState.lives--;
+
+        const deductionTarget = 2;
+        let deductedFromRound = 0;
+        let deductedFromBalance = 0;
+
+        if (quizState.score >= deductionTarget) {
+            quizState.score -= deductionTarget;
+            deductedFromRound = deductionTarget;
+        } else {
+            deductedFromRound = quizState.score;
+            quizState.score = 0;
+            const remainingToDeduct = deductionTarget - deductedFromRound;
+
+            if (userProfile.highScore >= remainingToDeduct) {
+                userProfile.highScore -= remainingToDeduct;
+                deductedFromBalance = remainingToDeduct;
+            } else {
+                deductedFromBalance = userProfile.highScore;
+                userProfile.highScore = 0;
+            }
+
+            if (deductedFromBalance > 0) {
+                updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
+                updateProfileUI();
+            }
+        }
+
+        getEl('live-score-text').textContent = formatNumberAr(quizState.score);
+
+        renderLives();
+        playSound('lose');
+        getEl('quiz-proper').classList.add('shake'); setTimeout(()=>getEl('quiz-proper').classList.remove('shake'),500);
+        if(qBankIdx === -1) userProfile.wrongQuestionsBank.push(q);
+
+        if (quizState.lives <= 0) {
+            getEl('feedback-text').innerHTML = 'نفدت المحاولات! <span class="material-symbols-rounded align-middle text-sm">heart_broken</span>';
+            getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-500";
+            setTimeout(showReviveModal, transitionDelay);
+            return;
+        }
+
+        const totalDeducted = deductedFromRound + deductedFromBalance;
+        const deductionText = totalDeducted > 0 ? `(-${formatNumberAr(totalDeducted)})` : `(+${formatNumberAr(0)})`;
+
+        getEl('feedback-text').textContent = `إجابة خاطئة ${deductionText}`;
+        getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-400";
+
+        updateStreakUI();
+        quizState.history.push({ q: q.question, options: q.options, correct: q.correctAnswer, user: idx, isCorrect, topic: q.topic || quizState.contextTopic, fast: (isCorrect && answerTime <= 5000) });
+        setTimeout(nextQuestion, transitionDelay);
     }
 }
 
@@ -1494,14 +1587,13 @@ function renderReviewArea() {
 
 function updateHelpersUI() {
     const helperIds = ['helper-fifty-fifty', 'helper-hint', 'helper-skip'];
-    const isUsed = quizState.usedHelpers; 
+    const isUsed = quizState.usedHelpers; // هل تم استخدام مساعدة في هذا السؤال؟
 
     helperIds.forEach(id => {
         const btn = getEl(id);
         
-        // --- التعديل الأمني: التحقق من وجود الزر أولاً ---
-        if (!btn) return; 
-        
+        // إذا تم استخدام مساعدة، نعطل كل الأزرار
+        // إذا لم يتم، نفعلها
         btn.disabled = isUsed; 
         
         if (isUsed) {
@@ -1512,27 +1604,23 @@ function updateHelpersUI() {
             btn.classList.add('hover:text-amber-400');
         }
 
-        // رسم الشارة (Badge)
-        const typeKey = id.replace('helper-', '').replace('-fifty', ''); 
+        // إزالة أي شارة قديمة وإعادة رسمها
+        const typeKey = id.replace('helper-', '').replace('-fifty', ''); // fifty, hint, skip
         const oldBadge = btn.querySelector('.count-badge');
         if(oldBadge) oldBadge.remove();
 
-        // تأكد من وجود inventory قبل القراءة
-        if (userProfile && userProfile.inventory && userProfile.inventory.helpers) {
-            const count = userProfile.inventory.helpers[typeKey === 'fifty-fifty' ? 'fifty' : typeKey] || 0;
-            if(count > 0) {
-                const badge = document.createElement('span');
-                badge.className = 'count-badge';
-                badge.textContent = `x${count}`;
-                btn.style.position = 'relative';
-                btn.appendChild(badge);
-            }
+        const count = userProfile.inventory.helpers[typeKey === 'fifty-fifty' ? 'fifty' : typeKey] || 0;
+        if(count > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'count-badge';
+            badge.textContent = `x${count}`;
+            btn.style.position = 'relative';
+            btn.appendChild(badge);
         }
     });
     
-    // زر الإبلاغ
-    const btnReport = getEl('helper-report');
-    if (btnReport) btnReport.disabled = false;
+    // زر الإبلاغ يبقى مفعلاً دائماً
+    getEl('helper-report').disabled = false;
 }
 
 async function useHelper(type, cost, actionCallback) {
@@ -2573,6 +2661,34 @@ bind('register-btn', 'click', handleReg);
 bind('show-register-btn', 'click', () => { hide('login-view'); show('register-view'); getEl('login-error-message').textContent=''; });
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
 
+bind('btn-marathon-start', 'click', () => { 
+    if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
+        openModal('force-review-modal');
+        return;
+    }
+    
+    // تغيير النصوص لتناسب الوضع الجديد
+    const modal = getEl('marathon-rules-modal');
+    modal.querySelector('h3').textContent = "✨ تحدي أكمل النور";
+    modal.querySelector('.btn-gold-action').textContent = "توليد الأسئلة وبدء التحدي";
+    
+    // تحديث القواعد
+    const rulesContainer = modal.querySelector('.space-y-3');
+    rulesContainer.innerHTML = `
+        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-amber-400 mt-1">light_mode</span> الهدف: أكمل 20 "قبساً من النور" (سؤالاً) بنجاح.</p>
+        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-red-500 mt-1">favorite</span> لديك 3 قلوب. كل خطأ يطفئ جزءاً من النور.</p>
+        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-blue-400 mt-1">psychology</span> الأسئلة من توليد الذكاء الاصطناعي (أكمل الفراغ).</p>
+    `;
+
+    modal.classList.add('active'); 
+    getEl('ai-question-count').disabled = true;
+    getEl('ai-generate-btn').disabled = true;
+    getEl('btn-marathon-start').disabled = true;
+});
+
+
+
+bind('btn-marathon-confirm', 'click', startLightChallenge);
 
 function showReviveModal() {
     let modal = document.getElementById('revive-modal');
@@ -2648,9 +2764,66 @@ window.cancelRevive = function() {
 };
 
 
-function checkMarathonStatus() {
-    // تم إلغاء الماراثون، لا تفعل شيئاً
+function checkLightStatus() {
+    const btn = getEl('btn-marathon-start');
+    // إيقاف العداد القديم إن وجد
     if (marathonInterval) clearInterval(marathonInterval);
+
+    // تغيير شكل الزر ليعكس الوضع الجديد (أكمل النور)
+    btn.className = "w-1/2 input-glass btn-light-mode btn-light-anim"; 
+    
+    // التحقق: هل لعب المستخدم اليوم؟
+    if (!userProfile || !userProfile.lastLightDate) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        // النص الجديد
+        btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">light_mode</span>`;
+        return;
+    }
+
+    const lastPlayed = userProfile.lastLightDate.toMillis ? userProfile.lastLightDate.toMillis() : new Date(userProfile.lastLightDate).getTime();
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const diff = now - lastPlayed;
+
+    if (diff < twentyFourHours) {
+        // إذا لم تمر 24 ساعة، نقفل الزر ونشغل العداد
+        btn.disabled = true;
+        btn.classList.add('cursor-not-allowed');
+        btn.classList.remove('btn-light-anim'); // إيقاف الوميض
+        
+        const updateTimer = () => {
+            const currentNow = Date.now();
+            const timeLeft = twentyFourHours - (currentNow - lastPlayed);
+            
+            if (timeLeft <= 0) {
+                clearInterval(marathonInterval);
+                checkLightStatus(); // إعادة الفحص لفتح الزر
+                return;
+            }
+
+            const h = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+            const pad = (n) => n.toString().padStart(2, '0');
+            const timeStr = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            const arTime = timeStr.replace(/\d/g, d => ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'][d]);
+
+            btn.innerHTML = `
+                <span class="text-lg font-mono font-bold text-white" dir="ltr">${arTime}</span> 
+                <span class="material-symbols-rounded text-slate-300">lock_clock</span>
+            `;
+        };
+
+        updateTimer();
+        marathonInterval = setInterval(updateTimer, 1000);
+    } else {
+        // انتهى الوقت، افتح الزر
+        btn.disabled = false;
+        btn.classList.remove('cursor-not-allowed');
+        btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">light_mode</span>`;
+    }
 }
 
 
@@ -2775,29 +2948,25 @@ sauronDiv.className = 'sauron-overlay';
 sauronDiv.innerHTML = '<div class="eye-shape"><div class="eye-pupil"></div></div>';
 document.body.appendChild(sauronDiv);
 
-// 1. Cooldown Reset Cheat: Click 5 times on Header Score
-// كود غش لتصفير وقت الانتظار للأوضاع الجديدة
-let cooldownCheatClicks = 0;
-bind('header-score', 'click', () => {
-    cooldownCheatClicks++;
-    if(cooldownCheatClicks === 5) {
-        // حذف توقيت اللعب من الذاكرة المحلية
-        localStorage.removeItem('lastPlayed_light');
-        localStorage.removeItem('lastPlayed_insight');
-        
-        // تحديث واجهة الأزرار فوراً لإلغاء القفل
-        updateGameModesUI();
-        
-        toast("تم تصفير الوقت! 🔓", "success");
-        playSound('win');
-        
-        // تشغيل تأثير "عين سورون" للمتعة (اختياري)
-        if(typeof triggerSauronEffect === 'function') triggerSauronEffect();
-        
-        cooldownCheatClicks = 0;
+// 1. Light Mode Cheat: Click 5 times on Header Score
+let marathonCheatClicks = 0;
+bind('header-score', 'click', async () => {
+    marathonCheatClicks++;
+    if(marathonCheatClicks === 5) {
+        if(userProfile) {
+            // تصفير وقت "أكمل النور" لكي تتمكن من اللعب فوراً
+            userProfile.lastLightDate = null;
+            await updateDoc(doc(db, "users", effectiveUserId), { lastLightDate: null });
+            
+            // استدعاء الدالة الجديدة بدلاً من القديمة
+            checkLightStatus(); 
+            
+            toast("تم تصفير وقت النور (Sauron Mode)", "success");
+            playSound('win');
+        }
+        marathonCheatClicks = 0;
     }
-    // تصفير العداد إذا توقف النقر لمدة ثانية
-    setTimeout(() => cooldownCheatClicks = 0, 1000);
+    setTimeout(() => marathonCheatClicks = 0, 1000);
 });
 
 
@@ -4099,103 +4268,3 @@ async function handleAiTrigger() {
         content.innerHTML = `<span class="text-red-400 text-sm">فشل: ${e.message}</span>`;
     }
 }
-
-
-// ==========================================
-// 🕹️ منطق الأوضاع الجديدة (البصيرة & النور)
-// ==========================================
-
-// دالة مساعدة للتحقق من الوقت المتبقي
-function getTimeRemaining(lastPlayedDateStr) {
-    if (!lastPlayedDateStr) return 0;
-    const lastPlayed = new Date(lastPlayedDateStr).getTime();
-    const now = Date.now();
-    const diff = now - lastPlayed;
-    const cooldown = 24 * 60 * 60 * 1000; // 24 ساعة
-    return diff < cooldown ? cooldown - diff : 0;
-}
-
-// تحديث واجهة الأزرار (إظهار العداد إذا كان محظوراً)
-function updateGameModesUI() {
-    const modes = [
-        { id: 'light', btnId: 'btn-light-start', timerId: 'timer-light-btn', storageKey: 'lastPlayed_light' },
-        { id: 'insight', btnId: 'btn-insight-start', timerId: 'timer-insight-btn', storageKey: 'lastPlayed_insight' }
-    ];
-
-    modes.forEach(mode => {
-        const btn = getEl(mode.btnId);
-        const timerEl = getEl(mode.timerId);
-        const lastPlayed = localStorage.getItem(mode.storageKey);
-        const remaining = getTimeRemaining(lastPlayed);
-
-        if (remaining > 0) {
-            btn.classList.add('pointer-events-none', 'grayscale');
-            timerEl.classList.remove('hidden');
-            
-            // حساب الوقت وعرضه بالعربية
-            const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-            const m = Math.floor((remaining / (1000 * 60)) % 60);
-            const timeStr = `${h}:${m.toString().padStart(2, '0')}`;
-            timerEl.textContent = formatNumberAr(timeStr); // تعريب الأرقام
-        } else {
-            btn.classList.remove('pointer-events-none', 'grayscale');
-            timerEl.classList.add('hidden');
-        }
-    });
-}
-
-// تشغيل وضع "أكمل النور"
-bind('btn-light-start', 'click', async () => {
-    if (getTimeRemaining(localStorage.getItem('lastPlayed_light')) > 0) return;
-    
-    // 1. جلب الأسئلة من السيرفر
-    try {
-        const qs = await fetchGameModeQuestions('light');
-
-        // 2. إعداد الحالة
-        quizState.mode = 'light';
-        quizState.contextTopic = "أكمل النور";
-        quizState.questions = qs;
-        
-        // 3. تسجيل وقت اللعب فوراً لمنع التكرار
-        localStorage.setItem('lastPlayed_light', new Date().toISOString());
-        
-        startQuiz();
-    } catch(e) {
-        console.error(e);
-        toast("لا توجد أسئلة متاحة لهذا الوضع حالياً.", "error");
-    }
-});
-
-// تشغيل وضع "تحدي البصيرة"
-bind('btn-insight-start', 'click', async () => { // لاحظ إضافة async
-    if (getTimeRemaining(localStorage.getItem('lastPlayed_insight')) > 0) return;
-
-    // 1. جلب الأسئلة من السيرفر
-    try {
-        const qs = await fetchGameModeQuestions('insight');
-
-        // 2. إعداد الحالة
-        quizState.mode = 'insight';
-        quizState.contextTopic = "تحدي البصيرة";
-        quizState.questions = qs;
-        
-        // 3. تسجيل وقت اللعب
-        localStorage.setItem('lastPlayed_insight', new Date().toISOString());
-        
-        startQuiz();
-    } catch(e) {
-        console.error(e);
-        toast("لا توجد أسئلة متاحة لهذا الوضع حالياً.", "error");
-    }
-});
-
-// استدعاء التحديث عند العودة للرئيسية
-const originalNavToHome = navToHome;
-navToHome = function() {
-    originalNavToHome();
-    updateGameModesUI();
-};
-// استدعاء أولي عند التحميل
-updateGameModesUI();
-
