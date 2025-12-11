@@ -940,18 +940,31 @@ z-index: 10;
     border-bottom-width: 0px !important;
     transform: translateY(3px) !important;
 }
-
-/* 7. زر الماراثون الفضي */
-.btn-marathon-silver {
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
-    border-bottom: 5px solid #4b5563 !important; /* رمادي غامق */
+ 
+.btn-light-mode {
+    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+    color: #fff;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-bottom: 5px solid #78350f !important;
+    overflow: hidden;
+    position: relative;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
-.btn-marathon-silver:active {
+.btn-light-mode:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.6); 
+    filter: brightness(1.1);
+}
+.btn-light-mode:active { 
+    transform: translateY(4px); 
     border-bottom-width: 1px !important;
-    transform: translateY(4px) !important;
 }
-
-/* --- تحسين صفوف لوحة المتصدرين إلى 3D --- */
+@keyframes light-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); } 50% { box-shadow: 0 0 30px rgba(251, 191, 36, 0.8); border-color: #fff; } }
+.btn-light-anim { animation: light-pulse 2s infinite; }
 
 #leaderboard-list > div {
     /* 1. استبدال الخلفية بخلفية متدرجة 3D */
@@ -1650,14 +1663,11 @@ z-index: 10;
     font-weight: bold;
     text-shadow: 0 0 15px rgba(34, 211, 238, 0.5); /* توهج للكلمة */
     padding: 0 2px;
-} /* <--- هذا القوس كان مفقوداً! */
-
 /* تحسين شكل التحديد (اختياري) */
 ::selection {
     background: rgba(6, 182, 212, 0.3); /* لون سماوي شفاف عند التحديد */
     color: white;
 }
-
 
 
 /* إجبار المتصفح على إظهار سهم القائمة في حقل اختيار الموديل */
@@ -1691,57 +1701,31 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     -webkit-user-select: none !important;
 }
 
-/* =========================================
-   تحديث أزرار تحدي البصيرة (إصلاح الحجم)
-   ========================================= */
-
-/* الشبكة الحاوية */
-.insight-options-grid {
+/* تنسيق وضع الشبكة لخيارات أكمل النور */
+.options-grid-view {
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 1.5rem !important;
-    width: 100% !important;
-    margin-top: 1rem !important;
-    padding-bottom: 1rem;
+    grid-template-columns: 1fr 1fr; /* عمودين */
+    gap: 1rem;
 }
 
-/* الزر العام */
-.btn-insight {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    height: 140px !important; /* ارتفاع كبير */
-    border-radius: 1.5rem !important;
-    font-family: var(--font-heading) !important;
-    font-weight: 800 !important;
-    font-size: 1.8rem !important;
-    color: white !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.3) !important;
-    position: relative !important;
-    transition: transform 0.1s !important;
+.options-grid-view .option-btn {
+    height: 100%;
+    min-height: 100px; /* ارتفاع ثابت للمربعات */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-size: 1.1rem;
+    padding: 0.5rem !important;
+    white-space: normal;
+    line-height: 1.4;
 }
 
-/* تكبير الأيقونة */
-.btn-insight span {
-    font-size: 3.5rem !important;
-    margin-bottom: 0.5rem !important;
-}
-
-/* الألوان */
-.btn-insight-true {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    border-bottom: 6px solid #064e3b !important;
-}
-
-.btn-insight-false {
-    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
-    border-bottom: 6px solid #7f1d1d !important;
-}
-
-/* تأثير الضغط */
-.btn-insight:active {
-    transform: translateY(4px) !important;
-    border-bottom-width: 2px !important;
+.options-grid-view .option-number {
+    margin-bottom: 0.5rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+    align-self: center; /* توسيط الرقم */
 }
