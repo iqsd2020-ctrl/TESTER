@@ -178,7 +178,7 @@
                             <div class="flex gap-2">
                                 <div class="relative w-1/2">
                     <button id="btn-count-trigger" class="custom-select-trigger h-full justify-center gap-2">
-                        <span id="txt-count-display">١٠ أسئلة</span>
+                        <span id="txt-count-display">10 أسئلة</span>
                         <span class="material-symbols-rounded trigger-icon text-sm">expand_more</span>
                     </button>
                     <input type="hidden" id="ai-question-count" value="10">

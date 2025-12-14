@@ -13,6 +13,8 @@
     --text-muted: #94a3b8;
     --accent-color: #fbbf24; /* الذهبي الأساسي */
     --accent-dark: #b45309;
+    --btn-gradient-start: #FFB800;  /* بداية التدرج الذهبي */
+    --btn-gradient-end: #C05800;    /* نهاية التدرج الذهبي */
     --accent-contrast: #ffffff;
     --border-color: rgba(255, 255, 255, 0.1);
     --card-3d-depth: 3px;
@@ -187,7 +189,28 @@ body::after {
 
 
 h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
-#question-text { font-family: 'Amiri', serif !important; line-height: 2.2; text-shadow: 0 2px 4px var(--shadow-color); color: var(--text-main); }
+#question-text { 
+    font-family: 'Amiri', serif !important; 
+    line-height: 1.6; 
+    text-shadow: 0 2px 4px var(--shadow-color); 
+    color: var(--text-main);
+    
+    /* خصائص التثبيت السابقة */
+    width: 100%;
+    max-height: 100%; 
+    overflow-y: auto; /* التمرير يعمل إذا كبر الخط جداً */
+    
+    /* --- التعديل الجديد: ربط الحجم بالإعدادات --- */
+    /* نضرب القيمة في 1.3 ليكون السؤال أكبر قليلاً من النص العادي */
+    font-size: calc(var(--base-size) * 1.3) !important; 
+    
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) transparent;
+    padding: 0 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 
 .glass-card {
     background: #0f172a;
@@ -281,18 +304,57 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 
 .option-btn { 
     width: 100%; 
+    height: 65px !important;     
+    min-height: 65px !important; 
+    max-height: 65px !important; 
+    
     background: var(--bg-input); 
     border: 1px solid var(--border-color); 
+    border-bottom: 4px solid rgba(0, 0, 0, 0.4) !important; 
     border-radius: 0.75rem; 
-    padding: 1rem; 
+    padding: 0 1rem !important;
+    
+    display: flex !important;
+    align-items: center !important; 
+    justify-content: flex-start;
+    gap: 0.75rem; 
+    
     color: var(--text-main); 
-    font-size: 1.1em; 
+    
+    /* --- التعديل الجديد: ربط الحجم بالإعدادات --- */
+    /* نستخدم نفس حجم الإعدادات مباشرة */
+    font-size: var(--base-size) !important; 
+    
+    line-height: 1.1 !important; /* تقليل المسافة لتفادي اختفاء النص عند تكبير الخط */
     text-align: right; 
-    transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
-    display: flex; align-items: center; gap: 0.75rem; 
-    cursor: pointer; position: relative; overflow: hidden; 
+    overflow: hidden; 
+    position: relative; 
+    cursor: pointer; 
+    transition: transform 0.1s, border-bottom-width 0.1s, background-color 0.2s;
 }
-/* --- تعديل القوة لضمان تغيير لون النص --- */
+
+/* تأثير الضغط للحفاظ على الارتفاع الثابت */
+.option-btn:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px);
+    height: 65px !important; /* ضمان عدم تغير الارتفاع عند الضغط */
+}
+
+/* تحسين شكل دائرة الترقيم (1, 2, 3...) لتبقى ثابتة */
+.option-number {
+    width: 32px;
+    height: 32px;
+    min-width: 32px; /* منع انضغاط الرقم */
+    background: rgba(0,0,0,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-color);
+    font-family: var(--font-heading);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0; /* منع الدائرة من الانكماش إذا كان النص طويلاً */
+}
 
 .btn-correct,
 .btn-correct > span:not(.material-symbols-rounded), /* يستهدف النص والرقم داخل الزر */
@@ -542,6 +604,46 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 
 #toggle-enrichment-btn:hover { transform: scale(1.1); }
 
+.btn-marathon-silver {
+    /* الخلفية الفضية */
+    background: linear-gradient(135deg, #e5e7eb 0%, #a1a1aa 100%) !important;
+    color: #1f2937 !important;
+    
+    /* تنسيقات الشكل (تعويضاً عن input-glass المحذوف) */
+    width: 100%;
+    border-radius: 0.75rem; 
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    
+    /* تنسيقات الخط والحدود */
+    font-weight: 700;
+    font-family: var(--font-heading);
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-bottom: 5px solid #4b5563 !important; /* الحافة 3D */
+    
+    box-shadow: 0 4px 15px rgba(161, 161, 170, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+/* تأثير الضغط */
+.btn-marathon-silver:active {
+    transform: translateY(2px);
+    border-bottom-width: 1px !important;
+    box-shadow: none;
+}
+
+
+.btn-marathon-silver:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(161, 161, 170, 0.6); }
+.btn-marathon-silver:active { transform: scale(0.98); }
+@keyframes pulse-shine { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.01); opacity: 0.95; } }
+.btn-marathon-silver-anim { animation: pulse-shine 2s infinite; }
+
 .count-badge {
 position: absolute;
 top: -5px;
@@ -666,49 +768,45 @@ z-index: 10;
     box-shadow: none;
 }
 
-/* 2. بطاقة السؤال (كلاس جديد) */
+/* تعديل بطاقة عرض السؤال لتكون ثابتة الحجم */
 .question-card-3d {
     background: linear-gradient(to bottom, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-bottom: 6px solid rgba(0, 0, 0, 0.5) !important; /* حافة سميكة جداً للسؤال */
+    border-bottom: 6px solid rgba(0, 0, 0, 0.5) !important;
     border-radius: 1.5rem !important;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+    
+    /* --- الإضافات الجديدة للتثبيت --- */
+    height: 220px !important;       /* ارتفاع ثابت للبطاقة */
+    min-height: 220px !important;   /* ضمان عدم تصغيرها */
+    max-height: 220px !important;   /* ضمان عدم تكبيرها */
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;        /* توسيط النص عمودياً */
+    align-items: center;
+    overflow: hidden !important;    /* إخفاء أي شيء يخرج عن حدود البطاقة الرئيسية */
+    padding: 1rem !important;
 }
+
 
 /* --- تحويل عناصر الهيدر إلى 3D (3D Header Elements) --- */
 
-/* استهداف: زر القائمة، حاوية النقاط، زر البروفايل، زر الإشعارات */
-#menu-btn,
+/* استهداف: زر البروفايل وصندوق النقاط فقط (إزالة القائمة والتنبيهات) */
 #user-profile-btn,
-#notif-btn,
-#top-header > div:nth-child(2) { /* هذا يستهدف صندوق النقاط في الوسط */
-    /* خلفية متدرجة لتعزيز البروز */
+#top-header > div:nth-child(2) { 
     background: linear-gradient(to bottom, rgba(51, 65, 85, 0.9), rgba(15, 23, 42, 0.95)) !important;
-    
-    /* حدود علوية وجانبية فاتحة */
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    
-    /* الحافة السفلية السميكة (السر في الـ 3D) */
     border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important;
-    
-    /* شكل دائري كامل */
     border-radius: 9999px !important;
-    
-    /* ظل لإعطاء ارتفاع */
     box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3) !important;
-    
-    /* إعداد الحركة */
     transition: transform 0.1s, border-bottom-width 0.1s !important;
     transform: translateY(0);
 }
 
-/* تأثير الضغط (للأزرار القابلة للضغط فقط) */
-/* عند الضغط: يقل سمك الحافة السفلية وينزل الزر للأسفل */
-#menu-btn:active,
-#user-profile-btn:active,
-#notif-btn:active {
-    border-bottom-width: 1px !important; /* تقليص الحافة */
-    transform: translateY(3px) !important; /* النزول للأسفل */
+/* تأثير الضغط لزر البروفايل فقط */
+#user-profile-btn:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important;
     box-shadow: none !important;
 }
 
@@ -940,31 +1038,18 @@ z-index: 10;
     border-bottom-width: 0px !important;
     transform: translateY(3px) !important;
 }
- 
-.btn-light-mode {
-    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
-    color: #fff;
-    font-weight: 700;
-    font-family: var(--font-heading);
-    box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid rgba(255,255,255,0.4);
-    border-bottom: 5px solid #78350f !important;
-    overflow: hidden;
-    position: relative;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+
+/* 7. زر الماراثون الفضي */
+.btn-marathon-silver {
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-bottom: 5px solid #4b5563 !important; /* رمادي غامق */
 }
-.btn-light-mode:hover { 
-    transform: translateY(-2px); 
-    box-shadow: 0 0 25px rgba(251, 191, 36, 0.6); 
-    filter: brightness(1.1);
-}
-.btn-light-mode:active { 
-    transform: translateY(4px); 
+.btn-marathon-silver:active {
     border-bottom-width: 1px !important;
+    transform: translateY(4px) !important;
 }
-@keyframes light-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); } 50% { box-shadow: 0 0 30px rgba(251, 191, 36, 0.8); border-color: #fff; } }
-.btn-light-anim { animation: light-pulse 2s infinite; }
+
+/* --- تحسين صفوف لوحة المتصدرين إلى 3D --- */
 
 #leaderboard-list > div {
     /* 1. استبدال الخلفية بخلفية متدرجة 3D */
@@ -1663,6 +1748,7 @@ z-index: 10;
     font-weight: bold;
     text-shadow: 0 0 15px rgba(34, 211, 238, 0.5); /* توهج للكلمة */
     padding: 0 2px;
+    }
 /* تحسين شكل التحديد (اختياري) */
 ::selection {
     background: rgba(6, 182, 212, 0.3); /* لون سماوي شفاف عند التحديد */
@@ -1701,31 +1787,547 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     -webkit-user-select: none !important;
 }
 
-/* تنسيق وضع الشبكة لخيارات أكمل النور */
-.options-grid-view {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr; /* عمودين */
-    gap: 1rem;
+/* تنسيق نص المعاينة في الإعدادات */
+#font-size-preview {
+    font-family: 'Amiri', serif;
+    /* نستخدم نفس المعادلة الخاصة بالسؤال ليكون المثال دقيقاً 100% */
+    font-size: calc(var(--base-size) * 1.3); 
+    line-height: 1;
+    white-space: nowrap; /* منع النص من النزول لسطر ثاني */
 }
 
-.options-grid-view .option-btn {
-    height: 100%;
-    min-height: 100px; /* ارتفاع ثابت للمربعات */
+/* حل نهائي لمشكلة لون زر ابدأ التحدي الرئيسي */
+#ai-generate-btn {
+    /* فرض التدرج الذهبي يدوياً لإصلاح الخلل */
+    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%) !important;
+    color: #ffffff !important;
+    
+    /* تنسيق الحدود والعمق 3D */
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    border-bottom: 5px solid #78350f !important; /* لون بني داكن للحافة السفلية */
+    
+    /* تأثيرات الظل والظهور */
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4) !important;
+    opacity: 1 !important;
+    filter: none !important;
+    
+    /* ضمان أبعاد وشكل الزر */
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* تأثير الضغط للزر الذهبي */
+#ai-generate-btn:active {
+    border-bottom-width: 1px !important;
+    transform: translateY(4px) !important;
+    box-shadow: none !important;
+}
+
+/* --- تنسيق شبكة مربعات (وضع أكمل النور) --- */
+.options-grid-mode {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important; /* عمودين بالتساوي */
+    gap: 0.75rem !important;      /* مسافة بين المربعات */
+    width: 100% !important;
+}
+
+/* إلغاء أي هوامش خارجية قد يضيفها Tailwind بالخطأ */
+.options-grid-mode > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* تنسيق الأزرار لتصبح مربعات */
+.options-grid-mode .option-btn {
+    height: 120px !important;      /* ارتفاع ثابت للمربع */
+    width: 100% !important;        /* ملء عرض الخلية */
+    
+    flex-direction: column !important; /* العناصر فوق بعض */
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    
+    padding: 5px !important;
+    line-height: 1.3 !important;
+    white-space: normal !important; /* السماح بالتفاف النص */
+}
+
+/* تعديل مكان دائرة الرقم */
+.options-grid-mode .option-number {
+    margin-bottom: 8px !important;
+    margin-right: 0 !important;
+}
+
+@keyframes popInGrid {
+    0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.grid-pop {
+    animation: popInGrid 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    opacity: 0; /* مخفي في البداية */
+}
+
+/* تنسيق ظهور شريط عدم الاتصال */
+#offline-banner.show-offline {
+    display: block !important;
+    transform: translateY(0) !important; /* ينزلق للأسفل */
+}
+
+/* --- إعدادات الوضع النهاري (Light Mode) --- */
+html.light-mode {
+    /* خلفية بيضاء/رمادية فاتحة بدلاً من الأسود */
+    --bg-body: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    
+    /* الكروت بيضاء مع ظلال ناعمة */
+    --bg-card: #ffffff;
+    --bg-card-gradient: linear-gradient(145deg, #ffffff, #f1f5f9);
+    
+    /* حقول الإدخال والقوائم */
+    --bg-input: #f1f5f9;
+    --bg-side-menu: #ffffff;
+    
+    /* النصوص */
+    --text-main: #0f172a; /* نص غامق جداً */
+    --text-muted: #475569; /* رمادي متوسط */
+    
+    /* الحدود */
+    --border-color: #cbd5e1;
+    --shadow-color: rgba(0, 0, 0, 0.1); /* ظل أخف */
+    
+    /* خلفية الزخرفة تكون داكنة قليلاً لتظهر على الأبيض */
+    --bg-pattern-opacity: 0.05;
+}
+
+/* تعديلات خاصة للعناصر في الوضع النهاري */
+html.light-mode body {
+    color: var(--text-main);
+}
+
+html.light-mode .glass-card,
+html.light-mode .modal-box,
+html.light-mode #side-menu {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+}
+
+html.light-mode .input-glass,
+html.light-mode .option-btn,
+html.light-mode .menu-item,
+html.light-mode .selection-item,
+html.light-mode .bg-slate-800 {
+    background: #f1f5f9 !important; /* لون فاتح للخلفيات */
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* تحسين تباين النصوص الرمادية في الوضع الفاتح */
+html.light-mode .text-slate-300,
+html.light-mode .text-slate-400,
+html.light-mode .text-slate-500 {
+    color: #475569 !important;
+}
+
+html.light-mode .text-slate-200 {
+    color: #334155 !important;
+}
+
+/* الحفاظ على لون النصوص البيضاء داخل الأزرار الملونة */
+html.light-mode .btn-gold-action,
+html.light-mode .text-fixed-white,
+html.light-mode .btn-correct,
+html.light-mode .btn-incorrect,
+html.light-mode #score-card * {
+    color: #ffffff !important;
+}
+html.light-mode .btn-correct .option-number,
+html.light-mode .btn-incorrect .option-number {
+    color: #fff !important;
+    border-color: #fff !important;
+}
+
+/* تعديل خلفية بطاقة السؤال لتكون مميزة */
+html.light-mode .question-card-3d {
+    background: linear-gradient(to bottom, #ffffff, #f8fafc) !important;
+    border-bottom: 6px solid #cbd5e1 !important;
+    color: #000 !important;
+}
+
+/* تعديل لوحة الشرف في الوضع النهاري */
+html.light-mode #leaderboard-list > div {
+    background: #ffffff !important;
+    border-bottom-color: #cbd5e1 !important;
+}
+html.light-mode #leaderboard-list > div:hover {
+    background: #f8fafc !important;
+}
+
+
+/* =========================================
+   FORCED LIGHT MODE OVERRIDE - ULTIMATE SHADOW KILLER
+   (تصفير الظلال القوية في النوافذ الداخلية والقوائم)
+   ========================================= */
+
+html.light-mode {
+    /* المتغيرات الأساسية (لا تغيير) */
+    --bg-body: #f5e5c2 !important;
+    --bg-card: #fffcf2 !important; 
+    --bg-input: #fffcf2 !important;
+    --bg-side-menu: #f5e5c2 !important; 
+    --text-main: #4a2c1b !important; 
+    --text-muted: rgba(74, 44, 27, 0.7) !important;
+    --border-color: #966b4c !important; 
+    --shadow-color: rgba(74, 44, 27, 0.15) !important;
+    --accent-color: #f59e0b !important; 
+    --accent-dark: #cc7a00 !important; 
+    --bg-pattern-opacity: 1 !important;
+}
+
+/* 1. الخلفية ونمط الجسم (تصفير ظل النص بالكامل) */
+html.light-mode body,
+html.light-mode body::before {
+    background-color: var(--bg-body) !important;
+    background-image: 
+        radial-gradient(circle at center, transparent 50%, rgba(74, 44, 27, 0.15) 150%),
+        repeating-linear-gradient(45deg, rgba(150, 107, 76, 0.05) 1px, transparent 1px, transparent 8px) !important;
+    background-size: cover, 8px 8px !important;
+    background-attachment: fixed !important;
+    color: var(--text-main) !important;
+    text-shadow: none !important; 
+}
+
+/* 2. الأوسمة والملفات الشخصية والإعدادات (Modals & Complex Cards) */
+html.light-mode .glass-card,
+html.light-mode .modal-box,
+html.light-mode #side-menu,
+html.light-mode #score-card,
+html.light-mode .question-card-3d,
+html.light-mode #notif-dropdown,
+html.light-mode #ai-explanation-modal .modal-box,
+html.light-mode #player-profile-modal .modal-box, /* 🔥 استهداف ملف اللاعب 🔥 */
+html.light-mode #badges-modal .modal-box, /* 🔥 استهداف مكتبة الأوسمة 🔥 */
+html.light-mode #settings-modal .modal-box, /* 🔥 استهداف الإعدادات 🔥 */
+html.light-mode #contact-modal .modal-box {
+    background: var(--bg-card) !important;
+    border: 2px solid var(--border-color) !important;
+    /* ظل خارجي بني فاتح قوي */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+    color: var(--text-main) !important;
+}
+
+/* 3. عناصر الهيدر، حقول الإدخال، الأزرار، وبطاقات القوائم */
+html.light-mode #user-profile-btn,
+html.light-mode #top-header > div:nth-child(2),
+html.light-mode .input-glass,
+html.light-mode .option-btn,
+html.light-mode .menu-item,
+html.light-mode .selection-item,
+html.light-mode #leaderboard-list > div,
+html.light-mode .bg-slate-800,
+html.light-mode .bg-slate-700,
+html.light-mode .custom-select-trigger,
+html.light-mode .badge-icon-box,
+html.light-mode .shop-item-owned {
+    background: var(--bg-card) !important; 
+    border: 2px solid var(--border-color) !important;
+    border-bottom: 4px solid #7c583f !important; 
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important; 
+    color: var(--text-main) !important; 
+}
+
+/* 4. إلغاء الظل من النصوص (Text Shadows) والأيقونات (شامل جداً) */
+html.light-mode h1, 
+html.light-mode h2, 
+html.light-mode h3, 
+html.light-mode p, 
+html.light-mode span,
+html.light-mode div,
+html.light-mode a,
+html.light-mode .material-symbols-rounded,
+html.light-mode #question-text,
+html.light-mode .text-ink-bleed,
+html.light-mode .drop-shadow-sm, /* 🔥 استهداف كلاسات الظل المتبقية 🔥 */
+html.light-mode .drop-shadow-lg { /* 🔥 استهداف كلاسات الظل المتبقية 🔥 */
+    color: var(--text-main) !important;
+    text-shadow: none !important; 
+    filter: none !important; 
+}
+
+/* 5. إلغاء الظل الداخلي في البطاقات الإحصائية والملف الشخصي */
+html.light-mode #profile-badges-display, /* 🔥 بطاقة أوسمة اللاعب 🔥 */
+html.light-mode .bg-slate-900\/50, /* 🔥 الخلفية المستخدمة داخل الأوسمة والإحصائيات 🔥 */
+html.light-mode .bg-slate-800\/50 {
+    background: #fdf5e0 !important;
+    border-color: #d8c2a9 !important; /* بني فاتح جداً */
+    box-shadow: none !important; /* إزالة أي ظل داخلي */
+}
+
+/* 6. إصلاح لوحة الإشعارات الداخلية (Notification List) */
+html.light-mode #notif-dropdown {
+    /* خلفية القائمة المنسدلة */
+    background: #fcf5e6 !important;
+    border-color: var(--accent-color) !important;
+}
+html.light-mode #notif-list .notif-item {
+    /* خلفية العناصر المقروءة */
+    background: transparent !important;
+    border-color: #d8c2a9 !important;
+}
+html.light-mode #notif-list .notif-item:hover,
+html.light-mode #notif-list .notif-item:not(.opacity-70) {
+    /* العناصر غير المقروءة والتحويم */
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-left-color: var(--accent-color) !important;
+}
+
+/* 7. الأزرار الذهبية الرئيسية (إعادة تطبيق الظل) */
+html.light-mode .btn-gold-action {
+    background: linear-gradient(180deg, #ffc82f 0%, #ff9900 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 6px 0 var(--accent-dark), 0 10px 20px rgba(255, 153, 0, 0.4) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+/* 8. استثناء النصوص التي يجب أن تبقى بيضاء */
+html.light-mode .text-fixed-white,
+html.light-mode .btn-gold-action span,
+html.light-mode .btn-correct,
+html.light-mode .btn-correct span,
+html.light-mode .btn-incorrect,
+html.light-mode .btn-incorrect span {
+    color: #ffffff !important;
+}
+
+/* 9. تصحيح الأزرار التي تعتمد على البادج (مثل زر الخروج في القائمة) */
+html.light-mode .logout-btn {
+    background-color: #a33f3f !important;
+    border-color: #882929 !important;
+    box-shadow: 0 4px 0 #882929 !important;
+    color: #fff !important;
+}
+
+/* 10. إزالة الظلال الداكنة الداخلية من الأزرار (لضمان النظافة) */
+html.light-mode .option-btn,
+html.light-mode .menu-item,
+html.light-mode .selection-item {
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 4px 0 #7c583f, 
+        0 4px 5px rgba(0,0,0,0.1) !important; 
+}
+
+/* =========================================
+   إصلاح الشريط السفلي في الوضع النهاري
+   ========================================= */
+
+/* استهداف الحاوية الداخلية للشريط السفلي */
+html.light-mode #bottom-nav > div {
+    /* 1. استبدال الخلفية السوداء بخلفية كريمية (لون الكارت) */
+    background: #fffcf2 !important; 
+    
+    /* 2. تغيير الحدود العلوية إلى اللون البني */
+    border-top: 2px solid #966b4c !important;
+    border-color: #966b4c !important;
+    
+    /* 3. الحل الجذري للظلال: استبدال الظل الأسود بظل بني خفيف وناعم */
+    box-shadow: 0 -10px 40px rgba(74, 44, 27, 0.15) !important;
+}
+
+/* تحسين ألوان النصوص والأيقونات غير النشطة داخل الشريط */
+html.light-mode #bottom-nav button,
+html.light-mode #bottom-nav .text-slate-400,
+html.light-mode #bottom-nav .text-slate-300 {
+    color: rgba(74, 44, 27, 0.6) !important; /* بني متوسط */
+}
+
+/* تحسين الأيقونات عند التحويم (Hover) */
+html.light-mode #bottom-nav button:hover,
+html.light-mode #bottom-nav .group:hover .group-hover\:text-amber-400 {
+    color: #f59e0b !important; /* ذهبي */
+}
+
+/* تحسين حاوية عداد النقاط في المنتصف */
+html.light-mode #header-score {
+    color: #f59e0b !important; /* الرقم بالذهبي */
+}
+html.light-mode #bottom-nav .bg-slate-800\/80 {
+    /* خلفية العداد: بيج أغمق قليلاً لتمييزه */
+    background: #f5e5c2 !important; 
+    border: 1px solid #d8c2a9 !important;
+    box-shadow: inset 0 2px 4px rgba(74, 44, 27, 0.05) !important;
+}
+
+/* تحسين قائمة الإشعارات المنسدلة (تفتح للأعلى) */
+html.light-mode #notif-dropdown {
+    background: #fffcf2 !important;
+    border: 2px solid #966b4c !important;
+    box-shadow: 0 -5px 20px rgba(74, 44, 27, 0.15) !important;
+}
+html.light-mode #notif-dropdown .bg-slate-800 {
+    background: #f5e5c2 !important; /* ترويسة القائمة */
+    border-bottom: 1px solid #d8c2a9 !important;
+}
+html.light-mode #notif-list {
+    background: #fffcf2 !important;
+}
+/* =========================================
+   NEW BOTTOM NAVIGATION BAR (The Floating Jewel)
+   ========================================= */
+
+/* 1. الحاوية الأساسية للشريط */
+#bottom-nav {
+    position: fixed;
+    bottom: 20px; /* نرفعه قليلاً عن الحافة ليبدو عائماً */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 95%; /* لا يأخذ العرض الكامل */
+    max-width: 500px;
+    z-index: 30;
+    pointer-events: none; /* يسمح بالضغط حول الشريط */
+}
+
+/* 2. جسم الشريط نفسه */
+.nav-glass-body {
+    pointer-events: auto;
+    background: var(--bg-card-gradient); /* يستخدم خلفية الكروت الحالية */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-bottom: 4px solid rgba(0,0,0,0.5); /* تأثير 3D */
+    border-radius: 2rem; /* استدارة كاملة للحواف */
+    box-shadow: 0 10px 30px var(--card-3d-shadow-spread);
+    height: 70px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    position: relative;
+    overflow: visible; /* مهم جداً ليظهر الزر العائم */
+}
+
+/* 3. زر البروفايل العائم (الجوهرة) */
+.nav-floating-btn-container {
+    position: absolute;
+    top: -35px; /* يخرج من الشريط للأعلى */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 75px;
+    height: 75px;
+    background: var(--bg-body); /* نفس لون خلفية التطبيق لعمل خدعة الانحناء */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.3); /* ظل علوي */
+    z-index: 10;
+    
+    /* خدعة الانحناء البصري */
+    border: 1px solid transparent; 
+}
+
+/* الزر الفعلي داخل الدائرة */
+.nav-floating-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-dark), var(--accent-color));
+    border: 2px solid var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000; /* لون الأيقونة */
+    box-shadow: 0 0 15px var(--accent-color), inset 0 2px 5px rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-floating-btn:active {
+    transform: scale(0.9);
+}
+
+.nav-floating-btn img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+
+/* 4. أزرار التنقل الجانبية */
+.nav-item-btn {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-    text-align: center;
-    font-size: 1.1rem;
-    padding: 0.5rem !important;
-    white-space: normal;
-    line-height: 1.4;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    position: relative;
 }
 
-.options-grid-view .option-number {
-    margin-bottom: 0.5rem;
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
-    align-self: center; /* توسيط الرقم */
+/* حالة التحويم والنشاط */
+.nav-item-btn:hover,
+.nav-item-btn.active {
+    color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.nav-item-btn .material-symbols-rounded {
+    font-size: 28px;
+    margin-bottom: 2px;
+    transition: text-shadow 0.3s;
+}
+
+.nav-item-btn.active .material-symbols-rounded {
+    font-variation-settings: 'FILL' 1; /* ملء الأيقونة */
+    filter: drop-shadow(0 0 8px var(--accent-color));
+}
+
+.nav-item-btn span.label {
+    font-size: 10px;
+    font-weight: bold;
+    font-family: var(--font-heading);
+    opacity: 0.7;
+}
+
+.nav-item-btn.active span.label {
+    opacity: 1;
+}
+
+/* مساحة فارغة في الوسط لزر البروفايل */
+.nav-spacer {
+    width: 70px;
+}
+
+/* شارة التنبيهات */
+.nav-badge {
+    position: absolute;
+    top: 10px;
+    right: 25%;
+    width: 10px;
+    height: 10px;
+    background: #ef4444;
+    border: 2px solid var(--bg-side-menu);
+    border-radius: 50%;
+    animation: pulse-red 2s infinite;
+}
+
+/* --- تعديلات خاصة للوضع النهاري (Light Mode) --- */
+html.light-mode .nav-glass-body {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+html.light-mode .nav-floating-btn-container {
+    background: var(--bg-body); /* لدمج الانحناء */
+    box-shadow: none; /* إخفاء الظل المربع */
+}
+/* إضافة ظل للدائرة فقط في الوضع النهاري لتبدو بارزة */
+html.light-mode .nav-floating-btn {
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
 }
