@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+// 👇 التغيير هنا: تمت إضافة enableIndexedDbPersistence
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
@@ -12,15 +13,25 @@ const firebaseConfig = {
   appId: "1:160722124006:web:1c52066fe8dbbbb8f80f27",
   measurementId: "G-9XJ425S41C"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// 👇 كود تفعيل قاعدة البيانات لتعمل بدون إنترنت
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.log('Persistence failed: Multiple tabs open');
+    } else if (err.code == 'unimplemented') {
+        console.log('Persistence is not available');
+    }
+});
+
 
 let currentUser = null;
 let effectiveUserId = null;
 let userProfile = null;
 let dbTopicCounts = {};
-let apiKeysCache = null;
 
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
@@ -296,45 +307,49 @@ function getAvatarHTML(imgUrl, frameId, sizeClass = "w-10 h-10") {
 }
 
 function updateProfileUI() {
-    getEl('username-display').textContent = userProfile.username;
-        // حركة العداد للشريط العلوي
+    // تحديث الاسم (مع التحقق من وجود العنصر)
+    const nameEl = getEl('username-display');
+    if (nameEl) nameEl.textContent = userProfile.username;
+
+    // حركة العداد للشريط السفلي
     const scoreEl = getEl('header-score');
-    // نحاول قراءة الرقم الحالي (بعد إزالة الفواصل والنصوص)
-    const currentDisplayed = parseInt(scoreEl.textContent.replace(/[^\d]/g, '').replace(/[\u0660-\u0669]/g, d => "0123456789"[d.charCodeAt(0) - 1632])) || 0;
-    const targetScore = userProfile.highScore || 0;
-    
-    // إذا كان هناك فرق، نشغل الأنيميشن (لمدة 2 ثانية)
-    if(currentDisplayed !== targetScore) {
-        animateValue(scoreEl, currentDisplayed, targetScore, 2000);
-    } else {
-        scoreEl.textContent = formatNumberAr(targetScore, true);
+    if (scoreEl) {
+        const currentDisplayed = parseInt(scoreEl.textContent.replace(/[^\d]/g, '').replace(/[\u0660-\u0669]/g, d => "0123456789"[d.charCodeAt(0) - 1632])) || 0;
+        const targetScore = userProfile.highScore || 0;
+        
+        if(currentDisplayed !== targetScore) {
+            animateValue(scoreEl, currentDisplayed, targetScore, 2000);
+        } else {
+            scoreEl.textContent = formatNumberAr(targetScore, true);
+        }
     }
 
-    
-    // --- تحديث الأفاتار مع الإطار (طريقة جديدة) ---
+    // --- تحديث الأفاتار في الشريط السفلي ---
     const btn = getEl('user-profile-btn');
-    // تنظيف المحتوى القديم للأيقونة
-    const oldImgContainer = btn.querySelector('.w-8'); 
-    if(oldImgContainer) oldImgContainer.remove(); 
+    if (btn) {
+        // 1. تنظيف أي صورة سابقة لتجنب التكرار
+        const oldAvatars = btn.querySelectorAll('.avatar-wrapper, .w-8');
+        oldAvatars.forEach(el => el.remove());
 
-    // التأكد من أن البيانات موجودة لتجنب الخطأ
-    const currentFrame = userProfile.equippedFrame || 'default';
+        // 2. إخفاء الأيقونة والاسم القديم مؤقتاً إذا لزم الأمر
+        const oldIcon = getEl('user-avatar-icon');
+        const oldImg = getEl('user-avatar-img');
+        if(oldIcon) oldIcon.style.display = 'none';
+        if(oldImg) oldImg.remove();
 
-    // إنشاء HTML الجديد
-    const avatarHtml = getAvatarHTML(userProfile.customAvatar, currentFrame, "w-8 h-8");
-    
-    // إضافته للزر (قبل الاسم)
-    btn.insertAdjacentHTML('afterbegin', avatarHtml);
-    
-    // التأكد من إخفاء العناصر القديمة إن وجدت عبر الكلاسات
-    const imgEl = getEl('user-avatar-img');
-    const iconEl = getEl('user-avatar-icon');
-    if(imgEl) imgEl.remove(); // نحذفها لأننا استبدلناها
-    if(iconEl) iconEl.remove();
+        // 3. إنشاء HTML الجديد للصورة
+        const currentFrame = userProfile.equippedFrame || 'default';
+        const avatarHtml = getAvatarHTML(userProfile.customAvatar, currentFrame, "w-full h-full");
+        
+        // 4. إضافته في بداية الزر
+        btn.insertAdjacentHTML('afterbegin', avatarHtml);
+    }
 
+    // زر مراجعة الأخطاء في الشاشة الرئيسية
     if(userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         show('review-mistakes-btn');
-        getEl('review-mistakes-text').textContent = `مراجعة أخطائي (${userProfile.wrongQuestionsBank.length})`;
+        const reviewText = getEl('review-mistakes-text');
+        if(reviewText) reviewText.textContent = `مراجعة أخطائي (${userProfile.wrongQuestionsBank.length})`;
     } else {
         hide('review-mistakes-btn');
     }
@@ -356,14 +371,14 @@ function navToHome() {
         getEl('delay-val').textContent = formatNumberAr(delayVal);
     }
     
-    show('top-header');
+    show('bottom-nav');
     quizState.active = false;
     
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     show('welcome-area'); show('user-profile-container');
     
     initDropdowns();
-    
+    initDayMode(); 
     quizState.timerEnabled = localStorage.getItem('timerEnabled') === 'false' ? false : true;
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
@@ -375,7 +390,7 @@ function navToHome() {
     }
 
     setTimeout(checkWhatsNew, 1500); 
-    checkLightStatus();
+    checkMarathonStatus();
     initTheme(); 
 
     updateThemeSelector();
@@ -633,9 +648,8 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-
 bind('ai-generate-btn', 'click', async () => {
-    // 1. التحقق من بنك الأخطاء
+    // 1. التحقق من بنك الأخطاء (كما هو سابقاً)
     if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         openModal('force-review-modal');
         return;
@@ -653,9 +667,31 @@ bind('ai-generate-btn', 'click', async () => {
 
     const btn = getEl('ai-generate-btn');
     btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> اللّهم صَلِّ على محمد وآل محمد`;
+    
+    // تغيير النص حسب حالة الاتصال
+    if (navigator.onLine) {
+        btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التجهيز والتحميل...`;
+    } else {
+        btn.innerHTML = `<span class="material-symbols-rounded animate-spin">wifi_off</span> جاري البحث محلياً...`;
+    }
 
     try {
+        // ============================================================
+        // 🚀 ميزة التحميل التلقائي الصامت (Silent Background Cache)
+        // ============================================================
+        // إذا كان المستخدم متصلاً، نقوم بتحميل ملف الماراثون في الخلفية
+        // ليتمكن من لعبه لاحقاً دون نت، دون أن يشعر بأي تأخير
+        if (navigator.onLine) {
+            const cacheBuster = Date.now();
+            const marathonUrl = `https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Data/Noor/dataNooR.json?v=${cacheBuster}`;
+            // fetch هنا سيتم اعتراضه بواسطة sw.js وتخزينه في الكاش
+            fetch(marathonUrl).catch(err => console.log("Background cache skipped:", err));
+        }
+        // ============================================================
+
+        // 3. جلب الأسئلة العادية (التحدي)
+        // ملاحظة: الكود الحالي يستخدم limit(3000)
+        // هذا يعني أنه بمجرد جلب البيانات، ستقوم Firebase Persistence بتخزينها محلياً تلقائياً
         const QUERY_LIMIT = 3000;
         let qQuery;
 
@@ -665,13 +701,15 @@ bind('ai-generate-btn', 'click', async () => {
             qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true), limit(QUERY_LIMIT));
         }
 
-        const snap = await getDocs(qQuery);
+        const snap = await getDocs(qQuery); // هنا يحدث السحر: البيانات تُجلب وتُخزّن محلياً
 
         // التحقق من وجود أسئلة
         if (cat !== 'random' && cat !== '' && snap.empty) {
-            toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
+            // رسالة مختلفة إذا كان أوفلاين
+            const msg = navigator.onLine ? "عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً." : "لا توجد أسئلة محفوظة لهذا القسم، اتصل بالإنترنت وحاول مرة أخرى.";
+            toast(msg, "error");
             btn.disabled = false;
-            btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
+            btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
             return;
         }
 
@@ -686,18 +724,15 @@ bind('ai-generate-btn', 'click', async () => {
         shuffleArray(freshQuestions);
 
         if (freshQuestions.length >= count) {
-            // حالة: أسئلة جديدة كافية
             quizState.questions = freshQuestions.slice(0, count);
         } else if (freshQuestions.length > 0) {
-            // حالة: أسئلة جديدة قليلة
             quizState.questions = freshQuestions;
             toast(`تبقى لديك ${freshQuestions.length} أسئلة جديدة فقط في هذا القسم!`, "info");
         } else {
-            // حالة: نفاد الأسئلة الجديدة (تكرار)
             let recycledQuestions = [...allAvailableQuestions];
             shuffleArray(recycledQuestions);
             quizState.questions = recycledQuestions.slice(0, count);
-            toast("سيتم عرض اسئله سابقة في هذه الجوله.", "warning");
+            toast("سيتم عرض أسئلة سابقة في هذه الجولة.", "warning");
         }
 
         if (quizState.questions.length === 0) {
@@ -705,17 +740,24 @@ bind('ai-generate-btn', 'click', async () => {
             throw new Error("No questions");
         }
 
+        // إشعار نجاح خفي (للمستخدم المتصل) ليطمئن
+        if (navigator.onLine && cat === 'random') {
+            toast("✅ تم تحديث البيانات للعمل بدون إنترنت", "success");
+        }
+
         startQuiz();
 
     } catch (e) {
         console.error(e);
-        if (e.message !== "No questions") toast("حدث خطأ في تحميل الأسئلة", "error");
+        if (e.message !== "No questions") {
+            const errMsg = navigator.onLine ? "حدث خطأ في تحميل الأسئلة" : "أنت غير متصل ولا توجد أسئلة محفوظة";
+            toast(errMsg, "error");
+        }
     }
 
     btn.disabled = false;
-    btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">play_circle</span>`;
+    btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
 });
-
 
 
 bind('review-mistakes-btn', 'click', () => {
@@ -758,7 +800,7 @@ bind('quit-quiz-btn', 'click', () => {
 
 
 bind('toggle-timer-btn', 'click', () => {
-    if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع الماراثون!", "error"); return; }
+    if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع النور!", "error"); return; }
     quizState.timerEnabled = !quizState.timerEnabled;
     localStorage.setItem('timerEnabled', quizState.timerEnabled); 
     updateTimerUI();
@@ -807,126 +849,92 @@ function renderLives() {
 }
 
 
-// الدالة الجديدة لبدء تحدي النور
-async function startLightChallenge() {
+async function startMarathon() {
     const btn = getEl('btn-marathon-confirm');
     
-    // التحقق من الوقت مرة أخرى (أمان إضافي)
-    if (userProfile.lastLightDate) {
-        const lastPlayed = userProfile.lastLightDate.toMillis ? userProfile.lastLightDate.toMillis() : new Date(userProfile.lastLightDate).getTime();
-        if (Date.now() - lastPlayed < 24 * 60 * 60 * 1000) {
-            toast("⛔️ لا يمكنك اللعب إلا مرة واحدة كل 24 ساعة.", "error");
+    if (userProfile.lastMarathonDate) {
+        const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
+        const now = Date.now();
+        const diff = now - lastPlayed;
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        
+        if (diff < twentyFourHours) {
+            toast("⛔️ لا يمكنك لعب النور إلا مرة واحدة كل 24 ساعة.", "error");
             getEl('marathon-rules-modal').classList.remove('active');
-            checkLightStatus();
+            checkMarathonStatus();
             return;
         }
     }
 
     btn.disabled = true; 
-    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري تجهيز النور...`;
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التحقق...`;
 
     try {
-        // 1. تحديث تاريخ اللعب في السيرفر فوراً
         await updateDoc(doc(db, "users", effectiveUserId), {
-            lastLightDate: serverTimestamp()
+            lastMarathonDate: serverTimestamp()
         });
-        userProfile.lastLightDate = { toMillis: () => Date.now() }; // تحديث محلي
-
-        // 2. طلب الأسئلة من Gemini
-        const aiQuestions = await fetchGeminiQuestions();
         
-        if (!aiQuestions || aiQuestions.length === 0) {
-            throw new Error("فشل توليد الأسئلة");
+        userProfile.lastMarathonDate = { toMillis: () => Date.now() };
+
+        const cacheBuster = Date.now();
+        const response = await fetch(`https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Data/Noor/dataNooR.json?v=${cacheBuster}`);
+        
+        if (!response.ok) throw new Error("فشل تحميل ملف أسئلة (أكمل النور)");
+        
+        let rawData = await response.json();
+
+        const seenIds = userProfile.seenMarathonIds || [];
+        let freshQs = [];
+        let usedQs = [];
+
+        rawData.forEach((q, index) => {
+            if (q.question && Array.isArray(q.options) && typeof q.correctAnswer === 'number') {
+                const questionObj = {
+                    id: q.id || `noor_idx_${index}`,
+                    question: q.question,
+                    options: q.options,
+                    correctAnswer: q.correctAnswer,
+                    topic: q.topic || "(أكمل النور)",
+                    explanation: q.explanation || ""
+                };
+
+                if (seenIds.includes(questionObj.id)) {
+                    usedQs.push(questionObj);
+                } else {
+                    freshQs.push(questionObj);
+                }
+            }
+        });
+
+        shuffleArray(freshQs);
+        shuffleArray(usedQs);
+
+        let finalQueue = [...freshQs, ...usedQs];
+
+        if (finalQueue.length < 10) {
+            toast("لا توجد أسئلة كافية لبدء الماراثون.", "error");
+            throw new Error("Not enough questions");
         }
 
-        // 3. إعداد وضع اللعب
-        quizState.questions = aiQuestions;
-        quizState.mode = 'light'; // وضع "أكمل النور"
-        quizState.contextTopic = "✨ أكمل النور ✨";
-        quizState.difficulty = "متوسط";
+        quizState.questions = finalQueue.slice(0, 500);
 
-        // إغلاق النافذة وبدء اللعب
+        if (freshQs.length === 0) {
+            toast("لقد ختمت جميع الأسئلة! سيتم عرض أسئلة مكررة للمراجعة.", "info");
+        }
+
+        quizState.mode = 'marathon'; 
+        quizState.contextTopic = "(أكمل النور)";
+
         getEl('marathon-rules-modal').classList.remove('active'); 
         startQuiz();
 
     } catch(e) {
         console.error(e);
-        toast("حدث خطأ في الاتصال أو نفدت المحاولات، حاول لاحقاً", "error");
+        toast("حدث خطأ أثناء الاتصال بالسيرفر", "error");
     } finally {
         btn.disabled = false; 
         btn.innerHTML = `بدء التحدي الآن!`;
     }
-}
-
-// دالة المحرك الذكي (Gemini Engine) مع التبديل التلقائي
-async function fetchGeminiQuestions() {
-    // 1. جلب المفاتيح من الفايربيس (إذا لم تكن مخزنة محلياً)
-    if (!apiKeysCache) {
-        try {
-            const docSnap = await getDoc(doc(db, "system", "api_keys"));
-            if (docSnap.exists()) {
-                apiKeysCache = docSnap.data();
-            } else {
-                throw new Error("No keys found in DB");
-            }
-        } catch (e) {
-            console.error("Error fetching keys:", e);
-            return null;
-        }
-    }
-
-    const keys = apiKeysCache.keys || [];
-    const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]; // ترتيب الموديلات
-    
-    // البرومبت الصارم
-    const prompt = `
-
-قم بتوليد 20 سؤالاً من نوع "أكمل الفراغ" (Fill in the Blank) باللغة العربية، بالاعتماد على القرآن الكريم حصراً، وبما يتوافق مع منظور الشيعة الإمامية. اختر آية صحيحة تماماً من القرآن واحذف كلمة واحدة فقط منها ثم ضع مكانها ".........". يجب أن يكون السؤال متوسط الطول، وكل سؤال يحتوي على فراغ واحد فقط. أنشئ 4 خيارات لكل سؤال بحيث يكون خيار واحد صحيح فقط وهو كلمة الآية المحذوفة. الإخراج يجب أن يكون بصيغة JSON Array فقط دون أي نصوص إضافية أو Markdownتأكّد من تطابق الآيات حرفياً مع الرسم القرآني ومن خلو JSON من أي خطأ.    5. يجب ان تتحقق من صحة الآيات بدقة وصحة السؤال لا وجود لاي مجال للخطا ابدا.
-    
-    Banned: Do not use Markdown code blocks. Just raw JSON.
-    Structure: [{"question": "...", "options": ["A","B","C","D"], "correctAnswer": 0, "topic": "أكمل النور"}]
-    `;
-    // 2. حلقة التكرار (Rotation Logic)
-    for (let k = 0; k < keys.length; k++) {
-        const apiKey = keys[k];
-        for (let m = 0; m < models.length; m++) {
-            const model = models[m];
-            console.log(`Trying Key ${k+1} with Model: ${model}...`);
-            
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.7 }
-                    })
-                });
-
-                if (!response.ok) {
-                    // إذا كان الخطأ 429 (Too Many Requests) ننتقل للمحاولة التالية
-                    if (response.status === 429) continue; 
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                let text = data.candidates[0].content.parts[0].text;
-                
-                // تنظيف النص من علامات الـ Markdown إذا وجدت
-                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                
-                const json = JSON.parse(text);
-                
-                // إضافة ID عشوائي لكل سؤال لضمان العمل السليم
-                return json.map(q => ({ ...q, id: 'ai_' + Math.random().toString(36).substr(2, 9) }));
-
-            } catch (err) {
-                console.warn(`Failed with Key ${k+1} / ${model}:`, err);
-                // استمر للحلقة التالية
-            }
-        }
-    }
-    return null; // فشل الكل
 }
 
 function startQuiz() {
@@ -934,7 +942,7 @@ function startQuiz() {
     window.history.pushState({ view: 'playing' }, "", "");
 
     manageAudioSystem('start_quiz');
-    hide('top-header');
+    hide('bottom-nav');
     
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; 
@@ -1057,7 +1065,7 @@ function renderQuestion() {
     if (quizState.mode === 'marathon') {
         getEl('question-counter-text').textContent = `${quizState.idx+1}`;
         const dots = getEl('progress-dots'); 
-        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 وضع الماراثون</span>';
+        dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 (أكمل النور)</span>';
     } else {
        getEl('question-counter-text').textContent = `${formatNumberAr(quizState.idx+1)}/${formatNumberAr(quizState.questions.length)}`;
 
@@ -1072,29 +1080,63 @@ function renderQuestion() {
 
     getEl('live-score-text').textContent = formatNumberAr(quizState.score);
 
-        const box = getEl('options-container'); 
-    box.innerHTML = '';
+     const box = getEl('options-container');
+    box.innerHTML = ''; 
 
-    // --- كود الشبكة الجديد ---
-    if (quizState.mode === 'light') {
-        box.classList.add('options-grid-view'); // تفعيل الشبكة (مربعين)
-        getEl('question-counter-text').textContent = `✨ ${formatNumberAr(quizState.idx + 1)} / ${formatNumberAr(20)}`; // عداد خاص
-        hide('toggle-timer-btn'); // إخفاء زر المؤقت
-        hide('toggle-enrichment-btn'); // إخفاء زر المعلومة
-        hide('progress-dots'); // إخفاء النقاط
+    // ============================================================
+    // 🔥 الحل النهائي: تنسيق الشبكة عبر الجافاسكربت مباشرة 🔥
+    // (يضمن العمل 100% بتطبيق التنسيق على العناصر مباشرة)
+    // ============================================================
+    if (quizState.mode === 'marathon') {
+        // 1. إعداد الشبكة (Grid) يدوياً
+        box.style.display = 'grid';
+        box.style.gridTemplateColumns = 'repeat(2, 1fr)'; // عمودين متساويين
+        box.style.gap = '10px'; // مسافة بين المربعات
+        
+        // 2. إزالة تأثيرات القائمة العمودية
+        box.classList.remove('space-y-1', 'space-y-2', 'space-y-3');
     } else {
-        box.classList.remove('options-grid-view'); // الوضع العادي
-        show('toggle-timer-btn');
-        show('toggle-enrichment-btn');
-        show('progress-dots');
+        // العودة للوضع الطبيعي (القائمة)
+        box.style.display = 'block'; // إلغاء الشبكة
+        box.style.gridTemplateColumns = 'none';
+        box.style.gap = '0';
+        box.classList.add('space-y-1');
     }
-    // -----------------------
-
     q.options.forEach((o, i) => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
-        btn.innerHTML = `<span class="option-number">${i+1}</span> ${o}`;
+        
+        // --- تعديل الشكل لوضع الماراثون (حجم أصغر) ---
+        if (quizState.mode === 'marathon') {
+            // 1. تقليل الارتفاع ليصبح أصغر (135px بدلاً من 160px)
+            btn.style.setProperty('height', '135px', 'important');      
+            btn.style.setProperty('min-height', '135px', 'important');
+            btn.style.setProperty('max-height', '135px', 'important');
+            
+            // 2. كسر قفل الترتيب (فوق بعض)
+            btn.style.setProperty('flex-direction', 'column', 'important');
+            btn.style.setProperty('justify-content', 'center', 'important');
+            btn.style.setProperty('align-items', 'center', 'important');
+            
+            // 3. تقليل المسافة الفاصلة قليلاً لتوفير المساحة
+            btn.style.setProperty('gap', '8px', 'important'); 
+
+            // 4. تنسيقات النص
+            btn.style.textAlign = 'center';
+            btn.style.whiteSpace = 'normal'; 
+            btn.style.padding = '8px'; // تقليل الحشوة قليلاً
+            btn.style.lineHeight = '1.3';
+            btn.style.margin = '0';
+            
+            // تصغير الخط قليلاً جداً ليتناسب مع الحجم الجديد
+            btn.style.setProperty('font-size', '1.1em', 'important');
+        }
+
+        btn.innerHTML = `<span class="option-number">${formatNumberAr(i+1)}</span> ${o}`;
         btn.onclick = () => selectAnswer(i, btn);
+btn.classList.add('grid-pop');
+btn.style.animationDelay = `${i * 0.1}s`; 
+
         box.appendChild(btn);
     });
     getEl('feedback-text').textContent = '';
@@ -1104,18 +1146,6 @@ function renderQuestion() {
 
 function nextQuestion() {
     quizState.idx++;
-
-    // شرط الفوز الخاص بوضع "أكمل النور"
-    // إذا وصل اللاعب للسؤال رقم 20 (أي أتم 20 سؤالاً)
-    if (quizState.mode === 'light' && quizState.idx >= 20) {
-        quizState.score += 500; // نمنحه 500 نقطة هدية إضافية
-        toast("🎉 مبارك! أكملت النور بنجاح (+500 نقطة)", "success");
-        playSound('applause'); // تشغيل صوت التصفيق
-        endQuiz(); // إنهاء المسابقة
-        return;
-    }
-
-    // الوضع الطبيعي لباقي الأوضاع
     if(quizState.idx < quizState.questions.length) {
         renderQuestion();
     } else {
@@ -1341,7 +1371,7 @@ function selectAnswer(idx, btn) {
 }
 
 
-// دالة مكافأة الماراثون
+// دالة مكافأة النور
 async function unlockRandomThemeReward() {
     const allThemes = ['ruby', 'midnight', 'royal', 'blackfrost', 'persian', 'ashura'];
     const owned = userProfile.inventory.themes || [];
@@ -1352,14 +1382,14 @@ async function unlockRandomThemeReward() {
         userProfile.inventory.themes.push(newTheme);
         await updateDoc(doc(db, "users", effectiveUserId), { "inventory.themes": userProfile.inventory.themes });
         
-        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} (ماراثون)`, "success");
+        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} (أكمل النور)`, "success");
         playSound('applause');
         updateThemeSelector();
     } else {
         // إذا كان يملك كل الثيمات، امنحه قلباً هدية
         userProfile.inventory.lives++;
         await updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
-        toast("🎉 إنجاز رائع! حصلت على قلب إضافي (ماراثون)", "success");
+        toast("🎉 إنجاز رائع! حصلت على قلب إضافي (أكمل النور)", "success");
         quizState.lives++; // زيادة فورية في اللعبة الحالية
         renderLives();
     }
@@ -1424,7 +1454,6 @@ async function endQuiz() {
     const safeTotalQuestions = Number(quizState.questions.length) || 0;
     const accuracy = safeTotalQuestions > 0 ? Math.round((safeCorrectCount / safeTotalQuestions) * 100) : 0;
 
-        // بدء العداد من الصفر إلى النتيجة النهائية خلال 3 ثواني
     animateValue(getEl('card-score'), 0, quizState.score, 500);
  
     getEl('card-username').textContent = userProfile.username;
@@ -1435,7 +1464,7 @@ async function endQuiz() {
 
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { 
-        msg = "أداء أسطوري! درجة كاملة"; 
+        msg = "أداء مبهر! درجة كاملة"; 
         playSound('applause'); 
     } else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
@@ -1444,7 +1473,6 @@ async function endQuiz() {
 
     const stats = userProfile.stats || {};
     
-    // ... (نفس الكود القديم للإحصائيات العامة) ...
     const oldTotalCorrect = Number(stats.totalCorrect) || 0;
     const oldTotalQs = Number(stats.totalQuestions) || 0;
     const oldBestScore = Number(stats.bestRoundScore) || 0;
@@ -1486,19 +1514,16 @@ async function endQuiz() {
         newStats.topicCorrect[currentTopic] = oldTopicScore + safeCorrectCount;
     }
 
-    // 1. منطق الأسبوعي
     const currentWeekKey = getCurrentWeekKey();
     let weeklyStats = userProfile.weeklyStats || { key: '', correct: 0 };
     if (weeklyStats.key !== currentWeekKey) { weeklyStats = { key: currentWeekKey, correct: 0 }; }
     weeklyStats.correct += safeCorrectCount;
 
-    // 2. منطق الشهري (الجديد)
     const currentMonthKey = getCurrentMonthKey();
     let monthlyStats = userProfile.monthlyStats || { key: '', correct: 0 };
     if (monthlyStats.key !== currentMonthKey) { monthlyStats = { key: currentMonthKey, correct: 0 }; }
     monthlyStats.correct += safeCorrectCount;
 
-    // ... (باقي الكود: إدارة الأسئلة وبنك الأخطاء) ...
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     const oldSeen = Array.isArray(userProfile.seenQuestions) ? userProfile.seenQuestions : [];
     let updatedSeenQuestions = [...new Set([...oldSeen, ...playedIds])]; 
@@ -1507,13 +1532,22 @@ async function endQuiz() {
     let updatedWrongQuestionsBank = Array.isArray(userProfile.wrongQuestionsBank) ? userProfile.wrongQuestionsBank : [];
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(-15);
 
+    let updatedSeenMarathon = userProfile.seenMarathonIds || [];
+    if (quizState.mode === 'marathon') {
+        const playedMarathonIds = quizState.questions
+            .slice(0, quizState.idx + 1)
+            .map(q => q.id);
+        updatedSeenMarathon = [...new Set([...updatedSeenMarathon, ...playedMarathonIds])];
+    }
+
     const firestoreUpdates = {
         highScore: increment(quizState.score), 
         stats: newStats, 
         weeklyStats: weeklyStats,
-        monthlyStats: monthlyStats, // <--- تم الإضافة
+        monthlyStats: monthlyStats,
         wrongQuestionsBank: updatedWrongQuestionsBank, 
         seenQuestions: updatedSeenQuestions,
+        seenMarathonIds: updatedSeenMarathon
     };
 
     try {
@@ -1522,9 +1556,10 @@ async function endQuiz() {
         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
         userProfile.stats = newStats;
         userProfile.weeklyStats = weeklyStats;
-        userProfile.monthlyStats = monthlyStats; // تحديث محلي
+        userProfile.monthlyStats = monthlyStats;
         userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
         userProfile.seenQuestions = updatedSeenQuestions;
+        userProfile.seenMarathonIds = updatedSeenMarathon;
         
         updateProfileUI(); 
 
@@ -1536,16 +1571,17 @@ async function endQuiz() {
     } catch(e) {
         console.error("Error saving quiz results:", e);
         toast("تم حفظ النقاط محلياً مؤقتاً لضعف الاتصال", "info");
-        // تحديث محلي للطوارئ
         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
         userProfile.weeklyStats = weeklyStats;
         userProfile.monthlyStats = monthlyStats;
+        userProfile.seenMarathonIds = updatedSeenMarathon;
         updateProfileUI();
     }
 
     addLocalNotification('نهاية جولة', `أتممت جولة في "${quizState.contextTopic}". النتيجة: ${quizState.score} نقطة.`, 'sports_score');
     renderReviewArea();
 }
+
 
 function renderReviewArea() {
     const box = getEl('review-items-container'); 
@@ -2103,14 +2139,36 @@ bind('nav-favs', 'click', () => {
 bind('nav-mistakes', 'click', () => { toggleMenu(false); getEl('review-mistakes-btn').click(); });
 bind('nav-settings', 'click', () => openModal('settings-modal'));
 // التغيير يحدث عند ترك الزر لتقليل الوميض
-bind('font-size-slider', 'change', (e) => document.documentElement.style.setProperty('--base-size', e.target.value+'px'));
+// --- تحسين منطق تغيير حجم الخط وحفظه ---
 
-bind('delay-slider', 'input', (e) => { 
-    const v = parseInt(e.target.value);
-    transitionDelay = v * 1000; 
-    getEl('delay-val').textContent = formatNumberAr(v);
-    localStorage.setItem('transitionDelay', v);
+// --- كود التحكم بحجم الخط (المحسن) ---
+
+// 1. عند تحميل التطبيق: استعادة الحجم وتحديث الرقم
+const savedFontSize = localStorage.getItem('app_font_size');
+if (savedFontSize) {
+    document.documentElement.style.setProperty('--base-size', savedFontSize + 'px');
+    const slider = getEl('font-size-slider');
+    const numDisplay = getEl('font-size-number');
+    
+    if (slider) slider.value = savedFontSize;
+    if (numDisplay) numDisplay.textContent = savedFontSize; // تحديث الرقم عند التحميل
+}
+
+// 2. عند تحريك الشريط (تحديث فوري للنص والرقم)
+bind('font-size-slider', 'input', (e) => {
+    const newVal = e.target.value;
+    
+    // تطبيق الحجم
+    document.documentElement.style.setProperty('--base-size', newVal + 'px');
+    
+    // تحديث الرقم الظاهر للمستخدم
+    const numDisplay = getEl('font-size-number');
+    if (numDisplay) numDisplay.textContent = newVal;
+    
+    // حفظ في الذاكرة
+    localStorage.setItem('app_font_size', newVal);
 });
+
 
 const handleLogout = () => { 
     window.showConfirm(
@@ -2653,33 +2711,20 @@ bind('show-register-btn', 'click', () => { hide('login-view'); show('register-vi
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
 
 bind('btn-marathon-start', 'click', () => { 
+    // --- بداية التعديل: التحقق من بنك الأخطاء ---
     if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         openModal('force-review-modal');
-        return;
+        return; // إيقاف الدالة
     }
-    
-    // تغيير النصوص لتناسب الوضع الجديد
-    const modal = getEl('marathon-rules-modal');
-    modal.querySelector('h3').textContent = "✨ تحدي أكمل النور";
-    modal.querySelector('.btn-gold-action').textContent = "تجهيز الأسئلة وبدء التحدي";
-    
-    // تحديث القواعد
-    const rulesContainer = modal.querySelector('.space-y-3');
-    rulesContainer.innerHTML = `
-        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-amber-400 mt-1">light_mode</span> الهدف: أكمل 20 "قبساً من النور" (سؤالاً) بنجاح.</p>
-        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-red-500 mt-1">favorite</span> لديك 3 قلوب. كل خطأ يطفئ جزءاً من النور.</p>
-        <p class="text-slate-300 text-sm flex items-start gap-2"><span class="material-symbols-rounded text-blue-400 mt-1">psychology</span> الأسئلة من توليد الذكاء الاصطناعي (قد تحتوي على أخطاء).</p>
-    `;
 
-    modal.classList.add('active'); 
+    document.getElementById('marathon-rules-modal').classList.add('active'); 
     getEl('ai-question-count').disabled = true;
     getEl('ai-generate-btn').disabled = true;
     getEl('btn-marathon-start').disabled = true;
 });
 
 
-
-bind('btn-marathon-confirm', 'click', startLightChallenge);
+bind('btn-marathon-confirm', 'click', startMarathon);
 
 function showReviveModal() {
     let modal = document.getElementById('revive-modal');
@@ -2755,33 +2800,26 @@ window.cancelRevive = function() {
 };
 
 
-function checkLightStatus() {
+function checkMarathonStatus() {
     const btn = getEl('btn-marathon-start');
-    // إيقاف العداد القديم إن وجد
     if (marathonInterval) clearInterval(marathonInterval);
 
-    // تغيير شكل الزر ليعكس الوضع الجديد (أكمل النور)
-    btn.className = "w-1/2 input-glass btn-light-mode btn-light-anim"; 
-    
-    // التحقق: هل لعب المستخدم اليوم؟
-    if (!userProfile || !userProfile.lastLightDate) {
+    if (!userProfile || !userProfile.lastMarathonDate) {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-        // النص الجديد
-        btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">light_mode</span>`;
+
+btn.innerHTML = `<span class="text-lg">(أكمل النور)</span> <span class="material-symbols-rounded">local_fire_department</span>`;
         return;
     }
 
-    const lastPlayed = userProfile.lastLightDate.toMillis ? userProfile.lastLightDate.toMillis() : new Date(userProfile.lastLightDate).getTime();
+    const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;
     const diff = now - lastPlayed;
 
     if (diff < twentyFourHours) {
-        // إذا لم تمر 24 ساعة، نقفل الزر ونشغل العداد
         btn.disabled = true;
         btn.classList.add('cursor-not-allowed');
-        btn.classList.remove('btn-light-anim'); // إيقاف الوميض
         
         const updateTimer = () => {
             const currentNow = Date.now();
@@ -2789,7 +2827,7 @@ function checkLightStatus() {
             
             if (timeLeft <= 0) {
                 clearInterval(marathonInterval);
-                checkLightStatus(); // إعادة الفحص لفتح الزر
+                checkMarathonStatus();
                 return;
             }
 
@@ -2797,23 +2835,26 @@ function checkLightStatus() {
             const m = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
+            // تعريب الساعة
             const pad = (n) => n.toString().padStart(2, '0');
             const timeStr = `${pad(h)}:${pad(m)}:${pad(s)}`;
             const arTime = timeStr.replace(/\d/g, d => ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'][d]);
 
             btn.innerHTML = `
-                <span class="text-lg font-mono font-bold text-white" dir="ltr">${arTime}</span> 
-                <span class="material-symbols-rounded text-slate-300">lock_clock</span>
+                <span class="text-lg font-mono font-bold text-black" dir="ltr">
+                    ${arTime}
+                </span> 
+                <span class="material-symbols-rounded text-black">lock_clock</span>
             `;
         };
 
         updateTimer();
         marathonInterval = setInterval(updateTimer, 1000);
     } else {
-        // انتهى الوقت، افتح الزر
         btn.disabled = false;
         btn.classList.remove('cursor-not-allowed');
-        btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">light_mode</span>`;
+        btn.innerHTML = `<span class="text-lg">(أكمل النور)</span> <span class="material-symbols-rounded">directions_run</span>`;
+
     }
 }
 
@@ -2851,176 +2892,12 @@ async function checkWhatsNew() {
     }
 }
 
-// --- CHEAT CODES & DEV TOOLS ---
-// Inject improved CSS for Sauron Eye
-const sauronStyle = document.createElement('style');
-sauronStyle.innerHTML = `
-/* ====== Animations ====== */
-@keyframes sauronPulse {
-  0%   { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
-  50%  { transform: scale(1.08); opacity: 1; box-shadow: 0 0 120px #ff4500; }
-  100% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
-}
-@keyframes pupilMove {
-  0%   { transform: scaleY(0.9) translateX(0); }
-  25%  { transform: scaleY(1) translateX(6px); }
-  50%  { transform: scaleY(1.1) translateX(-6px); }
-  75%  { transform: scaleY(1) translateX(4px); }
-  100% { transform: scaleY(0.9) translateX(0); }
-}
-
-/* ====== Overlay Container ====== */
-.sauron-overlay {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at 50% 60%, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.98) 100%);
-  z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.8s ease-in-out;
-}
-.sauron-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* ====== Eye Core ====== */
-.eye-shape {
-  position: relative;
-  width: clamp(200px, 30vw, 320px);
-  height: clamp(100px, 15vw, 180px);
-  background: radial-gradient(circle at 50% 50%, #ffe066 0%, #ff8800 25%, #cc0000 65%, #220000 100%);
-  border-radius: 60% / 100%;
-  box-shadow: 0 0 80px #ff2200, inset 0 0 40px #000;
-  animation: sauronPulse 4s infinite ease-in-out;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  border: 3px solid #660000;
-  will-change: transform, opacity, box-shadow;
-}
-
-/* ====== Pupil ====== */
-.eye-pupil {
-  width: 18px;
-  height: 65%;
-  background: #000;
-  border-radius: 50%;
-  box-shadow: 0 0 20px #ff2200;
-  animation: pupilMove 2s infinite ease-in-out;
-  filter: blur(0.8px);
-  will-change: transform;
-}
-`;
-document.head.appendChild(sauronStyle);
-
-/* ====== Example Usage ====== */
-// Create the overlay and append it to the document
-const sauronOverlay = document.createElement('div');
-sauronOverlay.className = 'sauron-overlay';
-sauronOverlay.innerHTML = `
-  <div class="eye-shape">
-    <div class="eye-pupil"></div>
-  </div>
-`;
-document.body.appendChild(sauronOverlay);
-
-// Toggle function (for demo)
-window.toggleSauronEye = function () {
-  sauronOverlay.classList.toggle('active');
-};
-const sauronDiv = document.createElement('div');
-sauronDiv.id = 'sauron-modal';
-sauronDiv.className = 'sauron-overlay';
-sauronDiv.innerHTML = '<div class="eye-shape"><div class="eye-pupil"></div></div>';
-document.body.appendChild(sauronDiv);
-
-// 1. Light Mode Cheat: Click 5 times on Header Score
-let marathonCheatClicks = 0;
-bind('header-score', 'click', async () => {
-    marathonCheatClicks++;
-    if(marathonCheatClicks === 5) {
-        if(userProfile) {
-            // تصفير وقت "أكمل النور" لكي تتمكن من اللعب فوراً
-            userProfile.lastLightDate = null;
-            await updateDoc(doc(db, "users", effectiveUserId), { lastLightDate: null });
-            
-            // استدعاء الدالة الجديدة بدلاً من القديمة
-            checkLightStatus(); 
-            
-            toast("تم تصفير وقت النور (Sauron Mode)", "success");
-            playSound('win');
-        }
-        marathonCheatClicks = 0;
-    }
-    setTimeout(() => marathonCheatClicks = 0, 1000);
-});
-
-
-// 2. Reveal Answer Cheat Sequence: 
-// (Double Click "1/10") -> (Click "Lives") -> (Click "Round Score")
-let cheatStep1 = false;
-let cheatStep2 = false;
-
-bind('question-counter-text', 'dblclick', () => {
-    if(!quizState.active) return;
-    cheatStep1 = true;
-    // Reset if sequence not completed in 4 seconds
-    setTimeout(() => { cheatStep1 = false; cheatStep2 = false; }, 4000);
-});
-
-bind('lives-display', 'click', () => {
-    if(cheatStep1) cheatStep2 = true;
-    else { cheatStep1 = false; cheatStep2 = false; }
-});
-
-bind('live-score-text', 'click', () => {
-    if(cheatStep1 && cheatStep2) {
-        triggerSauronEffect();
-        cheatStep1 = false; 
-        cheatStep2 = false;
-    } else {
-        cheatStep1 = false; 
-        cheatStep2 = false;
-    }
-});
-
-// ربط زر النافذة الجديدة بوظيفة المراجعة الموجودة مسبقاً
 bind('btn-force-review-confirm', 'click', () => {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); // إغلاق النافذة
-    getEl('review-mistakes-btn').click(); // محاكاة الضغط على زر المراجعة الأصلي
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    getEl('review-mistakes-btn').click();
 });
 
-function triggerSauronEffect() {
-    const modal = document.getElementById('sauron-modal');
-    
-    // Play scary low frequency sound
-    if(!isMuted) {
-        createOscillator(80, 'sawtooth', 2.0, 0.6);
-        createOscillator(60, 'square', 2.0, 0.6);
-    }
 
-    modal.classList.add('active');
-    
-    setTimeout(() => {
-        modal.classList.remove('active');
-        const q = quizState.questions[quizState.idx];
-        const btns = document.querySelectorAll('.option-btn');
-        if(btns[q.correctAnswer]) {
-            // Apply fiery style to correct answer
-            const btn = btns[q.correctAnswer];
-            btn.style.transition = "all 0.5s";
-            btn.style.border = "2px solid #ef4444";
-            btn.style.boxShadow = "0 0 25px rgba(220, 38, 38, 0.8), inset 0 0 10px rgba(220, 38, 38, 0.5)";
-            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
-            btn.classList.add('animate-pulse');
-        }
-    }, 2500);
-}
 // --- دالة تحويل الأرقام وتنسيقها ---
 function formatNumberAr(num, compact = false) {
     if (num === null || num === undefined || isNaN(num)) return '٠';
@@ -3043,20 +2920,17 @@ function formatNumberAr(num, compact = false) {
     return toAr(Number(num).toLocaleString('en-US'));
 }
 
-// دالة مساعدة لتنظيف البيانات وإصلاح التالف منها
+
+
 function sanitizeUserData(data) {
     let wasFixed = false;
-    
-    // نسخة آمنة نبدأ بها
     const cleanData = { ...data };
 
-    // 1. إصلاح النقاط (High Score)
     if (typeof cleanData.highScore !== 'number' || isNaN(cleanData.highScore)) {
         cleanData.highScore = 0;
         wasFixed = true;
     }
 
-    // 2. إصلاح الإحصائيات (Stats)
     if (!cleanData.stats || typeof cleanData.stats !== 'object') {
         cleanData.stats = {};
         wasFixed = true;
@@ -3084,7 +2958,6 @@ function sanitizeUserData(data) {
         wasFixed = true;
     }
 
-    // 3. إصلاح الحقيبة (Inventory)
     if (!cleanData.inventory || typeof cleanData.inventory !== 'object') {
         cleanData.inventory = { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] };
         wasFixed = true;
@@ -3101,28 +2974,24 @@ function sanitizeUserData(data) {
             }
         });
         if (!Array.isArray(cleanData.inventory.themes)) {
-                    cleanData.inventory.themes = ['default'];
+            cleanData.inventory.themes = ['default'];
             wasFixed = true;
         }
-        // --- إضافة فحص الإطارات (جديد) ---
         if (!Array.isArray(cleanData.inventory.frames)) {
             cleanData.inventory.frames = ['default']; 
             wasFixed = true;
         }
     } 
     
-    // فحص الإطار المجهز
     if (!cleanData.equippedFrame) {
         cleanData.equippedFrame = 'default';
         wasFixed = true;
     }
 
-            
-
-    // 4. إصلاح المصفوفات الأساسية
     if (!Array.isArray(cleanData.badges)) { cleanData.badges = ['beginner']; wasFixed = true; }
     if (!Array.isArray(cleanData.favorites)) { cleanData.favorites = []; wasFixed = true; }
     if (!Array.isArray(cleanData.seenQuestions)) { cleanData.seenQuestions = []; wasFixed = true; }
+    if (!Array.isArray(cleanData.seenMarathonIds)) { cleanData.seenMarathonIds = []; wasFixed = true; }
     if (!Array.isArray(cleanData.wrongQuestionsBank)) { cleanData.wrongQuestionsBank = []; wasFixed = true; }
 
     return { cleanData, wasFixed };
@@ -3644,6 +3513,43 @@ if(vibToggle) {
         if(isVibration) window.triggerHaptic('medium');
     };
 }
+// دالة تهيئة الوضع النهاري (توضع مع الدوال المساعدة)
+function initDayMode() {
+    const dayToggle = getEl('day-mode-toggle');
+    const isDay = localStorage.getItem('app_day_mode') === 'true';
+    
+    // 1. تطبيق الوضع بصرياً
+    if(isDay) {
+        document.documentElement.classList.add('light-mode');
+    } else {
+        document.documentElement.classList.remove('light-mode');
+    }
+
+    // 2. ربط الزر (مع التأكد من وجوده)
+    if(dayToggle) {
+        // نضبط حالة الزر لتطابق الذاكرة
+        dayToggle.checked = isDay;
+        
+        // نستخدم onchange بدلاً من addEventListener لمنع تكرار الأحداث عند التنقل
+        dayToggle.onchange = (e) => {
+             const newState = e.target.checked;
+             localStorage.setItem('app_day_mode', newState);
+             
+             if(newState) {
+                 document.documentElement.classList.add('light-mode');
+                 toast('تم تفعيل الوضع النهاري ☀️');
+             } else {
+                 document.documentElement.classList.remove('light-mode');
+                 toast('تم تفعيل الوضع الليلي 🌙');
+             }
+             
+             if(window.triggerHaptic) window.triggerHaptic('medium');
+             if(typeof playSound === 'function') playSound('click');
+        };
+    }
+}
+
+// =========================================================
 
 /* =========================================
    Skeleton Loading Logic
@@ -3674,8 +3580,28 @@ function renderSkeleton(type, count=5) {
     } else if (type === 'quiz') {
         // تنظيف الواجهة القديمة
         getEl('question-text').innerHTML = '<div class="skeleton sk-line long mx-auto mb-2"></div><div class="skeleton sk-line short mx-auto"></div>';
-        const box = getEl('options-container');
-        box.innerHTML = '';
+                const box = getEl('options-container');
+    
+    // تنظيف المحتوى السابق
+    box.innerHTML = ''; 
+
+    // --- منطق تبديل شكل الخيارات (قائمة vs شبكة) ---
+    if (quizState.mode === 'marathon') {
+        // 1. تفعيل وضع الشبكة
+        box.classList.add('options-grid-mode');
+        // 2. هام جداً: إزالة كلاسات التباعد العمودي الخاصة بـ Tailwind
+        // (إذا لم نحذفها، ستخرب شكل الشبكة)
+        box.classList.remove('space-y-1', 'space-y-2', 'space-y-3'); 
+    } else {
+        // 1. إزالة وضع الشبكة
+        box.classList.remove('options-grid-mode');
+        // 2. إعادة كلاس التباعد العمودي للقائمة العادية
+        box.classList.add('space-y-1'); 
+    }
+
+    
+    box.innerHTML = ''; // تفريغ المحتوى القديم
+
         
         for(let i=0; i<4; i++) {
             box.innerHTML += `<div class="skeleton sk-btn"></div>`;
@@ -3840,97 +3766,7 @@ function showFloatingFeedback(element, text, colorClass) {
     setTimeout(() => el.remove(), 1200);
 }
 
-// ==========================================
-// 🕵️‍♂️ أدوات المشرف المخفية (Admin Secret Tools)
-// ==========================================
 
-/**
- * دالة تحديث عداد الأسئلة في قاعدة البيانات
- * تقوم بمسح كامل للأسئلة وحفظ الإحصائيات في ملف system/counts
- */
-window.generateCounts = async function() {
-    // منع التكرار إذا كانت العملية جارية
-    if(document.getElementById('admin-loading-badge')) return;
-
-    // 1. إنشاء مؤشر تحميل بصري صغير في أعلى الشاشة
-    const badge = document.createElement('div');
-    badge.id = 'admin-loading-badge';
-    badge.innerHTML = '⚙️ جاري تحديث العدادات...';
-    badge.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); color:#fbbf24; padding:8px 15px; z-index:9999; border-radius:20px; border:1px solid #fbbf24; font-size:12px; font-weight:bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);";
-    document.body.appendChild(badge);
-
-    console.log("🚀 بدأ تحديث العدادات...");
-    
-    try {
-        const counts = {};
-        // جلب جميع الأسئلة من قاعدة البيانات
-        const q = query(collection(db, "questions"));
-        const snap = await getDocs(q);
-        
-        // حساب عدد الأسئلة لكل موضوع
-        snap.forEach(doc => {
-            const d = doc.data();
-            if (d.topic) {
-                const cleanTopic = d.topic.trim();
-                counts[cleanTopic] = (counts[cleanTopic] || 0) + 1;
-            }
-        });
-        
-        // حفظ النتائج في ملف النظام
-        await setDoc(doc(db, "system", "counts"), counts);
-        
-        // تحديث حالة النجاح
-        badge.innerHTML = '✅ تم التحديث بنجاح!';
-        badge.style.borderColor = '#4ade80';
-        badge.style.color = '#4ade80';
-        
-        // تشغيل صوت نجاح وتحديث المتغير المحلي فوراً
-        if(typeof playSound === 'function') playSound('applause');
-        dbTopicCounts = counts; 
-        
-        // إخفاء المؤشر بعد 3 ثواني
-        setTimeout(() => badge.remove(), 3000);
-        
-    } catch (e) {
-        console.error("Admin Update Error:", e);
-        badge.innerHTML = '❌ فشل التحديث';
-        badge.style.color = '#ef4444';
-        badge.style.borderColor = '#ef4444';
-        setTimeout(() => badge.remove(), 3000);
-    }
-};
-
-/**
- * مراقب الحركة السرية
- * يتطلب الضغط 7 مرات متتالية بسرعة على العنوان الرئيسي
- */
-let adminSecretClicks = 0;
-let adminClickResetTimer = null;
-
-document.addEventListener('click', (e) => {
-    // استهداف العنوان الرئيسي في الشاشة الترحيبية
-    const titleEl = e.target.closest('#welcome-area h1');
-    
-    if (titleEl) {
-        adminSecretClicks++;
-        
-        // إعادة تصفير العداد إذا توقف الضغط لمدة ثانية
-        clearTimeout(adminClickResetTimer);
-        adminClickResetTimer = setTimeout(() => { adminSecretClicks = 0; }, 1000);
-
-        // عند الوصول لـ 7 نقرات
-        if (adminSecretClicks === 7) {
-            // اهتزاز للتنبيه ببدء العملية
-            if(window.triggerHaptic) window.triggerHaptic('success');
-            
-            // استدعاء دالة التحديث
-            window.generateCounts();
-            
-            // تصفير العداد
-            adminSecretClicks = 0;
-        }
-    }
-});
 // ==========================================
 // 🎁 نظام المكافأة اليومية
 // ==========================================
@@ -4155,6 +3991,10 @@ document.addEventListener('contextmenu', (e) => {
 
 // 4. الدالة الرئيسية (مع إصلاح العلامات الزرقاء وزر النسخ)
 async function handleAiTrigger() {
+    if (!navigator.onLine) {
+        toast("هذه الميزة تتطلب اتصالاً بالإنترنت 📡", "error");
+        return; // إيقاف العملية فوراً
+    }
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     
@@ -4170,7 +4010,7 @@ async function handleAiTrigger() {
     const apiKey = localStorage.getItem('ai_api_key');
     if (!apiKey) {
         if (selection.removeAllRanges) selection.removeAllRanges();
-        toast(" أدخل مفتاح AI في الإعدادات", "error");
+        toast("⚠️ أدخل مفتاح AI في الإعدادات", "error");
         const settingsModal = document.getElementById('settings-modal');
         if(settingsModal) settingsModal.classList.add('active');
         return;
@@ -4259,3 +4099,277 @@ async function handleAiTrigger() {
         content.innerHTML = `<span class="text-red-400 text-sm">فشل: ${e.message}</span>`;
     }
 }
+// ==========================================
+// 📡 مراقب حالة الاتصال (Online/Offline Monitor)
+// ==========================================
+
+function updateOnlineStatus() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+
+    if (navigator.onLine) {
+        // حالة الاتصال: إخفاء الشريط
+        banner.classList.remove('show-offline');
+        banner.classList.add('hidden');
+    } else {
+        // حالة الانقطاع: إظهار الشريط
+        banner.classList.remove('hidden');
+        // تأخير بسيط للسماح للمتصفح بإزالة hidden قبل تفعيل الحركة
+        setTimeout(() => {
+            banner.classList.add('show-offline');
+        }, 10);
+        
+        // تنبيه المستخدم (Toast)
+        if(typeof toast === 'function') toast("انقطع الاتصال بالإنترنت 📡", "error");
+    }
+}
+
+// الاستماع للأحداث
+window.addEventListener('online', () => {
+    updateOnlineStatus();
+    if(typeof toast === 'function') toast("عاد الاتصال! تمت المزامنة ✅", "success");
+});
+window.addEventListener('offline', updateOnlineStatus);
+
+// التحقق عند بدء التشغيل
+document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+
+// =========================================================================
+// 🕵️‍♂️ CHEAT CODES MANAGER & ADMIN TOOLS (نظام إدارة الأسرار - النهائي)
+// =========================================================================
+
+// --- ⚙️ إعدادات الحساسية ---
+const CHEAT_CONFIG = {
+    ADMIN_CLICKS_REQUIRED: 10,     // 10 نقرات لتحديث العدادات
+    MARATHON_RESET_CLICKS: 7,      // 7 نقرات لفك حظر الماراثون
+    SAURON_TIMEOUT: 6000           // الوقت المتاح لإكمال تسلسل عين ساورون (6 ثواني)
+};
+
+// -------------------------------------------------------------------------
+// 1. حقن تأثيرات CSS الخاصة بالعين (Sauron Eye CSS)
+// -------------------------------------------------------------------------
+(function injectCheatStyles() {
+    const styleId = 'sauron-css-effects';
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `
+        @keyframes sauronPulse {
+            0% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
+            50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 120px #ff4500; }
+            100% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
+        }
+        @keyframes pupilMove {
+            0%, 100% { transform: scaleY(0.9) translateX(0); }
+            25% { transform: scaleY(1) translateX(6px); }
+            50% { transform: scaleY(1.1) translateX(-6px); }
+            75% { transform: scaleY(1) translateX(4px); }
+        }
+        .sauron-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: radial-gradient(circle at 50% 60%, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.98) 100%);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.8s ease-in-out;
+        }
+        .sauron-overlay.active { opacity: 1; pointer-events: auto; }
+        .eye-shape {
+            position: relative; width: clamp(200px, 30vw, 320px); height: clamp(100px, 15vw, 180px);
+            background: radial-gradient(circle at 50% 50%, #ffe066 0%, #ff8800 25%, #cc0000 65%, #220000 100%);
+            border-radius: 60% / 100%; border: 3px solid #660000;
+            box-shadow: 0 0 80px #ff2200, inset 0 0 40px #000;
+            animation: sauronPulse 4s infinite ease-in-out;
+            display: flex; justify-content: center; align-items: center; overflow: hidden;
+        }
+        .eye-pupil {
+            width: 18px; height: 65%; background: #000; border-radius: 50%;
+            box-shadow: 0 0 20px #ff2200; filter: blur(0.8px);
+            animation: pupilMove 2s infinite ease-in-out;
+        }
+    `;
+    document.head.appendChild(style);
+
+    const sauronDiv = document.createElement('div');
+    sauronDiv.id = 'sauron-modal';
+    sauronDiv.className = 'sauron-overlay';
+    sauronDiv.innerHTML = '<div class="eye-shape"><div class="eye-pupil"></div></div>';
+    document.body.appendChild(sauronDiv);
+})();
+
+// -------------------------------------------------------------------------
+// 2. تحديث العدادات (Admin)
+// التفعيل: 10 نقرات على العنوان الرئيسي في صفحة الترحيب
+// -------------------------------------------------------------------------
+window.generateCounts = async function() {
+    if(document.getElementById('admin-loading-badge')) return;
+
+    const badge = document.createElement('div');
+    badge.id = 'admin-loading-badge';
+    badge.innerHTML = '⚙️ جاري تحديث العدادات...';
+    badge.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); color:#fbbf24; padding:8px 15px; z-index:9999; border-radius:20px; border:1px solid #fbbf24; font-size:12px; font-weight:bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);";
+    document.body.appendChild(badge);
+
+    try {
+        const counts = {};
+        const q = query(collection(db, "questions"));
+        const snap = await getDocs(q);
+        
+        snap.forEach(doc => {
+            const d = doc.data();
+            if (d.topic) {
+                const cleanTopic = d.topic.trim();
+                counts[cleanTopic] = (counts[cleanTopic] || 0) + 1;
+            }
+        });
+        
+        await setDoc(doc(db, "system", "counts"), counts);
+        
+        badge.innerHTML = '✅ تم التحديث!';
+        badge.style.borderColor = '#4ade80'; badge.style.color = '#4ade80';
+        if(typeof playSound === 'function') playSound('applause');
+        dbTopicCounts = counts; 
+        setTimeout(() => badge.remove(), 3000);
+    } catch (e) {
+        console.error(e);
+        badge.innerHTML = '❌ فشل التحديث';
+        badge.style.color = '#ef4444';
+        setTimeout(() => badge.remove(), 3000);
+    }
+};
+
+let adminClickCount = 0;
+let adminResetTimer = null;
+
+document.addEventListener('click', (e) => {
+    const titleEl = e.target.closest('#welcome-area h1');
+    if (titleEl) {
+        adminClickCount++;
+        if (adminResetTimer) clearTimeout(adminResetTimer);
+        adminResetTimer = setTimeout(() => { adminClickCount = 0; }, 2000); // 2 ثانية مهلة
+
+        if (adminClickCount === CHEAT_CONFIG.ADMIN_CLICKS_REQUIRED) {
+            if(window.triggerHaptic) window.triggerHaptic('success');
+            window.generateCounts();
+            adminClickCount = 0;
+        }
+    }
+});
+
+// -------------------------------------------------------------------------
+// 3. كاسر الماراثون (فك الحظر)
+// التفعيل: 7 نقرات على زر الجرس (الإشعارات)
+// -------------------------------------------------------------------------
+let marathonCheatClicks = 0;
+let marathonResetTimer = null;
+
+// نستخدم addEventListener لضمان العمل بالتوازي مع وظيفة الزر الأصلية
+const notifBtnCheat = document.getElementById('notif-btn');
+if(notifBtnCheat) {
+    notifBtnCheat.addEventListener('click', async () => {
+        marathonCheatClicks++;
+        
+        // إعادة تعيين المؤقت مع كل نقرة (Debounce)
+        // هذا يسمح لك بالنقر براحتك دون أن يتصفر العداد فجأة
+        if (marathonResetTimer) clearTimeout(marathonResetTimer);
+        
+        marathonResetTimer = setTimeout(() => { 
+            marathonCheatClicks = 0; 
+        }, 1000); // يتصفر فقط إذا توقفت عن النقر لمدة ثانية
+
+        if(marathonCheatClicks === CHEAT_CONFIG.MARATHON_RESET_CLICKS) {
+            if(userProfile && effectiveUserId) {
+                userProfile.lastMarathonDate = null;
+                // تحديث السيرفر
+                await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
+                checkMarathonStatus();
+                toast("🔓 تم كسر قيد الوقت (Sauron Power)", "success");
+                if(typeof playSound === 'function') playSound('win');
+            }
+            marathonCheatClicks = 0;
+        }
+    });
+}
+
+// -------------------------------------------------------------------------
+// 4. عين ساورون (كشف الإجابة)
+// التفعيل: دبل كليك (القلوب) -> دبل كليك (رقم السؤال) -> دبل كليك (مصباح المعلومة)
+// -------------------------------------------------------------------------
+let cheatStep1 = false;
+let cheatStep2 = false;
+
+// الخطوة 1: دبل كليك على القلوب
+bind('lives-display', 'dblclick', () => {
+    if(!quizState.active) return;
+    cheatStep1 = true;
+    
+    // مهلة طويلة لإكمال الخطوات براحة
+    setTimeout(() => { 
+        cheatStep1 = false; 
+        cheatStep2 = false; 
+    }, CHEAT_CONFIG.SAURON_TIMEOUT);
+});
+
+// الخطوة 2: دبل كليك على رقم السؤال
+bind('question-counter-text', 'dblclick', () => {
+    if(cheatStep1) cheatStep2 = true;
+    else { cheatStep1 = false; cheatStep2 = false; }
+});
+
+// الخطوة 3 (النهاية): دبل كليك على مصباح المعلومة
+bind('toggle-enrichment-btn', 'dblclick', () => {
+    if(cheatStep1 && cheatStep2) {
+        triggerSauronEffect();
+        cheatStep1 = false; 
+        cheatStep2 = false;
+    } else {
+        cheatStep1 = false; 
+        cheatStep2 = false;
+    }
+});
+
+function triggerSauronEffect() {
+    const modal = document.getElementById('sauron-modal');
+    
+    if(!isMuted && typeof audioContext !== 'undefined') {
+        createOscillator(80, 'sawtooth', 2.0, 0.6);
+        createOscillator(60, 'square', 2.0, 0.6);
+    }
+
+    modal.classList.add('active');
+    
+    setTimeout(() => {
+        modal.classList.remove('active');
+        
+        if (!quizState.active) return;
+        
+        const q = quizState.questions[quizState.idx];
+        const btns = document.querySelectorAll('.option-btn');
+        
+        if(btns[q.correctAnswer]) {
+            const btn = btns[q.correctAnswer];
+            btn.style.transition = "all 0.5s";
+            btn.style.border = "2px solid #ef4444";
+            btn.style.boxShadow = "0 0 25px rgba(220, 38, 38, 0.8), inset 0 0 10px rgba(220, 38, 38, 0.5)";
+            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
+            btn.classList.add('animate-pulse');
+            
+            if(window.triggerHaptic) window.triggerHaptic('medium');
+        }
+    }, 2500);
+}
+
+// --- تفعيل أزرار الشريط السفلي الجديدة ---
+
+// 1. ربط زر المتصدرين السفلي بنفس وظيفة المتصدرين
+bind('bottom-leaderboard-btn', 'click', () => {
+    // نغلق القوائم الأخرى إن وجدت
+    toggleMenu(false); 
+    // نستدعي نفس دالة فتح المتصدرين الموجودة سابقاً
+    getEl('nav-leaderboard').click(); 
+});
+
+// 2. ربط زر الحقيبة السفلي بنفس وظيفة الحقيبة
+bind('bottom-bag-btn', 'click', () => {
+    toggleMenu(false);
+    openBag(); // دالة فتح الحقيبة الموجودة لديك
+});
