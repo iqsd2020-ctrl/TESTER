@@ -1,7 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-// 👇 التغيير هنا: تمت إضافة enableIndexedDbPersistence
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+// 🚨 هذا السطر ضروري جداً
+import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 const firebaseConfig = {
@@ -17,7 +19,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
+const rtdb = getDatabase(app); 
 // 👇 كود تفعيل قاعدة البيانات لتعمل بدون إنترنت
 enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
@@ -65,6 +67,7 @@ onAuthStateChanged(auth, async (user) => {
             // نعم، لديه حساب محفوظ -> نرسله للصفحة الرئيسية فوراً
             effectiveUserId = savedId;
             await loadProfile(effectiveUserId);
+             setupPresenceSystem(); 
             hide('auth-loading');
             hide('login-area');
             navToHome();
@@ -97,10 +100,13 @@ const themes = {
     ashura: 'العاشورائي',
 };
 
-// بيانات الإطارات المتاحة (تمت إضافة 15 إطار جديد)
+// في ملف main.js
+// استبدل المتغير framesData الموجود بهذا الكود:
+
 const framesData = [
     { id: 'default', name: 'بدون إطار', price: 0, cssClass: '' },
-    // الكلاسيكية
+    
+    // --- المجموعة الكلاسيكية (تم الاحتفاظ بها) ---
     { id: 'gold', name: 'الإطار الذهبي', price: 1500, cssClass: 'frame-gold' },
     { id: 'fire', name: 'الإطار المشتعل', price: 3000, cssClass: 'frame-fire' },
     { id: 'floral', name: 'إطار الربيع', price: 1000, cssClass: 'frame-floral' },
@@ -109,33 +115,81 @@ const framesData = [
     { id: 'sun', name: 'شمس الولاية', price: 4000, cssClass: 'frame-sun' },
     { id: 'eagle', name: 'جناح النسر', price: 3500, cssClass: 'frame-eagle' },
     { id: 'star', name: 'نجمة الصباح', price: 2000, cssClass: 'frame-star' },
-    { id: 'galaxy', name: 'مجرة الفلك', price: 6000, cssClass: 'frame-galaxy' },
     { id: 'tech', name: 'السايبر الرقمي', price: 3000, cssClass: 'frame-tech' },
     { id: 'energy', name: 'طاقة البرق', price: 2800, cssClass: 'frame-energy' },
     { id: 'ruby', name: 'ياقوت أحمر', price: 2200, cssClass: 'frame-ruby' },
     { id: 'nature', name: 'غصن الزيتون', price: 1200, cssClass: 'frame-nature' },
     { id: 'hex', name: 'درع سداسي', price: 1800, cssClass: 'frame-hex' },
     { id: 'ghost', name: 'الطيف الأبيض', price: 4500, cssClass: 'frame-ghost' },
-    
-    // --- الإطارات الجديدة (المتحركة والسايبر) ---
+
+    // --- الإطارات التي تم إصلاحها (Fixes) ---
+    { id: 'galaxy', name: 'مجرة الفلك', price: 6000, cssClass: 'frame-galaxy-fixed' }, // تم الإصلاح
+    { id: 'dark_matter', name: 'المادة المظلمة', price: 7000, cssClass: 'frame-dark-matter-fixed' }, // تم الإصلاح
+    { id: 'rgb', name: 'ألوان الطيف', price: 6500, cssClass: 'frame-rgb-fixed' }, // تم الإصلاح
+
+    // --- مجموعة الروحانيات والنور (جديد) ---
+    { id: 'nur_ala_nur', name: 'نور على نور', price: 5500, cssClass: 'frame-nur' },
+    { id: 'angelic_wing', name: 'الجناح الملائكي', price: 4800, cssClass: 'frame-angelic' },
+    { id: 'crescent_moon', name: 'هلال العيد', price: 3200, cssClass: 'frame-crescent' },
+    { id: 'kufic_gold', name: 'زخرفة كوفية', price: 4200, cssClass: 'frame-kufic' },
+    { id: 'heaven_gate', name: 'أبواب الجنان', price: 8000, cssClass: 'frame-heaven' },
+
+    // --- مجموعة العناصر الطبيعية الخارقة (جديد) ---
+    { id: 'blizzard', name: 'عاصفة الجليد', price: 3800, cssClass: 'frame-blizzard' },
+    { id: 'thunder_storm', name: 'الصاعقة', price: 4500, cssClass: 'frame-thunder' },
+    { id: 'ocean_depth', name: 'عمق المحيط', price: 3600, cssClass: 'frame-ocean' },
+    { id: 'sand_storm', name: 'عاصفة الصحراء', price: 2900, cssClass: 'frame-sand' },
+    { id: 'emerald_flow', name: 'الزمرد السائل', price: 5200, cssClass: 'frame-emerald' },
+
+    // --- مجموعة السايبر والمستقبل (جديد) ---
+    { id: 'glitch_art', name: 'الخلل الرقمي', price: 4000, cssClass: 'frame-glitch' },
+    { id: 'scanner', name: 'الماسح الضوئي', price: 3300, cssClass: 'frame-scanner' },
+    { id: 'hud_circle', name: 'النظام الذكي', price: 3700, cssClass: 'frame-hud' },
     { id: 'cyber_pulse', name: 'نبض السايبر', price: 3200, cssClass: 'frame-cyber-pulse' },
     { id: 'matrix', name: 'المصفوفة', price: 3500, cssClass: 'frame-matrix' },
-    { id: 'holo', name: 'هولوغرام', price: 3800, cssClass: 'frame-holo' },
-    { id: 'radar', name: 'الرادار', price: 2500, cssClass: 'frame-radar' },
-    { id: 'magma', name: 'الحمم', price: 4200, cssClass: 'frame-magma' },
-    { id: 'quantum', name: 'الكمومي', price: 5500, cssClass: 'frame-quantum' },
-    { id: 'royal_flow', name: 'الملكي المتحرك', price: 5000, cssClass: 'frame-royal-flow' },
-    { id: 'neon_pink', name: 'نيون وردي', price: 2600, cssClass: 'frame-neon-pink' },
-    { id: 'electric', name: 'كهرباء', price: 2900, cssClass: 'frame-electric' },
-    { id: 'frost', name: 'الصقيع', price: 3100, cssClass: 'frame-frost' },
-    { id: 'forcefield', name: 'حقل الطاقة', price: 3300, cssClass: 'frame-forcefield' },
-    { id: 'pixel', name: 'ريترو بكسل', price: 2000, cssClass: 'frame-pixel' },
-    { id: 'dragon', name: 'عين التنين', price: 4500, cssClass: 'frame-dragon' },
-    { id: 'rgb', name: 'ألوان الطيف', price: 6500, cssClass: 'frame-rgb' },
-    { id: 'dark_matter', name: 'المادة المظلمة', price: 7000, cssClass: 'frame-dark-matter' }
+
+    // --- مجموعة الجواهر والأحجار الكريمة (جديد) ---
+    { id: 'amethyst', name: 'الجمشت البنفسجي', price: 4600, cssClass: 'frame-amethyst' },
+    { id: 'sapphire_ring', name: 'خاتم الياقوت', price: 4900, cssClass: 'frame-sapphire' },
+    { id: 'pearl_shell', name: 'اللؤلؤة المكنونة', price: 5500, cssClass: 'frame-pearl' },
+    
+    // --- مجموعة الأساطير والخيال (جديد) ---
+    { id: 'phoenix', name: 'ريشة العنقاء', price: 9000, cssClass: 'frame-phoenix' },
+    { id: 'dragon_breath', name: 'أنفاس التنين', price: 8500, cssClass: 'frame-dragon-breath' },
+    { id: 'mystic_aura', name: 'الهالة الصوفية', price: 6200, cssClass: 'frame-mystic' },
+    { id: 'time_portal', name: 'بوابة الزمن', price: 7500, cssClass: 'frame-time' },
+    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' }
 ];
 
+// دالة تسجيل حالة التواجد في RTDB (مصححة)
+function setupPresenceSystem() {
+    if (!currentUser || !effectiveUserId) return;
 
+    const statusRef = ref(rtdb, `status/${effectiveUserId}`);
+    const isOnlineRef = ref(rtdb, '.info/connected');
+
+    onValue(isOnlineRef, (snapshot) => {
+        // إذا لم يكن متصلاً، لا نفعل شيئاً
+        if (snapshot.val() === false) {
+            return;
+        }
+
+        // 1. عندما يقطع المستخدم الاتصال (يغلق التطبيق)، اجعل حالته offline
+        // هذا الأمر يُرسل للسيرفر الآن، ولكنه ينفذ لاحقاً عند انقطاع الاتصال
+        onDisconnect(statusRef).set({
+            state: 'offline',
+            last_changed: rtdbTimestamp(),
+            username: userProfile.username
+        }).then(() => {
+            // 2. مادام الاتصال موجوداً الآن، اجعل الحالة online
+            set(statusRef, {
+                state: 'online',
+                last_changed: rtdbTimestamp(),
+                username: userProfile.username
+            });
+        });
+    });
+}
 
 function applyTheme(themeName) {
     if (themeName === 'default') {
@@ -208,6 +262,7 @@ async function handleLogin() {
             effectiveUserId = d.id;
             localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
             await loadProfile(effectiveUserId);
+             setupPresenceSystem();
             navToHome();
             toast(`أهلاً بك ${u}`);
         } else {
@@ -241,6 +296,7 @@ async function handleReg() {
         await setDoc(doc(db, "users", effectiveUserId), data);
         localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
         await loadProfile(effectiveUserId);
+         setupPresenceSystem();
         navToHome();
         toast("تم إنشاء الحساب");
     } catch(e) { console.error(e); err.textContent = "خطأ"; getEl('register-btn').disabled = false; }
@@ -324,25 +380,21 @@ function updateProfileUI() {
         }
     }
 
-    // --- تحديث الأفاتار في الشريط السفلي ---
+    // --- تحديث الأفاتار في الشريط السفلي (مع الإطار) ---
     const btn = getEl('user-profile-btn');
     if (btn) {
-        // 1. تنظيف أي صورة سابقة لتجنب التكرار
-        const oldAvatars = btn.querySelectorAll('.avatar-wrapper, .w-8');
-        oldAvatars.forEach(el => el.remove());
+        // تنظيف محتوى الزر بالكامل (نحذف الأيقونات القديمة والصور)
+        btn.innerHTML = ''; 
 
-        // 2. إخفاء الأيقونة والاسم القديم مؤقتاً إذا لزم الأمر
-        const oldIcon = getEl('user-avatar-icon');
-        const oldImg = getEl('user-avatar-img');
-        if(oldIcon) oldIcon.style.display = 'none';
-        if(oldImg) oldImg.remove();
-
-        // 3. إنشاء HTML الجديد للصورة
+        // جلب الإطار الحالي
         const currentFrame = userProfile.equippedFrame || 'default';
+        
+        // استخدام دالة بناء الإطار (نمرر w-full h-full لملء الزر)
+        // ملاحظة: getAvatarHTML موجودة في الكود لديك وتدعم الإطارات
         const avatarHtml = getAvatarHTML(userProfile.customAvatar, currentFrame, "w-full h-full");
         
-        // 4. إضافته في بداية الزر
-        btn.insertAdjacentHTML('afterbegin', avatarHtml);
+        // حقن الكود الجديد
+        btn.innerHTML = avatarHtml;
     }
 
     // زر مراجعة الأخطاء في الشاشة الرئيسية
@@ -774,20 +826,61 @@ bind('review-mistakes-btn', 'click', () => {
 bind('quit-quiz-btn', 'click', () => {
     window.showConfirm(
         "مغادرة المسابقة",
-        "هل تريد الانسحاب؟ سيتم احتساب النقاط الحالية فقط.",
+        "هل تريد الانسحاب؟ سيتم احتساب النقاط والإجابات الصحيحة الحالية.",
         "save_as",
         async () => {
-            // حفظ النقاط إذا كانت أكبر من صفر قبل الخروج
-            if (quizState.score > 0) {
+            // التحقق من وجود تقدم يستحق الحفظ
+            if (quizState.score > 0 || quizState.correctCount > 0) {
                 try {
                     const userRef = doc(db, "users", effectiveUserId);
-                    await updateDoc(userRef, {
-                        highScore: increment(quizState.score), // استخدام الزيادة الذرية
-                        "stats.quizzesPlayed": increment(1)
-                    });
-                    // تحديث محلي سريع لضمان تناسق الواجهة
+                    const currentTopic = quizState.contextTopic;
+                    const safeCorrect = quizState.correctCount || 0;
+                    
+                    // 1. تجهيز تحديثات السيرفر
+                    const updates = {
+                        highScore: increment(quizState.score),
+                        "stats.quizzesPlayed": increment(1),
+                        "stats.totalCorrect": increment(safeCorrect), // ✅ حفظ عدد الإجابات الصحيحة
+                        "stats.totalQuestions": increment(quizState.idx) // ✅ حفظ عدد الأسئلة التي مرت
+                    };
+
+                    // 2. حفظ إحصائيات الموضوع (إذا لم يكن عاماً)
+                    if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
+                        // استخدام increment لزيادة رصيد الموضوع المحدد
+                        updates[`stats.topicCorrect.${currentTopic}`] = increment(safeCorrect);
+                    }
+
+                    // 3. تحديث الإحصائيات الأسبوعية (للوحة الشرف)
+                    const wKey = getCurrentWeekKey();
+                    let newWeekly = userProfile.weeklyStats || { key: wKey, correct: 0 };
+                    // إذا بدأ أسبوع جديد، نصفر العداد
+                    if (newWeekly.key !== wKey) newWeekly = { key: wKey, correct: 0 };
+                    newWeekly.correct += safeCorrect;
+                    updates.weeklyStats = newWeekly;
+
+                    // 4. تحديث الإحصائيات الشهرية
+                    const mKey = getCurrentMonthKey();
+                    let newMonthly = userProfile.monthlyStats || { key: mKey, correct: 0 };
+                    if (newMonthly.key !== mKey) newMonthly = { key: mKey, correct: 0 };
+                    newMonthly.correct += safeCorrect;
+                    updates.monthlyStats = newMonthly;
+
+                    // تنفيذ التحديث في السيرفر
+                    await updateDoc(userRef, updates);
+
+                    // 5. تحديث الملف الشخصي المحلي فوراً (لعدم الحاجة لإعادة التحميل)
                     userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
-                    toast(`تم حفظ ${quizState.score} نقطة في رصيدك`, "success");
+                    if(userProfile.stats) {
+                        userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + safeCorrect;
+                        userProfile.stats.totalQuestions = (userProfile.stats.totalQuestions || 0) + quizState.idx;
+                        if (currentTopic && currentTopic !== 'عام') {
+                            userProfile.stats.topicCorrect[currentTopic] = (userProfile.stats.topicCorrect[currentTopic] || 0) + safeCorrect;
+                        }
+                    }
+                    userProfile.weeklyStats = newWeekly;
+                    userProfile.monthlyStats = newMonthly;
+
+                    toast(`تم حفظ التقدم: ${quizState.score} نقطة و ${safeCorrect} إجابة صحيحة`, "success");
                 } catch (e) {
                     console.error("Error saving partial score:", e);
                 }
@@ -796,8 +889,6 @@ bind('quit-quiz-btn', 'click', () => {
         }
     );
 });
-
-
 
 bind('toggle-timer-btn', 'click', () => {
     if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع النور!", "error"); return; }
@@ -905,22 +996,31 @@ async function startMarathon() {
                 }
             }
         });
-
+        // ✅ ضع هذا الكود الجديد مكانه:
+        
+        // 1. خلط القوائم لضمان التنوع
         shuffleArray(freshQs);
         shuffleArray(usedQs);
 
-        let finalQueue = [...freshQs, ...usedQs];
-
-        if (finalQueue.length < 10) {
-            toast("لا توجد أسئلة كافية لبدء الماراثون.", "error");
-            throw new Error("Not enough questions");
+        // 2. منطق اللعب حتى نهاية الملف
+        if (freshQs.length > 0) {
+            // الحالة الأولى: المستخدم لم يختم الملف بعد
+            // نضع الأسئلة الجديدة فقط، وتنتهي اللعبة عند انتهائها
+            quizState.questions = freshQs;
+            toast(`🚀 انطلاق! متبقي ${freshQs.length} سؤال لختم هذا الملف.`, "info");
+        } else {
+            // الحالة الثانية: المستخدم ختم الملف سابقاً
+            // نضع جميع الأسئلة (المراجعة) وتنتهي اللعبة بنهاية الملف
+            quizState.questions = usedQs;
+            toast("🌟 رائع! أنت ختمت هذا الملف. بدأت جولة مراجعة شاملة.", "success");
         }
 
-        quizState.questions = finalQueue.slice(0, 500);
-
-        if (freshQs.length === 0) {
-            toast("لقد ختمت جميع الأسئلة! سيتم عرض أسئلة مكررة للمراجعة.", "info");
+        // 3. حماية من الملفات الفارغة
+        if (quizState.questions.length === 0) {
+            toast("عذراً، لا توجد أسئلة في الملف!", "error");
+            throw new Error("Empty questions list");
         }
+
 
         quizState.mode = 'marathon'; 
         quizState.contextTopic = "(أكمل النور)";
@@ -1009,7 +1109,9 @@ function stopTimer() {
     }
 }
 
+
 function renderQuestion() {
+    quizState.processingAnswer = false;
     quizState.usedHelpers = false; 
     updateHelpersUI(); 
 
@@ -1221,15 +1323,50 @@ function showEnrichment(text) {
 
 
 function selectAnswer(idx, btn) {
-    if(!quizState.active) return;
-    quizState.active = false;
+    // 1. حماية من النقر المتكرر أو العمل واللعبة متوقفة
+    if(!quizState.active || quizState.processingAnswer) return;
+    quizState.processingAnswer = true; // 🔒 قفل الدالة
+
     stopTimer();
     const answerTime = Date.now() - quizState.startTime;
     const q = quizState.questions[quizState.idx];
     const isCorrect = idx === q.correctAnswer;
     const btns = document.querySelectorAll('.option-btn');
+    
+    // تعطيل الأزرار بصرياً
     btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
+    
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
+
+    // ============================================================
+    // 💾 التعديل الجديد: الحفظ المرحلي (Auto-Save Batching) كل 5 أسئلة
+    // ============================================================
+    if (quizState.mode === 'marathon') {
+        // تهيئة المصفوفة المؤقتة إذا لم تكن موجودة
+        if (!quizState.tempMarathonIds) quizState.tempMarathonIds = [];
+        
+        // إضافة معرف السؤال الحالي
+        if (q.id) quizState.tempMarathonIds.push(q.id);
+
+        // التحقق: هل وصلنا لـ 5 أسئلة؟
+        if (quizState.tempMarathonIds.length >= 5) {
+            const batchIds = [...quizState.tempMarathonIds];
+            quizState.tempMarathonIds = []; // تفريغ المؤقت فوراً
+
+            // إرسال للسيرفر في الخلفية (بدون await لعدم تعطيل اللعب)
+            updateDoc(doc(db, "users", effectiveUserId), {
+                seenMarathonIds: arrayUnion(...batchIds)
+            }).catch(e => console.error("Auto-save failed:", e));
+              
+            // تحديث القائمة المحلية فوراً
+            if(!userProfile.seenMarathonIds) userProfile.seenMarathonIds = [];
+            // دمج المعرفات الجديدة مع التأكد من عدم التكرار
+            userProfile.seenMarathonIds = [...new Set([...userProfile.seenMarathonIds, ...batchIds])];
+            
+            console.log("✅ تم الحفظ المرحلي لـ 5 أسئلة");
+        }
+    }
+    // ============================================================
 
     if(isCorrect) {
         if (answerTime <= 5000) { quizState.fastAnswers++; }
@@ -1288,6 +1425,7 @@ function selectAnswer(idx, btn) {
             return;
         }
         setTimeout(nextQuestion, transitionDelay);
+
     } else {
         quizState.marathonCorrectStreak = 0;
         quizState.fastAnswers = 0;
@@ -1370,7 +1508,6 @@ function selectAnswer(idx, btn) {
     }
 }
 
-
 // دالة مكافأة النور
 async function unlockRandomThemeReward() {
     const allThemes = ['ruby', 'midnight', 'royal', 'blackfrost', 'persian', 'ashura'];
@@ -1382,7 +1519,7 @@ async function unlockRandomThemeReward() {
         userProfile.inventory.themes.push(newTheme);
         await updateDoc(doc(db, "users", effectiveUserId), { "inventory.themes": userProfile.inventory.themes });
         
-        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} (أكمل النور)`, "success");
+        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} أكمل النور`, "success");
         playSound('applause');
         updateThemeSelector();
     } else {
@@ -1769,22 +1906,38 @@ const openModal = (id) => {
     }
 };
 
-// تحديث أزرار الإغلاق لتستخدم زر الرجوع
-document.querySelectorAll('.close-modal').forEach(b => {
-    // استنساخ الزر لإزالة الأحداث القديمة
-    const newBtn = b.cloneNode(true);
-    b.parentNode.replaceChild(newBtn, b);
-    
-    newBtn.onclick = (e) => {
+// ==========================================
+// ✅ إصلاح أزرار الإغلاق (Global Close Handler)
+// ==========================================
+document.addEventListener('click', (e) => {
+    // التحقق مما إذا كان العنصر المضغوط هو زر إغلاق (أو داخله)
+    const closeBtn = e.target.closest('.close-modal');
+
+    if (closeBtn) {
         e.preventDefault();
-        // إذا كان هناك سجل (نافذة مفتوحة)، نعود للخلف
-        if(window.history.state && (window.history.state.modalOpen || window.history.state.menuOpen)) {
+        e.stopPropagation();
+
+        // 1. الإغلاق البصري الفوري (لحل مشكلة عدم الاستجابة)
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        
+        // إغلاق القائمة الجانبية إذا كانت مفتوحة
+        toggleMenu(false);
+
+        // تشغيل صوت النقر (إذا كان مفعلاً)
+        if(typeof playSound === 'function') playSound('click');
+
+        // 2. معالجة زر الرجوع في المتصفح (History)
+        // نعود للخلف خطوة فقط إذا كان هناك سجل مفتوح، لتجنب الخروج من الموقع
+        if (window.history.state && (window.history.state.modalOpen || window.history.state.menuOpen)) {
             window.history.back();
-        } else {
-            // حالة طوارئ: إغلاق يدوي
-            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
         }
-    };
+    }
+});
+
+// مستمع لزر الرجوع في الهاتف لضمان إغلاق النوافذ
+window.addEventListener('popstate', () => {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    toggleMenu(false);
 });
 
 
@@ -1889,16 +2042,7 @@ bind('nav-badges', 'click', () => {
 // إلغاء المتغير القديم وتثبيت الوضع على الشهري
 let currentLeaderboardMode = 'monthly';
 
-bind('nav-leaderboard', 'click', () => {
-    openModal('leaderboard-modal');
-    
-    // إزالة حاوية التبويبات القديمة إذا كانت موجودة (لتنظيف الواجهة)
-    const oldTabs = document.getElementById('lb-tabs-container');
-    if (oldTabs) oldTabs.remove();
-
-    // تحميل اللوحة الشهرية مباشرة
-    loadLeaderboard();
-});
+// في ملف main.js - استبدل دالة loadLeaderboard بالكامل
 
 async function loadLeaderboard() {
     hide('leaderboard-loading');
@@ -1914,14 +2058,12 @@ async function loadLeaderboard() {
         subTitle.id = 'lb-subtitle-text';
         subTitle.className = "text-[11px] text-slate-400 text-center mb-2 opacity-80";
         subTitle.style.fontFamily = "'Amiri', serif"; 
-        // إضافة العنوان الفرعي بعد عنوان النافذة مباشرة
         if(modalTitle) modalTitle.parentNode.after(subTitle);
     }
     subTitle.textContent = "التنافس على لقب بطل هذا الشهر";
 
     try {
         const currentMonthKey = getCurrentMonthKey();
-        // استعلام ثابت للإحصائيات الشهرية فقط
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", currentMonthKey), orderBy("monthlyStats.correct", "desc"), limit(20));
         
         const s = await getDocs(q);
@@ -1932,64 +2074,129 @@ async function loadLeaderboard() {
             l.innerHTML = `<div class="text-center text-slate-400 py-6">بداية شهر جديد! كن أول المنافسين في القائمة.</div>`;
             return;
         }
+        
+        // 🚨 الخطوة الجديدة: جلب حالات التواجد من RTDB
+        const statusUpdates = {};
+        const statusRef = ref(rtdb, 'status');
+        
+        // نقوم بجلب كل الحالات دفعة واحدة (RTDB قراءة خفيفة جداً)
+        onValue(statusRef, (snapshot) => {
+             snapshot.forEach((child) => {
+                 statusUpdates[child.key] = child.val();
+             });
+             // بعد جلب الحالات، نقوم بإنشاء القائمة
+             renderLeaderboardList(s.docs, l, statusUpdates);
+        }, { onlyOnce: true }); // نجلبها مرة واحدة لتسريع العرض
 
-        let r = 1;
-        s.forEach(d => {
-            const data = d.data();
-            // جلب النقاط الشهرية فقط
-            const correctCount = (data.monthlyStats && data.monthlyStats.correct) ? data.monthlyStats.correct : 0;
-
-            let borderClass = 'border-slate-700'; 
-            let medalIcon = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
-            let bgClass = 'bg-slate-800';
-            
-            if (r <= 3) {
-                borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
-                bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
-            }
-            if (r === 1) medalIcon = '<span class="material-symbols-rounded text-amber-400 text-2xl drop-shadow-md">emoji_events</span>'; 
-            else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
-            else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
-
-            const pFrame = data.equippedFrame || 'default';
-            const avatarHtml = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
-            
-            let fontSizeClass = 'text-lg';
-            const nameLen = (data.username || "").length;
-            if (nameLen > 25) fontSizeClass = 'text-[10px] leading-tight'; 
-            else if (nameLen > 18) fontSizeClass = 'text-xs'; 
-            else if (nameLen > 12) fontSizeClass = 'text-sm'; 
-
-            const row = document.createElement('div');
-            row.className = `flex justify-between items-center p-3 ${bgClass} rounded-xl border-2 ${borderClass} mb-3 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700`;
-            
-            row.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center min-w-[40px] shrink-0">${medalIcon}</div>
-                    <div class="flex items-center justify-center shrink-0 relative z-10">${avatarHtml}</div>
-                    <div class="flex flex-col overflow-hidden w-full">
-                        <span class="text-white ${fontSizeClass} font-bold group-hover:text-amber-400 transition whitespace-nowrap overflow-hidden text-ellipsis" style="font-family: 'Amiri', serif;">${data.username}</span>
-                        <span class="text-[10px] text-slate-400">نقاط الشهر</span>
-                    </div>
-                </div>
-                <div class="text-center pl-2 shrink-0 min-w-[60px]">
-                    <span class="text-green-400 font-mono font-bold text-lg block leading-none text-shadow">${formatNumberAr(correctCount)}</span>
-                    <span class="material-symbols-rounded text-[10px] text-slate-500">check_circle</span>
-                </div>`;
-            row.onclick = () => showPlayerProfile(data);
-            l.appendChild(row);
-            r++;
-        });
     } catch(e) { 
         console.error(e); 
-        if(e.message.includes("index")) {
-            getEl('leaderboard-list').innerHTML = `<a href="#" onclick="alert('افحص الكونسول لإنشاء الفهرس')" class="text-red-400 underline block text-center mt-4">مطلوب إنشاء Index جديد</a>`;
-        } else {
-            getEl('leaderboard-list').innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل</div>`; 
-        }
+        // رسالة الخطأ تبقى كما هي
+        getEl('leaderboard-list').innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل (قد تحتاج لإنشاء Index أو تفعيل RTDB)</div>`; 
     }
 }
 
+function renderLeaderboardList(docs, container, statusUpdates) {
+    container.innerHTML = '';
+    let r = 1;
+    
+    docs.forEach(doc => {
+        const data = doc.data();
+        const userId = doc.id;
+        
+        const correctCount = (data.monthlyStats && data.monthlyStats.correct) ? data.monthlyStats.correct : 0;
+        
+        let borderClass = 'border-slate-700'; 
+        let medalIcon = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
+        let bgClass = 'bg-slate-800';
+        
+        if (r <= 3) {
+            borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
+            bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
+        }
+        if (r === 1) medalIcon = '<span class="material-symbols-rounded text-amber-400 text-2xl drop-shadow-md">emoji_events</span>'; 
+        else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
+        else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
+
+        const pFrame = data.equippedFrame || 'default';
+        const avatarHtml = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
+        
+        // --- منطق الحالة (تم التعديل لاستخدام Tailwind مباشرة) ---
+        let statusLine = '';
+        const userStatus = statusUpdates[userId];
+        const isOnline = userStatus && userStatus.state === 'online';
+        
+        if (isOnline) {
+            // ✅ متصل: نقطة خضراء (استخدام كلاسات Tailwind مباشرة لضمان الظهور)
+            statusLine = `
+                <div class="flex items-center gap-1.5 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse inline-block"></span>
+                    <span class="text-[10px] text-green-400 font-bold leading-none pt-0.5">نشط الآن</span>
+                </div>`;
+        } else if (userStatus && userStatus.last_changed) {
+            // ⚪ غير متصل: نقطة رمادية
+            const lastSeenTimestamp = userStatus.last_changed;
+            const timeDiff = Date.now() - lastSeenTimestamp;
+            let timeAgo;
+
+            if (timeDiff < 60000) { 
+                timeAgo = `منذ لحظات`;
+            } else if (timeDiff < 3600000) { 
+                const minutes = Math.floor(timeDiff / 60000);
+                timeAgo = `منذ ${formatNumberAr(minutes)} دقيقة`;
+            } else if (timeDiff < 86400000) { 
+                const hours = Math.floor(timeDiff / 3600000);
+                timeAgo = `منذ ${formatNumberAr(hours)} ساعة`;
+            } else {
+                const days = Math.floor(timeDiff / 86400000);
+                timeAgo = `منذ ${formatNumberAr(days)} يوم`;
+            }
+            
+            statusLine = `
+                <div class="flex items-center gap-1.5 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-slate-500 opacity-50 inline-block"></span>
+                    <span class="text-[9px] text-slate-500 opacity-80 leading-none pt-0.5">${timeAgo}</span>
+                </div>`;
+        } else {
+            // ⚫ لا توجد بيانات
+            statusLine = `
+                <div class="flex items-center gap-1.5 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-slate-600 opacity-30 inline-block"></span>
+                    <span class="text-[9px] text-slate-600 opacity-50 leading-none pt-0.5">غير متاح</span>
+                </div>`;
+        }
+
+        let fontSizeClass = 'text-lg';
+        const nameLen = (data.username || "").length;
+        if (nameLen > 25) fontSizeClass = 'text-[10px] leading-tight'; 
+        else if (nameLen > 18) fontSizeClass = 'text-xs'; 
+        else if (nameLen > 12) fontSizeClass = 'text-sm'; 
+
+        const row = document.createElement('div');
+        row.className = `flex justify-between items-center p-3 ${bgClass} rounded-xl border-2 ${borderClass} mb-3 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700 relative`;
+        
+        row.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center min-w-[40px] shrink-0">${medalIcon}</div>
+                <div class="flex items-center justify-center shrink-0 relative z-10">
+                    <div class="relative">
+                        ${avatarHtml}
+                    </div>
+                </div>
+                <div class="flex flex-col overflow-hidden w-full justify-center">
+                    <span class="text-white ${fontSizeClass} font-bold group-hover:text-amber-400 transition whitespace-nowrap overflow-hidden text-ellipsis" style="font-family: 'Amiri', serif;">${data.username}</span>
+                    ${statusLine}
+                </div>
+            </div>
+            <div class="text-center pl-2 shrink-0 min-w-[60px]">
+                <span class="text-green-400 font-mono font-bold text-lg block leading-none text-shadow">${formatNumberAr(correctCount)}</span>
+                <span class="material-symbols-rounded text-[10px] text-slate-500">check_circle</span>
+            </div>`;
+        
+        row.onclick = () => showPlayerProfile(data);
+        container.appendChild(row);
+        r++;
+    });
+}
 
 function showPlayerProfile(data) {
     // 1. تعبئة البيانات الأساسية (الاسم والنقاط)
@@ -2322,7 +2529,6 @@ bind('user-profile-btn', 'click', () => {
 });
 
 
-bind('close-user-modal', 'click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); });
 
 bind('save-user-btn', 'click', async () => { 
     const n = getEl('edit-username').value.trim();
@@ -2666,7 +2872,6 @@ window.buyShopItem = async function(type, cost, id=null) {
 
 
 // ربط أزرار الحقيبة
-bind('nav-bag', 'click', openBag);
 bind('tab-inventory', 'click', () => switchBagTab('inventory'));
 bind('tab-shop', 'click', () => switchBagTab('shop'));
 
@@ -2711,16 +2916,14 @@ bind('show-register-btn', 'click', () => { hide('login-view'); show('register-vi
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
 
 bind('btn-marathon-start', 'click', () => { 
-    // --- بداية التعديل: التحقق من بنك الأخطاء ---
+    // --- التحقق من بنك الأخطاء ---
     if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         openModal('force-review-modal');
         return; // إيقاف الدالة
     }
 
+    // فتح النافذة فقط دون تعطيل الأزرار الخلفية
     document.getElementById('marathon-rules-modal').classList.add('active'); 
-    getEl('ai-question-count').disabled = true;
-    getEl('ai-generate-btn').disabled = true;
-    getEl('btn-marathon-start').disabled = true;
 });
 
 
@@ -2808,7 +3011,7 @@ function checkMarathonStatus() {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
 
-btn.innerHTML = `<span class="text-lg">(أكمل النور)</span> <span class="material-symbols-rounded">local_fire_department</span>`;
+btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">local_fire_department</span>`;
         return;
     }
 
@@ -3371,60 +3574,70 @@ function showMotivator() {
    Global Navigation Handlers (Back Button & Click Outside)
    ========================================= */
 
-// 1. معالجة زر الرجوع في الهاتف (نظام الاعتراض الذكي)
-window.addEventListener('popstate', (event) => {
-    // أولوية 1: إغلاق النوافذ المنبثقة والقوائم الجانبية أولاً
-    const activeModal = document.querySelector('.modal-overlay.active');
-    const sideMenu = getEl('side-menu');
-    const notifDropdown = getEl('notif-dropdown');
-
-    if (activeModal || (sideMenu && sideMenu.classList.contains('open')) || (notifDropdown && !notifDropdown.classList.contains('hidden'))) {
-        // إذا كان هناك نافذة مفتوحة، نغلقها فقط ولا نفعل شيئاً آخر
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-        if(sideMenu) sideMenu.classList.remove('open');
-        getEl('side-menu-overlay')?.classList.remove('open');
-        if(notifDropdown) notifDropdown.classList.add('hidden');
-        
-        // إذا كنا داخل اللعبة، نعيد تثبيت الحالة لضمان عدم الخروج في الضغطة التالية
-        if (quizState.active) {
-            window.history.pushState({ view: 'playing' }, "", "");
-        }
-        return;
-    }
-
     // أولوية 2: نحن داخل اللعبة ولا توجد نوافذ مفتوحة
     if (quizState.active) {
-        // الخدعة: نعيد دفع الحالة فوراً لنبقي المستخدم في الصفحة (إلغاء مفعول الرجوع)
-        window.history.pushState({ view: 'playing' }, "", "");
+        window.history.pushState({ view: 'playing' }, "", ""); // منع الرجوع
 
-        // إظهار نافذة الانسحاب بدلاً من الخروج
         window.showConfirm(
             "مغادرة المسابقة",
-            "هل تريد الانسحاب؟ سيتم احتساب النقاط الحالية فقط.",
-            "logout", // أيقونة باب الخروج
+            "هل تريد الانسحاب؟ سيتم احتساب النقاط والإجابات الصحيحة الحالية.",
+            "logout",
             async () => {
-                // إذا وافق المستخدم على الخروج:
-                quizState.active = false; // نوقف اللعبة أولاً لمنع التكرار
+                quizState.active = false; 
                 
-                // حفظ النقاط الجزئية
-                if (quizState.score > 0) {
+                // نسخ نفس منطق الحفظ الشامل هنا أيضاً
+                if (quizState.score > 0 || quizState.correctCount > 0) {
                     try {
                         const userRef = doc(db, "users", effectiveUserId);
-                        await updateDoc(userRef, {
+                        const currentTopic = quizState.contextTopic;
+                        const safeCorrect = quizState.correctCount || 0;
+                        
+                        const updates = {
                             highScore: increment(quizState.score),
-                            "stats.quizzesPlayed": increment(1)
-                        });
+                            "stats.quizzesPlayed": increment(1),
+                            "stats.totalCorrect": increment(safeCorrect), // ✅
+                            "stats.totalQuestions": increment(quizState.idx) // ✅
+                        };
+
+                        if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
+                            updates[`stats.topicCorrect.${currentTopic}`] = increment(safeCorrect);
+                        }
+
+                        // الأسبوعي
+                        const wKey = getCurrentWeekKey();
+                        let newWeekly = userProfile.weeklyStats || { key: wKey, correct: 0 };
+                        if (newWeekly.key !== wKey) newWeekly = { key: wKey, correct: 0 };
+                        newWeekly.correct += safeCorrect;
+                        updates.weeklyStats = newWeekly;
+
+                        // الشهري
+                        const mKey = getCurrentMonthKey();
+                        let newMonthly = userProfile.monthlyStats || { key: mKey, correct: 0 };
+                        if (newMonthly.key !== mKey) newMonthly = { key: mKey, correct: 0 };
+                        newMonthly.correct += safeCorrect;
+                        updates.monthlyStats = newMonthly;
+
+                        await updateDoc(userRef, updates);
+
+                        // تحديث محلي
                         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
-                        toast(`تم حفظ ${quizState.score} نقطة`, "success");
+                        if(userProfile.stats) {
+                            userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + safeCorrect;
+                            if (currentTopic && currentTopic !== 'عام') {
+                                userProfile.stats.topicCorrect[currentTopic] = (userProfile.stats.topicCorrect[currentTopic] || 0) + safeCorrect;
+                            }
+                        }
+                        userProfile.weeklyStats = newWeekly;
+                        userProfile.monthlyStats = newMonthly;
+
+                        toast(`تم حفظ ${quizState.score} نقطة و ${safeCorrect} إجابة`, "success");
                     } catch (e) { console.error(e); }
                 }
                 
-                // نعود للصفحة الرئيسية
                 navToHome();
             }
         );
     }
-});
 
 // 2. معالجة النقر على الخلفية المعتمة لإغلاق النوافذ
 document.addEventListener('click', (e) => {
@@ -3513,38 +3726,64 @@ if(vibToggle) {
         if(isVibration) window.triggerHaptic('medium');
     };
 }
-// دالة تهيئة الوضع النهاري (توضع مع الدوال المساعدة)
+// دالة تهيئة الوضع النهاري (مع تغيير الأيقونة والألوان ديناميكياً)
 function initDayMode() {
-    const dayToggle = getEl('day-mode-toggle');
-    const isDay = localStorage.getItem('app_day_mode') === 'true';
+    const themeBtn = getEl('theme-toggle-btn');
+    const saved = localStorage.getItem('app_day_mode');
     
-    // 1. تطبيق الوضع بصرياً
-    if(isDay) {
-        document.documentElement.classList.add('light-mode');
-    } else {
-        document.documentElement.classList.remove('light-mode');
-    }
+    // الوضع الافتراضي هو النهاري (true) إذا لم يكن هناك حفظ
+    let isDay = saved === null ? true : (saved === 'true');
+    
+    // دالة التحديث البصري
+    const updateThemeUI = (dayActive) => {
+        if(themeBtn) {
+            if(dayActive) {
+                // --- ☀️ نحن الآن في الوضع النهاري ---
+                document.documentElement.classList.add('light-mode');
+                
+                // شكل الزر في الوضع النهاري:
+                // الخلفية: بيضاء كريمية | الأيقونة: قمر (للتحويل لليلي) | اللون: نيلي غامق
+                themeBtn.className = "absolute top-0 left-0 m-4 w-12 h-12 rounded-full bg-[#fffcf2] border border-[#d8c2a9] flex items-center justify-center shadow-[inset_0_2px_5px_rgba(0,0,0,0.05),0_5px_10px_rgba(0,0,0,0.05)] transition-all active:scale-95 hover:bg-white group z-50";
+                
+                themeBtn.innerHTML = `
+                    <span class="material-symbols-rounded text-2xl text-indigo-900 group-hover:-rotate-12 transition-transform duration-500">
+                        dark_mode
+                    </span>`;
+            } else {
+                // --- 🌙 نحن الآن في الوضع الليلي ---
+                document.documentElement.classList.remove('light-mode');
+                
+                // شكل الزر في الوضع الليلي:
+                // الخلفية: داكنة محفورة | الأيقونة: شمس (للتحويل للنهاري) | اللون: ذهبي مشع
+                themeBtn.className = "absolute top-0 left-0 m-4 w-12 h-12 rounded-full bg-slate-800/80 border border-slate-600/30 flex items-center justify-center shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] transition-all active:scale-95 hover:bg-slate-700 group z-50";
+                
+                themeBtn.innerHTML = `
+                    <span class="material-symbols-rounded text-2xl text-amber-400 group-hover:rotate-45 transition-transform duration-500 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]">
+                        wb_sunny
+                    </span>`;
+            }
+        }
+    };
 
-    // 2. ربط الزر (مع التأكد من وجوده)
-    if(dayToggle) {
-        // نضبط حالة الزر لتطابق الذاكرة
-        dayToggle.checked = isDay;
-        
-        // نستخدم onchange بدلاً من addEventListener لمنع تكرار الأحداث عند التنقل
-        dayToggle.onchange = (e) => {
-             const newState = e.target.checked;
-             localStorage.setItem('app_day_mode', newState);
+    // 1. التطبيق الأولي
+    updateThemeUI(isDay);
+
+    // 2. تفعيل الزر عند الضغط
+    if(themeBtn) {
+        themeBtn.onclick = () => {
+             isDay = !isDay; // عكس الحالة
+             localStorage.setItem('app_day_mode', isDay);
              
-             if(newState) {
-                 document.documentElement.classList.add('light-mode');
-                 toast('تم تفعيل الوضع النهاري ☀️');
-             } else {
-                 document.documentElement.classList.remove('light-mode');
-                 toast('تم تفعيل الوضع الليلي 🌙');
-             }
-             
-             if(window.triggerHaptic) window.triggerHaptic('medium');
+             // تشغيل صوت وتأثير اهتزاز
+             if(window.triggerHaptic) window.triggerHaptic('light');
              if(typeof playSound === 'function') playSound('click');
+             
+             // تحديث الواجهة
+             updateThemeUI(isDay);
+             
+             // رسالة توضيحية
+             if(isDay) toast('صباح الخير ☀️ الوضع النهاري');
+             else toast('تصبح على خير 🌙 الوضع الليلي');
         };
     }
 }
@@ -4358,18 +4597,23 @@ function triggerSauronEffect() {
     }, 2500);
 }
 
-// --- تفعيل أزرار الشريط السفلي الجديدة ---
+// --- تفعيل أزرار الشريط السفلي الجديدة (محدث للعمل المباشر) ---
 
-// 1. ربط زر المتصدرين السفلي بنفس وظيفة المتصدرين
+// 1. ربط زر المتصدرين السفلي (تم نقل منطق الفتح إلى هنا مباشرة)
 bind('bottom-leaderboard-btn', 'click', () => {
-    // نغلق القوائم الأخرى إن وجدت
-    toggleMenu(false); 
-    // نستدعي نفس دالة فتح المتصدرين الموجودة سابقاً
-    getEl('nav-leaderboard').click(); 
+    toggleMenu(false); // إغلاق القائمة الجانبية
+    openModal('leaderboard-modal'); // فتح النافذة
+    
+    // تنظيف التبويبات القديمة إن وجدت لضمان التحديث
+    const oldTabs = document.getElementById('lb-tabs-container');
+    if (oldTabs) oldTabs.remove();
+
+    // استدعاء دالة تحميل البيانات
+    loadLeaderboard();
 });
 
-// 2. ربط زر الحقيبة السفلي بنفس وظيفة الحقيبة
+// 2. ربط زر الحقيبة السفلي
 bind('bottom-bag-btn', 'click', () => {
     toggleMenu(false);
-    openBag(); // دالة فتح الحقيبة الموجودة لديك
+    openBag(); // دالة فتح الحقيبة تعمل بشكل مباشر ولا تحتاج تعديل
 });
