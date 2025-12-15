@@ -13,7 +13,28 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4.0">
+    <script>
+    // جعل الوضع النهاري هو الافتراضي عند فتح التطبيق
+    (function() {
+        try {
+            // التحقق من الإعداد المحفوظ
+            const savedMode = localStorage.getItem('app_day_mode');
+            
+            // الشرط الجديد: إذا كانت القيمة "true" أو "غير موجودة" (مستخدم جديد) -> تفعيل النهاري
+            // الوضع الليلي يعمل فقط إذا كانت القيمة "false" بشكل صريح
+            if (savedMode === 'true' || savedMode === null) {
+                document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.remove('light-mode');
+            }
+        } catch (e) {
+            // في حال حدوث أي خطأ، نعتمد الوضع النهاري كاحتياط
+            document.documentElement.classList.add('light-mode');
+        }
+    })();
+</script>
+
 </head>
 <body class="flex flex-col items-center justify-center p-4 pb-24 min-h-screen">
 
@@ -70,9 +91,8 @@
         <div class="p-6 border-b border-slate-700 text-center"><h2 class="text-xl font-bold text-amber-400 font-heading">القائمة</h2></div>
         <div class="flex-grow overflow-y-auto p-2">
             
-            <div class="menu-item" id="nav-bag"><span class="material-symbols-rounded text-amber-500">inventory_2</span> حقيبتي</div>
             <div class="menu-item" id="nav-badges"><span class="material-symbols-rounded text-purple-400">military_tech</span> الأوسمة</div>
-            <div class="menu-item" id="nav-leaderboard"><span class="material-symbols-rounded text-yellow-400">trophy</span> المتصدرون</div>
+            
             <div class="menu-item" id="nav-favs"><span class="material-symbols-rounded text-red-400">favorite</span> المفضلة</div>
             <div class="menu-item" id="nav-mistakes"><span class="material-symbols-rounded text-orange-400">history_edu</span> مراجعة الأخطاء</div>
             <div class="menu-item" id="nav-settings"><span class="material-symbols-rounded text-gray-400">settings</span> الإعدادات</div>
@@ -84,7 +104,7 @@
 
     <div id="main-container" class="glass-card w-full max-w-2xl p-6 min-h-[500px] relative z-10">
 
-        <div id="auth-loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0f172a] transition-opacity duration-700">
+        <div id="auth-loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900 transition-opacity duration-700">
     
     <div class="absolute inset-0 opacity-10 pointer-events-none" 
          style="background-image: url('https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png'); 
@@ -149,7 +169,9 @@
         </div>
 
         <div id="welcome-area" class="hidden fade-in">
-            
+                        <button id="theme-toggle-btn" class="absolute top-0 left-0 m-4 z-50 transition-all duration-300"></button>
+
+
 
             <div class="text-center mb-8">
                 <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
@@ -187,7 +209,7 @@
                 
                 
                 <button id="btn-marathon-start" class="w-1/2 btn-marathon-silver btn-marathon-silver-anim">
-    <span class="text-lg">(أكمل النور)</span> 
+    <span class="text-lg">أكمل النور</span> 
     <span class="material-symbols-rounded">local_fire_department</span> </button>
 
 
@@ -393,16 +415,6 @@
         </label>
     </div>
 
-        <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-rounded text-amber-400">wb_sunny</span>
-            <span class="text-slate-300 text-sm">الوضع النهاري</span>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="day-mode-toggle" class="sr-only peer">
-            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-        </label>
-    </div>
 
             </div>
 
@@ -533,7 +545,8 @@
             </div>
         </div>
         
-        <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white transition p-2 bg-black/20 rounded-full">✕</button>
+        <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white transition p-2 bg-black/20 rounded-full z-50">X</button>
+
     </div>
 </div>
 
@@ -702,7 +715,7 @@
 
 <div id="marathon-rules-modal" class="modal-overlay">
     <div class="modal-box border-2 border-slate-400/50">
-        <h3 class="text-2xl font-bold text-white mb-4 font-heading text-center">🏆 قواعد (أكمل النور)</h3>
+        <h3 class="text-2xl font-bold text-white mb-4 font-heading text-center"> قواعد أكمل النور</h3>
         <div class="space-y-3 p-4 bg-slate-800/60 rounded-lg border border-slate-700 mb-6">
             <p class="text-slate-300 text-sm flex items-start gap-2">
                 <span class="material-symbols-rounded text-red-400 mt-1 shrink-0">favorite</span>

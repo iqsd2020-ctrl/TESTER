@@ -1139,121 +1139,146 @@ z-index: 10;
     z-index: 2;
 }
 
-/* --- حزمة الإطارات الجديدة والمتقدمة --- */
+/* =========================================
+   NANO-TECH AVATAR FRAMES (نظام الإطارات الجديد)
+   ========================================= */
 
-/* 1. إطار الشمس (Sun) - وهج برتقالي وأصفر */
-.frame-sun {
-    border: 2px solid #fbbf24;
-    box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24, inset 0 0 10px #f59e0b;
-    background: radial-gradient(circle at center, transparent 60%, rgba(251, 191, 36, 0.2) 100%);
-    animation: sunPulse 2s infinite alternate;
-}
-@keyframes sunPulse {
-    0% { box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24; }
-    100% { box-shadow: 0 0 20px #f59e0b, 0 0 40px #d97706; border-color: #fff; }
-}
-
-/* 2. إطار النجم (Star) - تأثير وميض */
-.frame-star {
-    border: 2px dashed #eab308;
-    box-shadow: 0 0 5px #ca8a04;
-    animation: spinSlow 10s linear infinite;
-}
-.frame-star::after {
-    content: '';
+/* الأساس لجميع الإطارات */
+.avatar-frame-overlay {
     position: absolute;
-    inset: -4px;
+    inset: -4px; /* توسيع الإطار قليلاً خارج الصورة */
     border-radius: 50%;
-    border: 1px dotted #fff;
-    animation: spinReverse 5s linear infinite;
+    pointer-events: none;
+    z-index: 10;
+    background: transparent; /* ضمان عدم تغطية الصورة */
 }
 
-/* 3. إطار النسر/الجناح الذهبي (Eagle Wing) - تدرج ملكي حاد */
-.frame-eagle {
-    border: 3px double #92400e;
-    border-top-color: #f59e0b; /* لون ذهبي من الأعلى */
-    border-bottom-color: #f59e0b;
-    box-shadow: 0 0 0 2px #451a03, 0 0 10px #b45309;
-    border-radius: 40% 40% 50% 50%; /* شكل انسيابي */
-}
-
-/* 4. إطار المجرة (Galaxy) - ألوان الفضاء */
+/* 1. إصلاح: إطار المجرة (Galaxy Fixed) - حلقة تدور */
 .frame-galaxy {
     border: 2px solid transparent;
-    background: linear-gradient(#000, #000) padding-box,
-                linear-gradient(45deg, #6366f1, #a855f7, #ec4899) border-box;
-    animation: spinSlow 4s linear infinite; /* دوران الألوان */
+    box-shadow: 0 0 15px #a855f7, inset 0 0 10px #6366f1;
+}
+.frame-galaxy::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    border-top-color: #ec4899;
+    animation: spinSlow 6s linear infinite;
 }
 
-/* 5. إطار التكنولوجيا (Tech) - سايبر بانك */
-.frame-tech {
-    border: 2px solid #06b6d4;
-    border-left: 2px solid transparent;
-    border-right: 2px solid transparent;
-    box-shadow: 0 0 5px #06b6d4;
-    animation: spinTech 2s linear infinite;
+/* 2. إصلاح: المادة المظلمة (Dark Matter Fixed) - إزالة الخلفية السوداء */
+.frame-dark-matter {
+    /* تم إزالة background: #000 التي كانت تخفي الوجه */
+    box-shadow: inset 0 0 20px #000000, 0 0 15px #4c1d95; 
+    border: 2px solid #312e81;
+    animation: pulseDark 3s infinite alternate;
 }
-.frame-tech::before {
-    content: '';
-    position: absolute;
-    inset: 2px;
-    border: 1px solid #0891b2;
-    border-top: transparent;
-    border-bottom: transparent;
-    border-radius: 50%;
-    animation: spinReverse 1s linear infinite;
+@keyframes pulseDark { 0% { box-shadow: inset 0 0 20px #000, 0 0 10px #4c1d95; } 100% { box-shadow: inset 0 0 30px #000, 0 0 25px #6d28d9; } }
+
+/* 3. إصلاح: ألوان الطيف (RGB Fixed) */
+.frame-rgb {
+    border: 3px double transparent;
+    background-image: linear-gradient(#1e293b, #1e293b), 
+                      conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    animation: spinRGB 4s linear infinite;
+}
+@keyframes spinRGB { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+
+/* --- إطارات جديدة كلياً ومميزة --- */
+
+/* 4. إطار الهالة المقدسة (Divine Halo) - ذهبي مشع */
+.frame-divine {
+    border: 2px solid #fbbf24;
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), inset 0 0 10px rgba(251, 191, 36, 0.4);
+    animation: divineGlow 2s infinite alternate;
+}
+.frame-divine::before {
+    content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    width: 40%; height: 4px; background: #fff; border-radius: 10px;
+    box-shadow: 0 0 10px #fbbf24;
+}
+@keyframes divineGlow { 0% { box-shadow: 0 0 15px #fbbf24; opacity: 0.8; } 100% { box-shadow: 0 0 30px #fbbf24, 0 0 50px #f59e0b; opacity: 1; } }
+
+/* 5. إطار الحسين (ع) (Red Flag) - أحمر متموج */
+.frame-karbala {
+    border: 3px solid #991b1b;
+    box-shadow: 0 0 15px #dc2626;
+    animation: bloodPulse 3s infinite ease-in-out;
+}
+.frame-karbala::after {
+    content: ''; position: absolute; inset: 2px; border-radius: 50%;
+    border: 1px dashed #fca5a5; opacity: 0.5;
+    animation: spinReverse 10s linear infinite;
+}
+@keyframes bloodPulse { 0% { border-color: #991b1b; } 50% { border-color: #ef4444; box-shadow: 0 0 25px #ef4444; } 100% { border-color: #991b1b; } }
+
+/* 6. إطار الطبيعة (Sakura) - وردي ناعم */
+.frame-sakura {
+    border: 3px solid #fbcfe8;
+    box-shadow: 0 0 10px #f472b6;
+}
+.frame-sakura::after {
+    content: '❀'; position: absolute; top: -5px; right: 0; color: #ec4899; font-size: 14px;
+    animation: floatPetal 3s infinite ease-in-out;
+}
+.frame-sakura::before {
+    content: '❀'; position: absolute; bottom: 0; left: -5px; color: #ec4899; font-size: 10px;
+    animation: floatPetal 4s infinite ease-in-out reverse;
+}
+@keyframes floatPetal { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(20deg); } }
+
+/* 7. إطار الصاعقة (Thunder) - كهرباء زرقاء متقطعة */
+.frame-thunder {
+    border: 2px dashed #0ea5e9;
+    box-shadow: 0 0 10px #0284c7;
+    animation: electricShock 0.5s infinite steps(2);
+}
+@keyframes electricShock { 
+    0% { border-color: #0ea5e9; transform: translateX(1px); } 
+    50% { border-color: #bae6fd; transform: translateX(-1px); box-shadow: 0 0 20px #38bdf8; } 
+    100% { border-color: #0ea5e9; } 
 }
 
-/* 6. إطار الطبيعة (Leaf) - أخضر مورق */
-.frame-nature {
-    border: 3px solid #22c55e;
-    box-shadow: inset 0 0 10px #15803d;
-    border-style: double;
+/* 8. إطار البوصلة (Compass) - ذهبي دوار */
+.frame-compass {
+    border: 4px double #d97706;
+}
+.frame-compass::before {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    border: 1px solid #f59e0b; border-left-color: transparent; border-right-color: transparent;
+    animation: spinSlow 8s linear infinite;
+}
+.frame-compass::after {
+    content: '▲'; position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    color: #b45309; font-size: 8px;
 }
 
-/* 7. إطار الطاقة (Energy) - كهرباء زرقاء */
-.frame-energy {
-    box-shadow: 0 0 0 2px #3b82f6, 0 0 15px #2563eb, inset 0 0 10px #60a5fa;
-    animation: electricPulse 0.2s infinite;
+/* 9. إطار الفراغ (Void) - أبيض وأسود غامض */
+.frame-void {
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #000, 0 0 20px #fff;
+    animation: voidBreath 4s infinite;
 }
-@keyframes electricPulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.8; }
-    100% { opacity: 1; }
+@keyframes voidBreath { 0% { box-shadow: 0 0 0 2px #000, 0 0 10px #fff; } 50% { box-shadow: 0 0 0 4px #000, 0 0 30px #fff; } 100% { box-shadow: 0 0 0 2px #000, 0 0 10px #fff; } }
+
+/* 10. إطار الزمرد (Emerald) - أخضر ملكي */
+.frame-emerald {
+    border: 3px solid #059669;
+    box-shadow: inset 0 0 10px #10b981, 0 0 10px #059669;
+    position: relative;
+}
+.frame-emerald::after {
+    content: ''; position: absolute; top: 10%; right: 10%;
+    width: 6px; height: 6px; background: #fff; border-radius: 50%;
+    box-shadow: 0 0 5px #fff; opacity: 0.8;
+    animation: sparkle 2s infinite;
 }
 
-/* 8. إطار السداسي (Hexagon Look) */
-.frame-hex {
-    border: 2px solid #e2e8f0;
-    outline: 2px dashed #64748b;
-    outline-offset: 2px;
-}
-
-/* 9. إطار ياقوتي (Ruby Gem) */
-.frame-ruby {
-    border: 3px solid #9f1239;
-    box-shadow: 0 0 5px #e11d48, inset 0 0 10px #881337;
-}
-
-/* 10. إطار الشبح (Ghost) - ضبابي */
-.frame-ghost {
-    border: 1px solid rgba(255,255,255,0.3);
-    box-shadow: 0 0 15px rgba(255,255,255,0.5);
-    animation: ghostFloat 3s ease-in-out infinite;
-}
-@keyframes ghostFloat {
-    0%, 100% { box-shadow: 0 0 15px rgba(255,255,255,0.5); transform: scale(1); }
-    50% { box-shadow: 0 0 25px rgba(255,255,255,0.8); transform: scale(1.02); }
-}
-
-/* حركات الدوران المساعدة */
-@keyframes spinSlow { 100% { transform: rotate(360deg); } }
-@keyframes spinReverse { 100% { transform: rotate(-360deg); } }
-@keyframes spinTech { 
-    0% { transform: rotate(0deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
-    50% { border-color: transparent #06b6d4 transparent #06b6d4; }
-    100% { transform: rotate(360deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
-}
+/* حركات عامة مساعدة */
+@keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spinReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes sparkle { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.5); } }
 
 /* =========================================
    رتب الأوسمة الجديدة (ماسي وأسطوري)
@@ -1331,13 +1356,35 @@ z-index: 10;
     display: none;
 }
 
-/* تحسين نص المعلومة الإثرائية */
+/* =========================================
+   إصلاح جذري لنص المعلومة الإثرائية (ديناميكي)
+   ========================================= */
+
+/* 1. الوضع الافتراضي (الليلي) */
 #enrichment-content {
-    color: #ffffff !important;       /* لون أبيض ناصع 100% */
-    font-weight: 500 !important;     /* زيادة سمك الخط قليلاً ليصبح أوضح */
-    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8) !important; /* ظل أسود خلف النص لبروزه */
-    line-height: 2.2 !important;     /* تباعد مريح بين الأسطر للقراءة */
-    font-size: 1.1rem !important;    /* تكبير الخط قليلاً */
+    color: #ffffff;
+    font-weight: 500;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8); /* ظل في الليلي فقط */
+    line-height: 2.2;
+    font-size: 1.1rem;
+}
+
+/* 2. التخصيص للوضع النهاري (Light Mode Fix) */
+html.light-mode #enrichment-content {
+    color: #4a2c1b !important;       /* بني داكن (لون القهوة) */
+    text-shadow: none !important;    /* إزالة الظل الأسود تماماً */
+    font-weight: 600 !important;     /* زيادة السمك */
+}
+
+/* إصلاح النص الصغير "اضغط في أي مكان للمتابعة" */
+html.light-mode #enrichment-modal .text-slate-500 {
+    color: #8d6e63 !important;       /* بني فاتح */
+}
+
+/* تحسين أيقونة المصباح في الوضع النهاري */
+html.light-mode #enrichment-modal .material-symbols-rounded.text-amber-400 {
+    color: #d97706 !important;       /* ذهبي داكن */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
 /* --- تحسين شارة عدد المساعدات (Counter Badge) --- */
@@ -2211,7 +2258,7 @@ html.light-mode #notif-list {
 /* 3. زر البروفايل العائم (الجوهرة) */
 .nav-floating-btn-container {
     position: absolute;
-    top: -35px; /* يخرج من الشريط للأعلى */
+    top: -10px; /* يخرج من الشريط للأعلى */
     left: 50%;
     transform: translateX(-50%);
     width: 75px;
@@ -2228,22 +2275,44 @@ html.light-mode #notif-list {
     border: 1px solid transparent; 
 }
 
-/* الزر الفعلي داخل الدائرة */
+/* الزر الفعلي داخل الدائرة (محدث لدعم الإطارات) */
 .nav-floating-btn {
     width: 60px;
     height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-dark), var(--accent-color));
-    border: 2px solid var(--text-main);
+    border-radius: 80%;
+    /* خلفية داكنة لتبرز الإطار */
+    background: #0f172a; 
+    /* إزالة الحدود القديمة لأن الإطار هو الحد الجديد */
+    border: none; 
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #000; /* لون الأيقونة */
-    box-shadow: 0 0 15px var(--accent-color), inset 0 2px 5px rgba(255,255,255,0.4);
+    color: var(--text-muted); 
+    /* ظل خفيف فقط للزر نفسه */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     cursor: pointer;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative;
-    overflow: hidden;
+    /* هام جداً: السماح للإطار بالخروج عن الحدود (التوهج) */
+    overflow: visible !important; 
+    z-index: 20;
+}
+
+/* تنسيق خاص للصورة والإطار داخل الزر العائم */
+.nav-floating-btn .avatar-wrapper {
+    width: 100%;
+    height: 100%;
+}
+
+/* إخفاء الظلال الافتراضية للإطار داخل هذا الزر الصغير لتجنب التشوه */
+.nav-floating-btn .avatar-frame-overlay {
+    box-shadow: none !important; /* نكتفي بحدود الإطار */
+}
+/* إعادة تفعيل التوهج فقط للإطارات المضيئة جداً */
+.nav-floating-btn .frame-neon,
+.nav-floating-btn .frame-fire,
+.nav-floating-btn .frame-sun {
+    box-shadow: 0 0 10px currentColor !important;
 }
 
 .nav-floating-btn:active {
@@ -2330,4 +2399,990 @@ html.light-mode .nav-floating-btn-container {
 /* إضافة ظل للدائرة فقط في الوضع النهاري لتبدو بارزة */
 html.light-mode .nav-floating-btn {
     box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
+}
+
+/* =========================================
+   إصلاحات إضافية للوضع النهاري (إزالة الظلال السوداء)
+   ========================================= */
+
+/* 1. إزالة الظل الداكن من بطاقة البروفايل الرئيسية */
+html.light-mode #user-profile-card {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 5px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    /* إذا أردتها مسطحة تماماً بدون أي ظل، استخدم:
+    box-shadow: none !important;
+    */
+}
+
+/* 2. إزالة الهالة السوداء حول صورة الآفاتار */
+html.light-mode #user-profile-card #user-avatar-img {
+    box-shadow: none !important;
+    /* إضافة حدود خفيفة بدلاً من الظل لتحديد الصورة */
+    border: 3px solid rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 3. تنظيف بطاقات الإحصائيات (النقاط، الترتيب، المستوى) */
+html.light-mode .stat-card {
+    box-shadow: none !important;
+    background: rgba(255, 255, 255, 0.5) !important; /* خلفية أفتح */
+    border-color: rgba(0, 0, 0, 0.1) !important; /* حدود خفيفة */
+}
+
+/* 4. إزالة الظل الداخلي من حقول الإدخال لجعلها أنظف */
+html.light-mode .input-glass {
+    box-shadow: none !important;
+    border-color: #e2e8f0 !important;
+    background: #ffffff !important;
+}
+
+/* 5. تعديل لون الأيقونات داخل بطاقات الإحصائيات لتكون أغمق */
+html.light-mode .stat-card .material-symbols-rounded {
+    color: #334155 !important; /* لون رمادي داكن بدلاً من الفاتح */
+}
+/* =========================================
+   إصلاح نهائي: تنظيف نافذة البروفايل في الوضع النهاري
+   ========================================= */
+
+/* 1. إزالة الخلفية الداكنة والظل من المربع الكبير الذي يحيط بالصورة والاسم */
+html.light-mode #user-modal .bg-slate-800\/40 {
+    background-color: #fffcf2 !important; /* لون كريمي فاتح */
+    border: 1px solid #d8c2a9 !important;
+    box-shadow: none !important; /* إزالة أي ظل */
+}
+
+/* 2. إزالة الدائرة السوداء خلف الصورة (Container Background) */
+html.light-mode #user-modal .w-24.h-24.bg-slate-800, /* حاوية الصورة */
+html.light-mode #user-modal #profile-icon-preview {   /* أيقونة البروفايل الافتراضية */
+    background-color: #f1f5f9 !important; /* رمادي فاتح جداً بدلاً من الأسود */
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+}
+
+/* 3. إزالة الوهج/الظل الملتصق بالصورة نفسها */
+html.light-mode #user-modal img#profile-img-preview,
+html.light-mode #user-modal .shadow-\[0_0_15px_rgba\(251\,191\,36\,0\.3\)\] {
+    box-shadow: none !important; /* إزالة وهج الصورة */
+    filter: none !important;     /* إزالة أي فلاتر ظل */
+    border: 2px solid #fff !important; /* استبدال الظل بحد أبيض نظيف */
+}
+
+/* 4. تنظيف مربعات الإحصائيات (النقاط، المستوى...) أسفل الصورة */
+html.light-mode #user-modal .grid .bg-slate-800 {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+}
+
+/* 5. تصحيح ألوان الأرقام داخل الإحصائيات لتكون مقروءة */
+html.light-mode #user-modal .text-white,
+html.light-mode #user-modal .text-slate-500 {
+    color: #475569 !important; /* جعل النص رمادي داكن */
+    text-shadow: none !important;
+}
+
+/* 6. إزالة الظل الداخلي من منطقة الأوسمة */
+html.light-mode #profile-badges-display {
+    background-color: #fffcf2 !important;
+    border-color: #d8c2a9 !important;
+    box-shadow: none !important;
+}
+/* =========================================
+   إصلاح ألوان الخطوط في الوضع النهاري (Text Contrast Fix)
+   ========================================= */
+
+/* 1. إصلاح نصوص مكتبة الأوسمة (العناوين والوصف) */
+/* نجبر كل النصوص داخل بطاقة الوسام على أن تكون داكنة */
+html.light-mode .badge-card h4,      /* عنوان الوسام */
+html.light-mode .badge-card p,       /* وصف الوسام */
+html.light-mode .badge-card span,    /* المستويات والأرقام */
+html.light-mode .badge-card .text-amber-400, /* النصوص الملونة */
+html.light-mode .badge-card .text-cyan-400,
+html.light-mode .badge-card .text-slate-300,
+html.light-mode .badge-card .text-slate-200 {
+    color: #4a2c1b !important; /* لون بني داكن جداً (لون القهوة) */
+    text-shadow: none !important;
+}
+
+/* 2. إصلاح نصوص الملف الشخصي (تاريخ الانضمام، النصوص الرمادية) */
+html.light-mode #user-modal .text-slate-500,
+html.light-mode #user-modal .text-slate-400,
+html.light-mode #profile-join-date {
+    color: #5c4033 !important; /* بني متوسط */
+}
+
+/* 3. قاعدة عامة قوية: تحويل أي نص أبيض أو رمادي فاتح إلى داكن في الوضع النهاري */
+/* هذا سيصلح أي نص آخر "مختفي" في التطبيق */
+html.light-mode .text-white,
+html.light-mode .text-slate-100,
+html.light-mode .text-slate-200,
+html.light-mode .text-slate-300,
+html.light-mode .text-gray-100,
+html.light-mode .text-gray-200,
+html.light-mode .text-gray-300 {
+    color: #4a2c1b !important;
+}
+
+/* 4. استثناء هام: الأزرار الملونة (مثل زر "حفظ التعديلات" البرتقالي) */
+/* يجب أن يبقى النص بداخلها أبيض لأن خلفيتها غامقة */
+html.light-mode .btn-gold-action,
+html.light-mode .btn-gold-action span,
+html.light-mode button[class*="bg-amber-"], /* يستهدف أزرار الحفظ */
+html.light-mode button[class*="bg-red-"],   /* يستهدف أزرار الحذف/الخروج */
+html.light-mode button[class*="bg-green-"],
+html.light-mode .badge-icon-box { /* استثناء أيقونة الوسام نفسها */
+    color: #ffffff !important;
+}
+
+/* 5. إصلاح لون "حذف الصورة" في البروفايل ليكون أحمر واضح */
+html.light-mode #delete-custom-avatar {
+    color: #dc2626 !important; /* أحمر غامق */
+    border-color: #fca5a5 !important;
+    background-color: #fee2e2 !important;
+}
+/* =========================================
+   إصلاح ألوان النصوص في صفحة النتيجة والأوسمة (Light Mode Text Fix)
+   ========================================= */
+
+/* --- 1. إصلاح بطاقة النتيجة (Score Card) --- */
+
+/* تحويل اسم اللاعب والمستوى من الأبيض إلى البني الداكن */
+html.light-mode #card-username,
+html.light-mode #card-difficulty {
+    color: #4a2c1b !important; /* بني القهوة الداكن */
+}
+
+/* تحويل رقم النتيجة الكبير إلى لون ذهبي داكن/برتقالي ليبرز */
+html.light-mode #card-score {
+    color: #d97706 !important; 
+    text-shadow: none !important;
+}
+
+/* تحويل النصوص الرمادية الفاتحة (مثل "اللاعب"، "المستوى"، الرسالة النهائية) إلى بني متوسط */
+html.light-mode #score-card .text-slate-400,
+html.light-mode #score-card .text-slate-300,
+html.light-mode #final-message {
+    color: #8d6e63 !important; 
+}
+
+/* تغميق النص الذهبي "نقطة مكتسبة" ليكون مقروءاً على الأبيض */
+html.light-mode #score-card .text-amber-400 {
+    color: #b45309 !important;
+}
+
+/* --- 2. إصلاح نصوص مكتبة الأوسمة (Badges) --- */
+/* لاحظت في صورك أن عناوين الأوسمة مختفية أيضاً */
+
+html.light-mode .badge-card h4,       /* عنوان الوسام */
+html.light-mode .badge-card p,        /* وصف الوسام */
+html.light-mode .badge-card span {    /* العدادات */
+    color: #4a2c1b !important;        /* نص داكن واضح */
+    text-shadow: none !important;
+}
+
+/* --- 3. قاعدة عامة لأي نص أبيض "عنيد" --- */
+/* أي عنصر يحمل كلاس "أبيض ثابت" سيتحول للبني في الوضع النهاري، باستثناء الأزرار الملونة */
+html.light-mode :not(.btn-gold-action):not(.badge-icon-box) > .text-fixed-white {
+    color: #4a2c1b !important;
+}
+/* =========================================
+   إصلاح اختفاء النص في الإجابات (Correct/Wrong Text Fix)
+   ========================================= */
+
+/* 1. إجبار النص داخل الإجابة الصحيحة (الخضراء) والخاطئة (الحمراء) على أن يكون أبيض */
+html.light-mode .btn-correct,
+html.light-mode .btn-incorrect,
+html.light-mode .btn-correct span,
+html.light-mode .btn-incorrect span,
+html.light-mode .btn-correct p,
+html.light-mode .btn-incorrect p {
+    color: #ffffff !important; /* أبيض ناصع */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important; /* ظل خفيف للقراءة */
+}
+
+/* 2. إصلاح دائرة الترقيم (1, 2, 3) داخل الإجابات الملونة */
+html.light-mode .btn-correct .option-number,
+html.light-mode .btn-incorrect .option-number {
+    color: #ffffff !important;
+    border-color: #ffffff !important; /* جعل حدود الدائرة بيضاء */
+    background: rgba(255, 255, 255, 0.2) !important; /* خلفية شفافة بيضاء */
+}
+
+/* 3. إصلاح إضافي لزر "الخيار الذي اخترته" (Selected Option) قبل ظهور النتيجة */
+/* إذا كان الزر يتلون بلون مختلف عند الضغط عليه وقبل معرفة النتيجة */
+html.light-mode .option-btn:active,
+html.light-mode .option-btn.selected {
+    color: #ffffff !important; 
+}
+/* =========================================
+   إصلاح حاسم: استرجاع ألوان الإجابات في الوضع النهاري
+   ========================================= */
+
+/* 1. إجبار الخلفية الخضراء للإجابة الصحيحة (تجاوز الخلفية البيضاء) */
+html.light-mode .option-btn.btn-correct {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; /* أخضر */
+    border-color: #059669 !important;
+    color: #ffffff !important;
+}
+
+/* 2. إجبار الخلفية الحمراء للإجابة الخاطئة */
+html.light-mode .option-btn.btn-incorrect {
+    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important; /* أحمر */
+    border-color: #b91c1c !important;
+    color: #ffffff !important;
+}
+
+/* 3. ضمان أن جميع النصوص داخل الزر الملون (بما في ذلك العنوان ورقم الخيار) بيضاء */
+html.light-mode .option-btn.btn-correct *,
+html.light-mode .option-btn.btn-incorrect * {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important; /* ظل خفيف لزيادة الوضوح */
+}
+
+/* 4. تنسيق دائرة الترقيم داخل الإجابات الملونة */
+html.light-mode .option-btn.btn-correct .option-number,
+html.light-mode .option-btn.btn-incorrect .option-number {
+    border-color: rgba(255, 255, 255, 0.8) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+/* =========================================
+   إصلاح نص النافذة الإثرائية في الوضع النهاري
+   ========================================= */
+
+html.light-mode #enrichment-content {
+    color: #4a2c1b !important;       /* تحويل النص إلى بني داكن (لون القهوة) */
+    text-shadow: none !important;    /* إزالة الظل تماماً */
+    font-weight: 600 !important;     /* زيادة سمك الخط قليلاً ليكون أوضح */
+}
+
+/* إصلاح جملة "اضغط في أي مكان للمتابعة" أسفل النص */
+html.light-mode #enrichment-modal .text-slate-500 {
+    color: #8d6e63 !important;       /* بني فاتح قليلاً */
+}
+
+/* تحسين أيقونة المصباح في الوضع النهاري */
+html.light-mode #enrichment-modal .material-symbols-rounded.text-amber-400 {
+    color: #d97706 !important;       /* ذهبي داكن بدلاً من الأصفر الفاقع */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+/* =========================================
+   إصلاحات نهائية: المتجر + ألوان الإجابة (Fix Shop & Quiz Colors)
+   ========================================= */
+
+/* --- 1. إصلاح بطاقات المتجر والحقيبة (لجعلها فاتحة) --- */
+/* استهداف الأزرار داخل المتجر والصناديق داخل الحقيبة */
+html.light-mode #shop-view button,
+html.light-mode #inventory-view .grid > div { 
+    background: #ffffff !important;          /* خلفية بيضاء نظيفة */
+    border: 2px solid #d8c2a9 !important;    /* حدود بنية فاتحة */
+    border-bottom: 4px solid #b08d74 !important; /* حافة سفلية 3D بنية */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    color: #4a2c1b !important;               /* نص بني داكن */
+}
+
+/* إصلاح النصوص والأرقام داخل بطاقات المتجر */
+html.light-mode #shop-view button p,
+html.light-mode #shop-view button span:not(.material-symbols-rounded),
+html.light-mode #inventory-view p {
+    color: #4a2c1b !important;
+}
+
+/* إصلاح الشريط الصغير الذي يعرض السعر (مثل "100 نقطة") */
+html.light-mode #shop-view .text-xs.bg-slate-900 {
+    background-color: #f1f5f9 !important;   /* خلفية فاتحة للشريط */
+    color: #b45309 !important;               /* نص ذهبي/بني */
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* --- 2. إصلاح اختفاء النص في الإجابة (الحل الجذري) --- */
+/* المشكلة كانت أن الخلفية البيضاء "تغطي" على اللون الأخضر، سنجبرها الآن */
+
+/* إجبار الخلفية الخضراء عند الإجابة الصحيحة */
+html.light-mode .option-btn.btn-correct {
+    background-color: #059669 !important;       /* لون احتياطي */
+    background-image: linear-gradient(135deg, #059669 0%, #047857 100%) !important; /* تدرج أخضر */
+    border-color: #047857 !important;
+}
+
+/* إجبار الخلفية الحمراء عند الإجابة الخاطئة */
+html.light-mode .option-btn.btn-incorrect {
+    background-color: #b91c1c !important;       /* لون احتياطي */
+    background-image: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important; /* تدرج أحمر */
+    border-color: #991b1b !important;
+}
+
+/* التأكد من أن النص أبيض دائماً في هذه الحالات */
+html.light-mode .option-btn.btn-correct *,
+html.light-mode .option-btn.btn-incorrect * {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+}
+/* =========================================
+   إصلاح شاشة البداية في الوضع النهاري (Loading Screen Fix)
+   ========================================= */
+
+/* 1. تغيير خلفية الشاشة بالكامل */
+html.light-mode #auth-loading {
+    background-color: #f5e5c2 !important; /* اللون الكريمي الخاص بالوضع النهاري */
+    background-image: radial-gradient(circle at center, transparent 50%, rgba(74, 44, 27, 0.1) 150%) !important;
+}
+
+/* 2. تغيير لون العنوان "من وحي أهل البيت" */
+html.light-mode #auth-loading h1 {
+    color: #4a2c1b !important; /* بني داكن */
+    text-shadow: none !important;
+}
+
+/* 3. تغيير النصوص الفرعية (اللهم صل على محمد...) */
+html.light-mode #auth-loading p {
+    color: #8d6e63 !important; /* بني فاتح */
+}
+
+/* 4. تغيير ألوان شريط التحميل (Loading Bar) */
+html.light-mode #auth-loading .bg-slate-800 {
+    background-color: #fffcf2 !important; /* خلفية الشريط */
+    border-color: #966b4c !important;     /* حدود الشريط */
+}
+
+/* 5. تغيير التدرج اللوني داخل شريط التحميل (الخط المتحرك) */
+html.light-mode #auth-loading .from-amber-600 {
+    --tw-gradient-from: #d97706 !important; /* ذهبي داكن */
+    --tw-gradient-to: #d97706 !important;
+    --tw-gradient-stops: var(--tw-gradient-from), #f59e0b, var(--tw-gradient-to) !important;
+}
+
+/* =========================================
+   إصلاح نافذة المكافأة اليومية في الوضع النهاري
+   ========================================= */
+
+/* 1. تنظيف خلفية النافذة الرئيسية */
+html.light-mode #daily-reward-modal .modal-box {
+    background-color: #fffcf2 !important; /* لون كريمي فاتح */
+    border: 3px solid #e7d5c0 !important;
+    box-shadow: 0 20px 60px rgba(74, 44, 27, 0.15) !important;
+}
+
+/* 2. إخفاء التدرج اللوني الداكن في الخلفية */
+/* هذا هو السبب الرئيسي للظلال السوداء المزعجة */
+html.light-mode #daily-reward-modal .bg-gradient-to-b {
+    display: none !important;
+}
+
+/* 3. إصلاح الصندوق الداخلي (الذي يحتوي على الأرقام) */
+/* كان رمادياً شفافاً، سنجعله أبيض نظيفاً */
+html.light-mode #daily-reward-modal .bg-slate-800\/60 {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.03) !important;
+}
+
+/* 4. إصلاح ألوان النصوص */
+html.light-mode #daily-reward-modal h3 {
+    color: #4a2c1b !important; /* العنوان بني داكن */
+    text-shadow: none !important;
+}
+
+html.light-mode #daily-reward-modal p.text-slate-300 {
+    color: #8d6e63 !important; /* الوصف بني فاتح */
+}
+
+html.light-mode #daily-reward-modal .text-slate-400 {
+    color: #94a3b8 !important; /* النصوص الصغيرة (قلب/نقطة) */
+}
+
+/* 5. إصلاح الخط الفاصل بين الجوائز */
+html.light-mode #daily-reward-modal .bg-slate-600 {
+    background-color: #f1f5f9 !important;
+}
+
+/* 6. تحسين أيقونة الجائزة العلوية */
+html.light-mode #daily-reward-modal .bg-amber-500\/5 {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+
+/* =========================================
+   إصلاح نافذة قواعد الماراثون (أكمل النور) في الوضع النهاري
+   ========================================= */
+
+/* 1. إصلاح عنوان النافذة */
+html.light-mode #marathon-rules-modal h3 {
+    color: #4a2c1b !important; /* بني داكن */
+    text-shadow: none !important;
+}
+
+/* 2. تنظيف الصندوق الداخلي (الخلفية الرمادية) */
+html.light-mode #marathon-rules-modal .bg-slate-800\/60 {
+    background-color: #ffffff !important; /* تحويله لأبيض نقي */
+    border: 1px solid #e2e8f0 !important; /* حدود فاتحة */
+    box-shadow: none !important; /* إزالة أي ظلال داكنة */
+}
+
+/* 3. إصلاح نصوص القواعد (كانت رمادية فاتحة) */
+html.light-mode #marathon-rules-modal .text-slate-300 {
+    color: #5c4033 !important; /* بني متوسط للقراءة */
+    font-weight: 600 !important; /* زيادة الوضوح */
+}
+
+/* 4. إصلاح الخط الفاصل والملاحظة السفلية */
+html.light-mode #marathon-rules-modal .border-slate-700 {
+    border-color: #f1f5f9 !important;
+}
+
+html.light-mode #marathon-rules-modal .text-amber-500 {
+    color: #d97706 !important; /* ذهبي داكن */
+}
+
+/* 5. إصلاح زر الإلغاء في الأسفل */
+html.light-mode #marathon-rules-modal .text-slate-500 {
+    color: #94a3b8 !important;
+}
+html.light-mode #marathon-rules-modal .text-slate-500:hover {
+    color: #ef4444 !important; /* أحمر عند التحويم */
+}
+/* تأثير توهج النار للزر الفضي */
+@keyframes silver-fire-glow {
+    0% { box-shadow: 0 4px 15px rgba(161, 161, 170, 0.4); border-color: rgba(255,255,255,0.5); }
+    50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), inset 0 0 10px rgba(251, 191, 36, 0.2); border-color: #fbbf24; }
+    100% { box-shadow: 0 4px 15px rgba(161, 161, 170, 0.4); border-color: rgba(255,255,255,0.5); }
+}
+
+.btn-marathon-silver-anim {
+    animation: silver-fire-glow 3s infinite ease-in-out !important;
+}
+
+/* إضافة أيقونة نار ملونة داخل الزر */
+.btn-marathon-silver span.material-symbols-rounded {
+    color: #f59e0b; /* لون برتقالي للأيقونة */
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
+}
+
+/* =========================================
+   AVATAR FRAMES SYSTEM (نظام الإطارات الشامل)
+   ========================================= */
+
+/* --- الأساسيات (لا تحذفها) --- */
+.avatar-wrapper {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    z-index: 1;
+    /* ضمان عدم خروج الإطارات عن الحاوية بشكل خاطئ في بعض المتصفحات */
+    transform: translateZ(0); 
+}
+
+.avatar-frame-overlay {
+    position: absolute;
+    inset: -3px; /* الإطار يخرج قليلاً عن الصورة */
+    border-radius: 50%;
+    pointer-events: none; /* يسمح بالنقر على الصورة خلف الإطار */
+    z-index: 2;
+}
+
+/* =========================================
+   1. CLASSIC FRAMES (الإطارات الكلاسيكية)
+   ========================================= */
+
+/* الإطار الذهبي */
+.frame-gold {
+    box-shadow: 0 0 0 2px #d97706, 0 0 10px #fbbf24;
+    border: 2px solid #fbbf24;
+}
+
+/* الإطار المشتعل */
+.frame-fire {
+    box-shadow: 0 0 5px #ef4444, 0 0 10px #f97316;
+    border: 2px solid #ef4444;
+    animation: firePulse 1.5s infinite alternate;
+}
+@keyframes firePulse {
+    0% { box-shadow: 0 0 5px #ef4444, 0 0 10px #f97316; }
+    100% { box-shadow: 0 0 15px #ef4444, 0 0 25px #f59e0b; border-color: #f59e0b; }
+}
+
+/* إطار الربيع */
+.frame-floral {
+    border: 3px dashed #10b981;
+    box-shadow: 0 0 0 2px #ec4899;
+}
+
+/* الإطار الماسي */
+.frame-diamond {
+    border: 2px solid #06b6d4;
+    box-shadow: 0 0 10px #22d3ee, inset 0 0 10px #22d3ee;
+    animation: diamondSparkle 2s infinite;
+}
+@keyframes diamondSparkle {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+/* إطار النيون */
+.frame-neon {
+    border: 2px solid #d946ef;
+    box-shadow: 0 0 5px #d946ef, 0 0 10px #8b5cf6;
+    animation: neonPulse 1.5s infinite alternate;
+}
+@keyframes neonPulse { from { box-shadow: 0 0 5px #d946ef, 0 0 10px #8b5cf6; } to { box-shadow: 0 0 10px #d946ef, 0 0 20px #8b5cf6; } }
+
+/* شمس الولاية */
+.frame-sun {
+    border: 2px solid #fbbf24;
+    box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24, inset 0 0 10px #f59e0b;
+    background: radial-gradient(circle at center, transparent 60%, rgba(251, 191, 36, 0.2) 100%);
+    animation: sunPulse 2s infinite alternate;
+}
+@keyframes sunPulse {
+    0% { box-shadow: 0 0 10px #f59e0b, 0 0 20px #fbbf24; }
+    100% { box-shadow: 0 0 20px #f59e0b, 0 0 40px #d97706; border-color: #fff; }
+}
+
+/* جناح النسر */
+.frame-eagle {
+    border: 3px double #92400e;
+    border-top-color: #f59e0b;
+    border-bottom-color: #f59e0b;
+    box-shadow: 0 0 0 2px #451a03, 0 0 10px #b45309;
+    border-radius: 40% 40% 50% 50%;
+}
+
+/* نجمة الصباح */
+.frame-star {
+    border: 2px dashed #eab308;
+    box-shadow: 0 0 5px #ca8a04;
+    animation: spinSlow 10s linear infinite;
+}
+.frame-star::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1px dotted #fff;
+    animation: spinReverse 5s linear infinite;
+}
+
+/* السايبر الرقمي */
+.frame-tech {
+    border: 2px solid #06b6d4;
+    border-left: 2px solid transparent;
+    border-right: 2px solid transparent;
+    box-shadow: 0 0 5px #06b6d4;
+    animation: spinTech 2s linear infinite;
+}
+.frame-tech::before {
+    content: ''; position: absolute; inset: 2px;
+    border: 1px solid #0891b2; border-top: transparent; border-bottom: transparent;
+    border-radius: 50%; animation: spinReverse 1s linear infinite;
+}
+
+/* طاقة البرق */
+.frame-energy {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 15px #2563eb, inset 0 0 10px #60a5fa;
+    animation: electricPulse 0.2s infinite;
+}
+@keyframes electricPulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+/* ياقوت أحمر */
+.frame-ruby {
+    border: 3px solid #9f1239;
+    box-shadow: 0 0 5px #e11d48, inset 0 0 10px #881337;
+}
+
+/* غصن الزيتون */
+.frame-nature {
+    border: 3px solid #22c55e;
+    box-shadow: inset 0 0 10px #15803d;
+    border-style: double;
+}
+
+/* درع سداسي */
+.frame-hex {
+    border: 2px solid #e2e8f0;
+    outline: 2px dashed #64748b;
+    outline-offset: 2px;
+}
+
+/* الطيف الأبيض (الشبح) */
+.frame-ghost {
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 0 15px rgba(255,255,255,0.5);
+    animation: ghostFloat 3s ease-in-out infinite;
+}
+@keyframes ghostFloat {
+    0%, 100% { box-shadow: 0 0 15px rgba(255,255,255,0.5); transform: scale(1); }
+    50% { box-shadow: 0 0 25px rgba(255,255,255,0.8); transform: scale(1.02); }
+}
+
+/* =========================================
+   2. FIXED FRAMES (الإطارات التي تم إصلاحها)
+   ========================================= */
+
+/* مجرة الفلك (تم الإصلاح) */
+.frame-galaxy-fixed {
+    border: 2px solid transparent;
+    position: relative;
+    border-radius: 50%;
+    /* تقنية القناع لإظهار الحدود فقط */
+    background: conic-gradient(from 0deg, #f0f, #00f, #0ff, #f0f) border-box; 
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+}
+.frame-galaxy-fixed::before {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    background: conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #6366f1);
+    animation: spinSlow 3s linear infinite;
+    z-index: -1;
+}
+
+/* ألوان الطيف (تم الإصلاح) */
+.frame-rgb-fixed {
+    position: absolute; inset: -3px; border-radius: 50%;
+    background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+    animation: spinRGB 1.5s linear infinite;
+    -webkit-mask: radial-gradient(closest-side, transparent 85%, black 86%);
+    mask: radial-gradient(closest-side, transparent 85%, black 86%);
+}
+@keyframes spinRGB { to { transform: rotate(360deg); } }
+
+/* المادة المظلمة (تم الإصلاح) */
+.frame-dark-matter-fixed {
+    box-shadow: 0 0 15px #000, 0 0 30px #4c1d95, inset 0 0 20px #000;
+    border: 2px solid rgba(0,0,0,0.8);
+    animation: darkMatterPulse 3s infinite alternate;
+}
+.frame-dark-matter-fixed::after {
+    content: ''; position: absolute; inset: -5px; border-radius: 50%;
+    border: 2px dashed #8b5cf6;
+    animation: spinReverse 10s linear infinite;
+    opacity: 0.5;
+}
+@keyframes darkMatterPulse { 
+    0% { box-shadow: 0 0 15px #000, 0 0 10px #4c1d95; } 
+    100% { box-shadow: 0 0 25px #000, 0 0 40px #8b5cf6; } 
+}
+
+/* =========================================
+   3. NEW COLLECTIONS (المجموعات الجديدة)
+   ========================================= */
+
+/* --- مجموعة الروحانيات والنور --- */
+
+/* نور على نور */
+.frame-nur {
+    box-shadow: 0 0 15px #fff, 0 0 30px #fbbf24, inset 0 0 10px #fbbf24;
+    border: 2px solid #fff;
+    animation: nurGlow 2s infinite ease-in-out;
+}
+@keyframes nurGlow { 0%,100% { opacity: 0.8; } 50% { opacity: 1; box-shadow: 0 0 25px #fff, 0 0 50px #fbbf24; } }
+
+/* الجناح الملائكي */
+.frame-angelic {
+    border: 3px double #e2e8f0;
+    box-shadow: 0 0 20px rgba(255,255,255,0.6);
+}
+.frame-angelic::before {
+    content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    width: 120%; height: 20px;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.8) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatHalo 3s infinite ease-in-out;
+}
+@keyframes floatHalo { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-5px); } }
+
+/* هلال العيد */
+.frame-crescent {
+    border-radius: 50%;
+    box-shadow: -4px -4px 0 2px #fbbf24; /* هلال من الظل */
+    transform: rotate(-45deg);
+    border: 1px solid transparent;
+}
+
+/* زخرفة كوفية */
+.frame-kufic {
+    border: 4px solid #1e293b;
+    outline: 2px dashed #d97706;
+    outline-offset: -2px;
+    background-image: repeating-linear-gradient(45deg, #d97706 0, #d97706 2px, transparent 0, transparent 10px);
+    -webkit-mask: radial-gradient(closest-side, transparent 85%, black 86%);
+    mask: radial-gradient(closest-side, transparent 85%, black 86%);
+}
+
+/* أبواب الجنان */
+.frame-heaven {
+    border: 2px solid #fff;
+    box-shadow: 0 0 10px #38bdf8, 0 0 30px #38bdf8;
+    position: relative;
+}
+.frame-heaven::after {
+    content: ''; position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: #fff;
+    border-bottom-color: #fff;
+    animation: spinSlow 8s linear infinite;
+}
+
+/* --- مجموعة العناصر الطبيعية --- */
+
+/* عاصفة الجليد */
+.frame-blizzard {
+    border: 2px solid #bae6fd;
+    box-shadow: 0 0 10px #0ea5e9;
+    /* نقاط بيضاء صغيرة كالثلج */
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="1" fill="white"/></svg>') repeat;
+    animation: snowSpin 10s linear infinite;
+}
+@keyframes snowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* الصاعقة */
+.frame-thunder {
+    border: 2px solid #facc15;
+    box-shadow: 0 0 5px #facc15;
+    animation: thunderFlash 3s infinite;
+}
+@keyframes thunderFlash {
+    0%, 90%, 100% { box-shadow: 0 0 5px #facc15; border-color: #facc15; }
+    92%, 96% { box-shadow: 0 0 30px #fff, 0 0 50px #facc15; border-color: #fff; }
+}
+
+/* عمق المحيط */
+.frame-ocean {
+    border: 3px solid #1e40af;
+    box-shadow: inset 0 0 15px #60a5fa, 0 0 10px #1e3a8a;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent);
+}
+
+/* عاصفة الصحراء */
+.frame-sand {
+    border: 3px dotted #d97706;
+    animation: spinReverse 20s linear infinite;
+    box-shadow: 0 0 10px #b45309;
+}
+
+/* الزمرد السائل */
+.frame-emerald {
+    border: 3px solid #10b981;
+    box-shadow: 0 0 10px #059669 inset;
+    animation: liquidBorder 2s infinite ease-in-out;
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+}
+@keyframes liquidBorder {
+    0% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+    50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+    100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+}
+
+/* --- مجموعة السايبر والمستقبل --- */
+
+/* الخلل الرقمي */
+.frame-glitch {
+    border: 2px solid #ef4444;
+    box-shadow: -2px 0 #22d3ee;
+    animation: glitchAnim 1s infinite steps(2);
+}
+@keyframes glitchAnim {
+    0% { clip-path: inset(0 0 0 0); transform: translate(0); }
+    20% { clip-path: inset(20% 0 80% 0); transform: translate(-2px, 2px); }
+    40% { clip-path: inset(80% 0 10% 0); transform: translate(2px, -2px); }
+    60% { clip-path: inset(10% 0 60% 0); transform: translate(-2px, 0); }
+    80% { clip-path: inset(50% 0 30% 0); transform: translate(2px, 2px); }
+    100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+}
+
+/* الماسح الضوئي */
+.frame-scanner {
+    border: 2px solid #10b981;
+    overflow: hidden;
+    position: relative;
+}
+.frame-scanner::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+    background: #fff;
+    box-shadow: 0 0 10px #fff;
+    animation: scanMove 2s linear infinite;
+}
+@keyframes scanMove { 0% { top: 0; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+/* النظام الذكي HUD */
+.frame-hud {
+    border: 1px solid rgba(14, 165, 233, 0.5);
+    box-shadow: 0 0 5px #0ea5e9;
+}
+.frame-hud::before {
+    content: ''; position: absolute; inset: -5px;
+    border: 2px dashed #0ea5e9;
+    border-radius: 50%;
+    animation: spinSlow 10s linear infinite;
+}
+.frame-hud::after {
+    content: ''; position: absolute; inset: 2px;
+    border: 1px solid #0ea5e9;
+    border-left: transparent; border-right: transparent;
+    border-radius: 50%;
+    animation: spinReverse 4s linear infinite;
+}
+
+/* نبض السايبر */
+.frame-cyber-pulse {
+    box-shadow: 0 0 0 2px #0ea5e9, 0 0 15px #0ea5e9, inset 0 0 10px #0ea5e9;
+    border: 2px solid #fff;
+    animation: cyberPulseAnim 1.5s infinite;
+}
+@keyframes cyberPulseAnim { 0% { box-shadow: 0 0 0 2px #0ea5e9, 0 0 10px #0ea5e9; } 50% { box-shadow: 0 0 0 4px #0ea5e9, 0 0 25px #0ea5e9; } 100% { box-shadow: 0 0 0 2px #0ea5e9, 0 0 10px #0ea5e9; } }
+
+/* المصفوفة Matrix */
+.frame-matrix {
+    border: 2px dashed #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+    animation: matrixSpin 3s linear infinite;
+}
+@keyframes matrixSpin { 0% { transform: rotate(0deg); filter: hue-rotate(0deg); } 100% { transform: rotate(360deg); filter: hue-rotate(90deg); } }
+
+
+/* --- مجموعة الجواهر والأحجار الكريمة --- */
+
+/* الجمشت البنفسجي */
+.frame-amethyst {
+    border: 3px solid #7c3aed;
+    box-shadow: 0 0 10px #a78bfa, inset 0 0 10px #5b21b6;
+    border-top-color: #ddd6fe;
+}
+
+/* خاتم الياقوت */
+.frame-sapphire {
+    border: 2px solid #1e3a8a;
+    box-shadow: 0 0 0 2px #1d4ed8, 0 0 15px #3b82f6;
+}
+
+/* اللؤلؤة المكنونة */
+.frame-pearl {
+    border: 4px solid #f1f5f9;
+    box-shadow: 0 0 10px #cbd5e1, inset 0 0 10px #fff;
+    background: radial-gradient(circle at 30% 30%, #fff, #e2e8f0);
+    opacity: 0.9;
+}
+
+/* --- مجموعة الأساطير والخيال --- */
+
+/* ريشة العنقاء */
+.frame-phoenix {
+    border: 2px solid #f97316;
+    box-shadow: 0 0 15px #c2410c, 0 0 30px #f97316;
+    animation: phoenixRise 2s infinite alternate;
+}
+@keyframes phoenixRise {
+    from { box-shadow: 0 0 10px #c2410c; transform: scale(1); }
+    to { box-shadow: 0 0 25px #f97316, 0 0 40px #fbbf24; transform: scale(1.02); }
+}
+
+/* أنفاس التنين */
+.frame-dragon-breath {
+    border: 3px solid #15803d;
+    box-shadow: 0 0 10px #22c55e, inset 0 0 20px #b91c1c; /* أخضر من الخارج أحمر من الداخل */
+    animation: breathe 3s infinite ease-in-out;
+}
+@keyframes breathe { 0%,100% { box-shadow: 0 0 10px #22c55e, inset 0 0 20px #b91c1c; } 50% { box-shadow: 0 0 25px #4ade80, inset 0 0 30px #ef4444; } }
+
+/* إطار اللانهاية */
+.frame-infinity {
+    background: linear-gradient(45deg, #ff00cc, #3333ff, #ff00cc);
+    background-size: 400% 400%;
+    animation: infinityGradient 3s ease infinite;
+    -webkit-mask: radial-gradient(closest-side, transparent 88%, black 89%);
+    mask: radial-gradient(closest-side, transparent 88%, black 89%);
+}
+@keyframes infinityGradient { 
+    0% { background-position: 0% 50%; } 
+    50% { background-position: 100% 50%; } 
+    100% { background-position: 0% 50%; } 
+}
+
+/* الهالة الصوفية */
+.frame-mystic {
+    border: 1px solid rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2), 0 0 20px rgba(167, 139, 250, 0.4);
+    animation: mysticPulse 4s infinite ease-in-out;
+}
+@keyframes mysticPulse {
+    0% { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2), 0 0 10px rgba(167, 139, 250, 0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.4), 0 0 30px rgba(167, 139, 250, 0.6); }
+    100% { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2), 0 0 10px rgba(167, 139, 250, 0.2); }
+}
+
+/* بوابة الزمن */
+.frame-time {
+    border: 2px dashed #a855f7;
+    animation: spinTech 10s linear infinite;
+    box-shadow: inset 0 0 20px #581c87;
+}
+
+/* --- حركات عامة مساعدة --- */
+@keyframes spinSlow { 100% { transform: rotate(360deg); } }
+@keyframes spinReverse { 100% { transform: rotate(-360deg); } }
+@keyframes spinTech { 
+    0% { transform: rotate(0deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
+    50% { border-color: transparent #06b6d4 transparent #06b6d4; }
+    100% { transform: rotate(360deg); border-color: #06b6d4 transparent #06b6d4 transparent; }
+}
+
+/* =========================================
+   PRESENCE SYSTEM (شارات التواجد)
+   ========================================= */
+.status-badge {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--bg-card); /* حدود بلون البطاقة */
+    position: absolute;
+    top: 5px; /* ضعها في الزاوية العلوية اليمنى للاعب (في الواجهات التي نستخدمها) */
+    right: 5px;
+    z-index: 10;
+}
+
+/* حالة الاتصال (أخضر متوهج ونابض) */
+.status-badge.online {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981, 0 0 8px #10b981;
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* حالة عدم الاتصال (رمادي خافت) */
+.status-badge.offline {
+    background: #64748b;
+    box-shadow: none;
+}
+
+/* --- تنسيق نقاط الحالة بجانب النص (جديد) --- */
+.status-dot-inline {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0; /* منع الانكماش */
+}
+
+/* حالة النشاط: أخضر متوهج */
+.status-dot-inline.online {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    animation: pulse-green-text 2s infinite;
+}
+
+/* حالة عدم الاتصال: رمادي */
+.status-dot-inline.offline {
+    background-color: #64748b;
+    opacity: 0.5;
+}
+
+/* حركة نبض خفيفة للنقطة الخضراء */
+@keyframes pulse-green-text {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
 }
