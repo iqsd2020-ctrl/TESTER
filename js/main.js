@@ -1,8 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-// 🚨 هذا السطر ضروري جداً
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+// --- NEW: Import Messaging ---
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging.js";
 
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
@@ -20,7 +21,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app); 
-// 👇 كود تفعيل قاعدة البيانات لتعمل بدون إنترنت
+// --- NEW: Initialize Messaging ---
+const messaging = getMessaging(app);
+
 enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
         console.log('Persistence failed: Multiple tabs open');
@@ -406,6 +409,55 @@ function updateProfileUI() {
         hide('review-mistakes-btn');
     }
 }
+// --- NEW: Notification Setup Function ---
+async function setupNotifications() {
+    if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notification");
+        return;
+    }
+
+    try {
+        // 1. طلب الإذن من المستخدم
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+            // 2. جلب التوكن باستخدام مفتاحك
+            const token = await getToken(messaging, {
+                vapidKey: "BKZpWjs91_FRE2wtkosO4GA8Y2uPew55Ys9aeur9Bse4s_Mm0x2eVIr-HADjJmGz9OeCjILYA6uY5GMKQ9PgaFg"
+            });
+
+            if (token) {
+                console.log("FCM Token:", token);
+                // 3. حفظ التوكن في بروفايل المستخدم
+                if (effectiveUserId) {
+                    await updateDoc(doc(db, "users", effectiveUserId), {
+                        fcmToken: token,
+                        lastTokenUpdate: serverTimestamp()
+                    });
+                }
+            } else {
+                console.log("No registration token available.");
+            }
+        } else {
+            console.log("Notification permission denied.");
+        }
+    } catch (error) {
+        console.error("Error setting up notifications:", error);
+    }
+
+    // 4. استقبال الإشعارات والتطبيق مفتوح (Foreground)
+    onMessage(messaging, (payload) => {
+        console.log('Message received: ', payload);
+        const { title, body } = payload.notification || {};
+        
+        // عرض الإشعار باستخدام نظام التنبيهات الموجود في تطبيقك
+        toast(`🔔 ${title}: ${body}`);
+        addLocalNotification(title, body, 'notifications_active');
+        
+        // تشغيل صوت تنبيه
+        if(typeof playSound === 'function') playSound('hint');
+    });
+}
 
 function navToHome() {
     manageAudioSystem('stop_quiz');
@@ -447,6 +499,7 @@ function navToHome() {
 
     updateThemeSelector();
     checkAndShowDailyReward(); 
+    setupNotifications();
 }
 
 // دالة مساعدة لتحديث قائمة الثيمات
