@@ -1,4 +1,36 @@
-const CACHE_NAME = 'ahlulbayt-quiz-offline-v4.2'; // قمنا بتحديث الإصدار لتجديد الكاش
+// --- NEW: Firebase Cloud Messaging Background Handling ---
+importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging-compat.js');
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC6FoHbL8CDTPX1MNaNWyDIA-6xheX0t4s",
+  authDomain: "ahl-albayet.firebaseapp.com",
+  projectId: "ahl-albayet",
+  storageBucket: "ahl-albayet.firebasestorage.app",
+  messagingSenderId: "160722124006",
+  appId: "1:160722124006:web:1c52066fe8dbbbb8f80f27",
+  measurementId: "G-9XJ425S41C"
+};
+
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// معالجة الرسائل في الخلفية
+messaging.onBackgroundMessage((payload) => {
+  console.log('[sw.js] Received background message ', payload);
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: './Icon.png', // تأكد من وجود هذه الصورة
+    badge: './Icon.png'
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+// -------------------------------------------------------
+
+
+const CACHE_NAME = 'ahlulbayt-quiz-offline-v4.6'; // قمنا بتحديث الإصدار لتجديد الكاش
 const STATIC_ASSETS = [
     './',
     './index.html',
