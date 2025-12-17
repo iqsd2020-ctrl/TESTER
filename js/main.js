@@ -409,7 +409,7 @@ function updateProfileUI() {
         hide('review-mistakes-btn');
     }
 }
-// --- NEW: Notification Setup Function ---
+// --- دالة إعداد الإشعارات (محدثة للإصلاح الخطأ 404) ---
 async function setupNotifications() {
     if (!("Notification" in window)) {
         console.log("This browser does not support desktop notification");
@@ -417,19 +417,25 @@ async function setupNotifications() {
     }
 
     try {
-        // 1. طلب الإذن من المستخدم
+        // 1. تسجيل Service Worker الخاص بك يدوياً
+        // هذا يخبر المتصفح باستخدام sw.js بدلاً من البحث عن firebase-messaging-sw.js
+        const registration = await navigator.serviceWorker.register('./sw.js');
+        console.log('Service Worker registered with scope:', registration.scope);
+
+        // 2. طلب الإذن
         const permission = await Notification.requestPermission();
         
         if (permission === 'granted') {
-            // 2. جلب التوكن باستخدام مفتاحك
+            // 3. جلب التوكن (مع تحديد Service Worker المسجل)
             const token = await getToken(messaging, {
-                vapidKey: "BKZpWjs91_FRE2wtkosO4GA8Y2uPew55Ys9aeur9Bse4s_Mm0x2eVIr-HADjJmGz9OeCjILYA6uY5GMKQ9PgaFg"
+                vapidKey: "BKZpWjs91_FRE2wtkosO4GA8Y2uPew55Ys9aeur9Bse4s_Mm0x2eVIr-HADjJmGz9OeCjILYA6uY5GMKQ9PgaFg",
+                serviceWorkerRegistration: registration // <--- هذا السطر هو الحل للمشكلة
             });
 
             if (token) {
                 console.log("FCM Token:", token);
-                // 3. حفظ التوكن في بروفايل المستخدم
-                if (effectiveUserId) {
+                // حفظ التوكن في قاعدة البيانات
+                if (typeof effectiveUserId !== 'undefined' && effectiveUserId) {
                     await updateDoc(doc(db, "users", effectiveUserId), {
                         fcmToken: token,
                         lastTokenUpdate: serverTimestamp()
@@ -445,16 +451,13 @@ async function setupNotifications() {
         console.error("Error setting up notifications:", error);
     }
 
-    // 4. استقبال الإشعارات والتطبيق مفتوح (Foreground)
+    // استقبال الإشعارات والتطبيق مفتوح
     onMessage(messaging, (payload) => {
         console.log('Message received: ', payload);
         const { title, body } = payload.notification || {};
         
-        // عرض الإشعار باستخدام نظام التنبيهات الموجود في تطبيقك
-        toast(`🔔 ${title}: ${body}`);
-        addLocalNotification(title, body, 'notifications_active');
-        
-        // تشغيل صوت تنبيه
+        if(typeof toast === 'function') toast(`🔔 ${title}: ${body}`);
+        if(typeof addLocalNotification === 'function') addLocalNotification(title, body, 'notifications_active');
         if(typeof playSound === 'function') playSound('hint');
     });
 }
