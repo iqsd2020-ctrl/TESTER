@@ -409,7 +409,7 @@ function updateProfileUI() {
         hide('review-mistakes-btn');
     }
 }
-// --- دالة إعداد الإشعارات (محدثة للإصلاح الخطأ 404) ---
+// --- دالة إعداد الإشعارات (إصلاح مشكلة No Active Service Worker) ---
 async function setupNotifications() {
     if (!("Notification" in window)) {
         console.log("This browser does not support desktop notification");
@@ -417,24 +417,28 @@ async function setupNotifications() {
     }
 
     try {
-        // 1. تسجيل Service Worker الخاص بك يدوياً
-        // هذا يخبر المتصفح باستخدام sw.js بدلاً من البحث عن firebase-messaging-sw.js
+        // 1. تسجيل Service Worker
         const registration = await navigator.serviceWorker.register('./sw.js');
-        console.log('Service Worker registered with scope:', registration.scope);
+        console.log('Service Worker registered. Waiting for activation...');
 
-        // 2. طلب الإذن
+        // 2. [هام جداً] الانتظار حتى يصبح الـ Service Worker نشطاً وجاهزاً
+        // هذا السطر يحل مشكلة "no active Service Worker"
+        await navigator.serviceWorker.ready;
+        console.log('Service Worker is ready and active!');
+
+        // 3. طلب الإذن
         const permission = await Notification.requestPermission();
         
         if (permission === 'granted') {
-            // 3. جلب التوكن (مع تحديد Service Worker المسجل)
+            // 4. جلب التوكن
             const token = await getToken(messaging, {
                 vapidKey: "BKZpWjs91_FRE2wtkosO4GA8Y2uPew55Ys9aeur9Bse4s_Mm0x2eVIr-HADjJmGz9OeCjILYA6uY5GMKQ9PgaFg",
-                serviceWorkerRegistration: registration // <--- هذا السطر هو الحل للمشكلة
+                serviceWorkerRegistration: registration 
             });
 
             if (token) {
                 console.log("FCM Token:", token);
-                // حفظ التوكن في قاعدة البيانات
+                // حفظ التوكن
                 if (typeof effectiveUserId !== 'undefined' && effectiveUserId) {
                     await updateDoc(doc(db, "users", effectiveUserId), {
                         fcmToken: token,
