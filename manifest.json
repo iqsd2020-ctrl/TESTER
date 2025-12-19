@@ -1,6 +1,6 @@
 {
-  "name": "من وحي أهل البيت (ع)",
-  "short_name": "وحي أهل البيت",
+  "name": "Test",
+  "short_name": "Test",
   "id": "/",
   "start_url": ".",
   "display": "fullscreen",
