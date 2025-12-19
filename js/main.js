@@ -724,7 +724,7 @@ function navToHome() {
     quizState.active = false;
     
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
-    show('welcome-area'); show('user-profile-container');
+    show('welcome-area');
     
     initDropdowns();
     
