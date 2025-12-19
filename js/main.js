@@ -2812,13 +2812,7 @@ bind('delete-custom-avatar', 'click', () => {
 });
 
 bind('restart-button', 'click', navToHome);
-// --- دوال الحقيبة والمتجر ---
 
-function openBag() {
-    toggleMenu(false); 
-    openModal('bag-modal');
-    renderBag();
-}
 
 function getCurrentMonthKey() {
     const d = new Date();
@@ -2829,115 +2823,183 @@ function getCurrentMonthKey() {
     return `${year}-${month}`;
 }
 
+// ==========================================
+// 🛍️ نظام المتجر والحقيبة الجديد (Zero-Flicker)
+// ==========================================
 
-function renderBag() {
-    // تحديث الرصيد
-    getEl('bag-user-score').textContent = formatNumberAr(userProfile.highScore);
+let isBagSystemInitialized = false;
+
+function openBag() {
+    toggleMenu(false);
     
+    // 1. التهيئة لمرة واحدة فقط (بناء الهيكل)
+    if (!isBagSystemInitialized) {
+        initBagSystem();
+        isBagSystemInitialized = true;
+    }
+
+    // 2. تحديث الحالة فقط (سريع جداً ولا يسبب وميض)
+    updateBagState();
+    
+    // 3. فتح النافذة
+    openModal('bag-modal');
+}
+
+// دالة البناء الأولي (تعمل مرة واحدة فقط عند فتح التطبيق لأول مرة)
+function initBagSystem() {
+    // --- أ) بناء قسم الحقيبة (Inventory) ---
+    // سنقوم بإنشاء بطاقة لكل إطار موجود في اللعبة، لكن سنخفي غير المملوك منها بالـ CSS
+    const invContainer = getEl('inventory-view');
+    // تنظيف الحاوية لضمان عدم التكرار
+    const existingList = getEl('inv-frames-grid-new');
+    if (existingList) existingList.remove();
+
+    // إنشاء الشبكة
+    const invGrid = document.createElement('div');
+    invGrid.id = 'inv-frames-grid-new';
+    invGrid.className = 'game-store-grid';
+
+    // عنوان القسم
+    const invHeader = document.createElement('h4');
+    invHeader.className = "text-sm text-slate-400 mb-3 font-bold mt-4 border-t border-slate-700 pt-4";
+    invHeader.textContent = "إطاراتي (اضغط للتجهيز)";
+    invContainer.appendChild(invHeader);
+
+    // إضافة كل الإطارات الممكنة للشبكة
+    framesData.forEach(f => {
+        const card = createGameItemCard(f, 'inventory');
+        invGrid.appendChild(card);
+    });
+    invContainer.appendChild(invGrid);
+
+
+    // --- ب) بناء قسم المتجر (Shop) ---
+    const shopContainer = getEl('shop-view');
+    const existingShopGrid = getEl('shop-frames-grid-new');
+    if (existingShopGrid) existingShopGrid.remove();
+
+    const shopGrid = document.createElement('div');
+    shopGrid.id = 'shop-frames-grid-new';
+    shopGrid.className = 'game-store-grid'; // نفس كلاس الشبكة
+    // نستخدم grid-cols-2 للمتجر ليكون العرض أكبر قليلاً إذا أردت، أو نتركه موحد
+    shopGrid.style.gridTemplateColumns = "repeat(2, 1fr)"; 
+
+    const shopHeader = document.createElement('h4');
+    shopHeader.className = "text-amber-400 text-sm font-bold mt-6 mb-3 flex items-center gap-1";
+    shopHeader.innerHTML = `<span class="material-symbols-rounded">image</span> إطارات الأفاتار`;
+    shopContainer.appendChild(shopHeader);
+
+    // إضافة الإطارات (ما عدا الافتراضي) للمتجر
+    framesData.forEach(f => {
+        if (f.id === 'default') return;
+        const card = createGameItemCard(f, 'shop');
+        shopGrid.appendChild(card);
+    });
+    shopContainer.appendChild(shopGrid);
+}
+
+// دالة مساعدة لإنشاء HTML البطاقة (CSS نقي)
+function createGameItemCard(fData, type) {
+    const btn = document.createElement('button');
+    // نضع ID مميز للزر لسهولة الوصول إليه عند التحديث
+    btn.id = `btn-${type}-${fData.id}`;
+    btn.className = 'game-item-card';
+    
+    // محتوى البطاقة
+    const previewHTML = getAvatarHTML(userProfile.customAvatar, fData.id, "w-10 h-10");
+    
+    let actionHTML = '';
+    if (type === 'shop') {
+        actionHTML = `<span class="game-item-price">${formatNumberAr(fData.price)}</span>`;
+    } else {
+        // في الحقيبة نضيف شارة التجهيز
+        actionHTML = `<div class="equip-badge"><span class="material-symbols-rounded" style="font-size:10px">check</span></div>`;
+    }
+
+    btn.innerHTML = `
+        ${previewHTML}
+        <span class="game-item-name">${fData.name}</span>
+        ${actionHTML}
+    `;
+
+    // ربط الأحداث
+    btn.onclick = () => {
+        if (type === 'inventory') {
+            equipFrame(fData.id);
+        } else {
+            // التحقق من الملكية يتم داخل دالة الشراء، لكن يمكننا منع الضغط بصرياً
+            if (!btn.classList.contains('owned')) {
+                window.buyShopItem('frame', fData.price, fData.id);
+            }
+        }
+    };
+
+    return btn;
+}
+
+
+// دالة التحديث (تعمل عند كل فتح للحقيبة أو شراء)
+function updateBagState() {
+    // 1. تحديث النصوص (الرصيد والعدادات)
+    getEl('bag-user-score').textContent = formatNumberAr(userProfile.highScore);
     const inv = userProfile.inventory;
     getEl('inv-lives-count').textContent = formatNumberAr(inv.lives || 0);       
     getEl('inv-fifty-count').textContent = formatNumberAr(inv.helpers.fifty || 0); 
     getEl('inv-hint-count').textContent = formatNumberAr(inv.helpers.hint || 0);   
-    getEl('inv-skip-count').textContent = formatNumberAr(inv.helpers.skip || 0);   
+    getEl('inv-skip-count').textContent = formatNumberAr(inv.helpers.skip || 0);
 
-    // --- (1) مقتنياتي: عرض الإطارات كصور (Visual Grid) ---
-    // هذا الجزء يحقق طلبك: عرض الصور في المقتنيات
-    let framesSection = getEl('inv-frames-list');
-    if(!framesSection) {
-        // إذا لم يكن القسم موجوداً، نقوم بإنشائه في مكانه الصحيح
-        const container = document.createElement('div');
-        container.className = "mt-4 border-t border-slate-700 pt-4";
-        container.innerHTML = `<h4 class="text-sm text-slate-400 mb-3 font-bold">إطاراتي (اضغط للتجهيز)</h4><div id="inv-frames-list" class="grid grid-cols-4 gap-3"></div>`;
-        // نضيفه بعد قسم الثيمات المملوكة (أو بعد العدادات)
-        getEl('inventory-view').appendChild(container); 
-        framesSection = getEl('inv-frames-list');
-    }
-    
-    framesSection.innerHTML = '';
     const ownedFrames = userProfile.inventory.frames || ['default'];
-    
-    // ترتيب الإطارات: المجهز أولاً، ثم الباقي
-    const sortedOwned = [...ownedFrames].sort((a,b) => {
-        if (a === userProfile.equippedFrame) return -1;
-        if (b === userProfile.equippedFrame) return 1;
-        return 0;
-    });
+    const currentFrame = userProfile.equippedFrame;
 
-    sortedOwned.forEach(fid => {
-        const fData = framesData.find(f => f.id === fid);
-        if(!fData) return;
-        
-        const isEquipped = userProfile.equippedFrame === fid;
-        
-        // زر الإطار في الحقيبة (شكل أيقونة)
-        const btn = document.createElement('button');
-        btn.className = `relative flex flex-col items-center gap-1 p-2 rounded-xl border transition ${isEquipped ? 'bg-amber-500/10 border-amber-400 scale-105' : 'bg-slate-800 border-slate-600 hover:border-slate-400'}`;
-        
-        // استخدام دالة الأفاتار لعرض الإطار مع الصورة الشخصية الحالية
-        // نصغر الحجم ليتناسب مع الشبكة
-        const previewHTML = getAvatarHTML(userProfile.customAvatar, fid, "w-10 h-10");
-        
-        btn.innerHTML = `
-            ${previewHTML}
-            <span class="text-[9px] font-bold truncate w-full text-center ${isEquipped ? 'text-amber-400' : 'text-slate-400'}">${fData.name}</span>
-            ${isEquipped ? '<span class="absolute top-0 right-0 bg-amber-500 text-black rounded-full p-0.5 material-symbols-rounded text-[10px]">check</span>' : ''}
-        `;
-        
-        // عند الضغط: يتم التجهيز فوراً
-        btn.onclick = () => {
-            if(!isEquipped) equipFrame(fid);
-        };
-        
-        framesSection.appendChild(btn);
-    });
+    // 2. تحديث عناصر الحقيبة (Inventory)
+    framesData.forEach(f => {
+        const btn = document.getElementById(`btn-inventory-${f.id}`);
+        if (!btn) return;
 
-    // --- (4) المتجر: عرض الإطارات (مصحح) ---
-    // نحدد الحاوية الرئيسية للمتجر مباشرة بدلاً من الاعتماد على shopList المحذوفة
-    const shopViewContainer = getEl('shop-view');
-
-    const existingFramesHeader = document.getElementById('shop-frames-header');
-    if(!existingFramesHeader && shopViewContainer) {
-         const header = document.createElement('h4');
-         header.id = 'shop-frames-header';
-         header.className = "text-amber-400 text-sm font-bold mt-6 mb-3 flex items-center gap-1 col-span-2";
-         header.innerHTML = `<span class="material-symbols-rounded">image</span> إطارات الأفاتار`;
-         shopViewContainer.appendChild(header); // ✅ الإضافة للحاوية مباشرة
-         
-         const grid = document.createElement('div');
-         grid.id = 'shop-frames-grid';
-         grid.className = "grid grid-cols-2 gap-3";
-         shopViewContainer.appendChild(grid); // ✅ الإضافة للحاوية مباشرة
-    }
-
-    
-    const framesGrid = getEl('shop-frames-grid');
-    framesGrid.innerHTML = '';
-
-    // ترتيب المتجر: الأرخص للأغلى
-    const sortedFrames = [...framesData].sort((a,b) => a.price - b.price);
-
-    sortedFrames.forEach(f => {
-        if(f.id === 'default') return;
-        const isOwned = (userProfile.inventory.frames || []).includes(f.id);
-        
-        const btn = document.createElement('button');
-        btn.className = `p-3 rounded-xl border border-slate-600 text-center relative transition hover:border-amber-400 flex flex-col items-center justify-center gap-2 ${isOwned ? 'shop-item-owned' : ''}`;
-        
-        btn.innerHTML = `
-            <div class="relative w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
-                <span class="material-symbols-rounded text-slate-500">face</span>
-                <div class="avatar-frame-overlay ${f.cssClass}"></div>
-            </div>
-            <p class="text-white text-xs font-bold">${f.name}</p>
-            ${!isOwned ? `<span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded inline-block">${formatNumberAr(f.price)}</span>` : ''}
-        `;
-        
-        if(!isOwned) {
-            btn.onclick = () => window.buyShopItem('frame', f.price, f.id);
+        // أ) هل أملك هذا الإطار؟
+        if (ownedFrames.includes(f.id)) {
+            btn.classList.remove('game-item-hidden'); // إظهار
+        } else {
+            btn.classList.add('game-item-hidden'); // إخفاء
         }
-        framesGrid.appendChild(btn);
+
+        // ب) هل هو مجهز؟
+        if (f.id === currentFrame) {
+            btn.classList.add('equipped');
+        } else {
+            btn.classList.remove('equipped');
+        }
+        
+        // تحديث صورة الأفاتار داخل الزر (في حال غير المستخدم صورته)
+        const avatarContainer = btn.querySelector('.avatar-wrapper');
+        if(avatarContainer) {
+             avatarContainer.outerHTML = getAvatarHTML(userProfile.customAvatar, f.id, "w-10 h-10");
+        }
+    });
+
+    // 3. تحديث عناصر المتجر (Shop)
+    framesData.forEach(f => {
+        if (f.id === 'default') return;
+        const btn = document.getElementById(`btn-shop-${f.id}`);
+        if (!btn) return;
+
+        if (ownedFrames.includes(f.id)) {
+            btn.classList.add('owned');
+            // إخفاء السعر وإظهار "مملوك"
+            const priceTag = btn.querySelector('.game-item-price');
+            if(priceTag) {
+                priceTag.style.background = 'transparent';
+                priceTag.style.color = '#10b981';
+                priceTag.textContent = 'مملوك';
+            }
+        } else {
+            btn.classList.remove('owned');
+        }
     });
 }
+
+
+
 
 // دالة التبديل بين التبويبات
 function switchBagTab(tab) {
@@ -2961,7 +3023,7 @@ function switchBagTab(tab) {
 async function equipFrame(frameId) {
     userProfile.equippedFrame = frameId;
     updateProfileUI();
-    renderBag(); 
+     updateBagState();  
     
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
@@ -2993,10 +3055,10 @@ window.buyShopItem = async function(type, cost, id=null) {
             if (type === 'frame') { 
                 if(!userProfile.inventory.frames) userProfile.inventory.frames = [];
                 userProfile.inventory.frames.push(id);
-                toast("تم شراء الإطار بنجاح! 🖼️");
+                toast("تم شراء الإطار بنجاح! ");
             } else if(type === 'life') {
                 userProfile.inventory.lives++;
-                toast("تم شراء قلب إضافي ❤️");
+                toast("تم شراء قلب إضافي ");
             } else if(type === 'fifty') {
                 userProfile.inventory.helpers.fifty++;
                 toast("تم شراء مساعدة حذف اجابتين");
@@ -3013,14 +3075,17 @@ window.buyShopItem = async function(type, cost, id=null) {
             
             updateQuestProgress(5, 1);
 
-            try {
+               try {
                 await updateDoc(doc(db, "users", effectiveUserId), {
                     highScore: userProfile.highScore,
                     inventory: userProfile.inventory,
                     "stats.itemsBought": userProfile.stats.itemsBought
                 });
                 playSound('win');
-                renderBag(); 
+                
+                // ✅ التغيير هنا: نستخدم دالة التحديث الجديدة
+                updateBagState(); 
+                
                 updateProfileUI(); 
                  
                 // إزالة ذكر الثيم من الإشعار
