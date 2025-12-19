@@ -2891,21 +2891,24 @@ function renderBag() {
         framesSection.appendChild(btn);
     });
 
+    // --- (4) المتجر: عرض الإطارات (مصحح) ---
+    // نحدد الحاوية الرئيسية للمتجر مباشرة بدلاً من الاعتماد على shopList المحذوفة
+    const shopViewContainer = getEl('shop-view');
 
-    // --- (4) المتجر: عرض الإطارات (كما هي) ---
     const existingFramesHeader = document.getElementById('shop-frames-header');
-    if(!existingFramesHeader) {
+    if(!existingFramesHeader && shopViewContainer) {
          const header = document.createElement('h4');
          header.id = 'shop-frames-header';
          header.className = "text-amber-400 text-sm font-bold mt-6 mb-3 flex items-center gap-1 col-span-2";
          header.innerHTML = `<span class="material-symbols-rounded">image</span> إطارات الأفاتار`;
-         shopList.parentNode.appendChild(header);
+         shopViewContainer.appendChild(header); // ✅ الإضافة للحاوية مباشرة
          
          const grid = document.createElement('div');
          grid.id = 'shop-frames-grid';
          grid.className = "grid grid-cols-2 gap-3";
-         shopList.parentNode.appendChild(grid);
+         shopViewContainer.appendChild(grid); // ✅ الإضافة للحاوية مباشرة
     }
+
     
     const framesGrid = getEl('shop-frames-grid');
     framesGrid.innerHTML = '';
