@@ -727,7 +727,7 @@ function navToHome() {
     show('welcome-area'); show('user-profile-container');
     
     initDropdowns();
-    initDayMode(); 
+    
     quizState.timerEnabled = localStorage.getItem('timerEnabled') === 'false' ? false : true;
     const toggleBtn = getEl('toggle-timer-btn');
     if(quizState.timerEnabled) {
@@ -4031,68 +4031,6 @@ function animateValue(obj, start, end, duration) {
     window.requestAnimationFrame(step);
 }
 
-function initDayMode() {
-    const themeBtn = getEl('theme-toggle-btn');
-    const saved = localStorage.getItem('app_day_mode');
-    
-    // الوضع الافتراضي هو النهاري (true) إذا لم يكن هناك حفظ
-    let isDay = saved === null ? true : (saved === 'true');
-    
-    // دالة التحديث البصري
-    const updateThemeUI = (dayActive) => {
-        if(themeBtn) {
-            if(dayActive) {
-                // --- ☀️ نحن الآن في الوضع النهاري ---
-                document.documentElement.classList.add('light-mode');
-                
-                // شكل الزر في الوضع النهاري:
-                // الخلفية: بيضاء كريمية | الأيقونة: قمر (للتحويل لليلي) | اللون: نيلي غامق
-                themeBtn.className = "absolute top-0 left-0 m-4 w-12 h-12 rounded-full bg-[#fffcf2] border border-[#d8c2a9] flex items-center justify-center shadow-[inset_0_2px_5px_rgba(0,0,0,0.05),0_5px_10px_rgba(0,0,0,0.05)] transition-all active:scale-95 hover:bg-white group z-50";
-                
-                themeBtn.innerHTML = `
-                    <span class="material-symbols-rounded text-2xl text-indigo-900 group-hover:-rotate-12 transition-transform duration-500">
-                        dark_mode
-                    </span>`;
-            } else {
-                // --- 🌙 نحن الآن في الوضع الليلي ---
-                document.documentElement.classList.remove('light-mode');
-                
-                // شكل الزر في الوضع الليلي:
-                // الخلفية: داكنة محفورة | الأيقونة: شمس (للتحويل للنهاري) | اللون: ذهبي مشع
-                themeBtn.className = "absolute top-0 left-0 m-4 w-12 h-12 rounded-full bg-slate-800/80 border border-slate-600/30 flex items-center justify-center shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] transition-all active:scale-95 hover:bg-slate-700 group z-50";
-                
-                themeBtn.innerHTML = `
-                    <span class="material-symbols-rounded text-2xl text-amber-400 group-hover:rotate-45 transition-transform duration-500 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]">
-                        wb_sunny
-                    </span>`;
-            }
-        }
-    };
-
-    // 1. التطبيق الأولي
-    updateThemeUI(isDay);
-
-    // 2. تفعيل الزر عند الضغط
-    if(themeBtn) {
-        themeBtn.onclick = () => {
-             isDay = !isDay; // عكس الحالة
-             localStorage.setItem('app_day_mode', isDay);
-             
-             // تشغيل صوت وتأثير اهتزاز
-             
-             if(typeof playSound === 'function') playSound('click');
-             
-             // تحديث الواجهة
-             updateThemeUI(isDay);
-             
-             // رسالة توضيحية
-             if(isDay) toast('صباح الخير ☀️ الوضع النهاري');
-             else toast('تصبح على خير 🌙 الوضع الليلي');
-        };
-    }
-}
-
-// =========================================================
 
 /* =========================================
    Skeleton Loading Logic
