@@ -114,30 +114,6 @@ h1, h2, h3, h4, .font-heading { font-family: var(--font-heading); }
 }
 
 
-.input-glass { 
-    width: 100%; 
-    background: #1e293b; 
-    border: 1px solid var(--border-color); 
-    color: var(--text-main); 
-    border-radius: 0.75rem; 
-    padding: 0.75rem 1rem; 
-    transition: border-color 0.3s, box-shadow 0.3s;
-    font-family: var(--font-body); 
-    font-size: 1rem; 
-}
-
-.input-glass:focus { 
-    border-color: var(--accent-color); 
-    outline: none; 
-    box-shadow: 0 0 0 2px var(--shadow-color); 
-}
-
-.input-glass::placeholder { color: var(--text-muted); opacity: 0.7; }
-
-select.input-glass { 
-    appearance: none; 
-    background-image: none; /* إزالة السهم الافتراضي لاستبداله */
-}
 
 
 /* --- إصلاح الألوان والنصوص (استبدل الكود القديم في نهاية الملف بهذا) --- */
@@ -2767,4 +2743,96 @@ input[list]:hover::-webkit-calendar-picker-indicator {
 /* تسريع حركة الهيدر السفلي */
 .nav-glass-body {
     transition: all 0.2s !important;
+}
+/* ========================================= */
+/* 🛍️ نظام المتجر والحقيبة (CSS النقي) */
+/* ========================================= */
+
+/* شبكة العرض */
+.game-store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 12px;
+    padding: 10px 0;
+}
+
+/* بطاقة العنصر (مشتركة للمتجر والحقيبة) */
+.game-item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: #1e293b; /* slate-800 */
+    border: 1px solid #475569; /* slate-600 */
+    border-radius: 12px;
+    padding: 10px;
+    transition: all 0.2s ease-out;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.game-item-card:active {
+    transform: scale(0.95);
+}
+
+/* حالة العنصر: مجهز (Equipped) */
+.game-item-card.equipped {
+    background-color: rgba(251, 191, 36, 0.1); /* amber-500/10 */
+    border-color: #fbbf24; /* amber-400 */
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+}
+
+/* حالة العنصر: مملوك في المتجر (Owned) */
+.game-item-card.owned {
+    opacity: 0.7;
+    border-color: #10b981; /* green-500 */
+    cursor: default;
+}
+.game-item-card.owned:active {
+    transform: none;
+}
+
+/* النصوص */
+.game-item-name {
+    font-size: 10px;
+    font-weight: bold;
+    color: #cbd5e1; /* slate-300 */
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+.game-item-card.equipped .game-item-name {
+    color: #fbbf24; /* amber-400 */
+}
+
+
+.game-item-price {
+    font-size: 10px;
+    background-color: #0f172a; /* slate-900 */
+    color: #fbbf24; /* amber-400 */
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+
+.equip-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #fbbf24;
+    color: #000;
+    border-bottom-left-radius: 8px;
+    padding: 2px;
+    font-size: 12px;
+    display: none; 
+}
+.game-item-card.equipped .equip-badge {
+    display: block;
+}
+.game-item-hidden {
+    display: none !important;
 }
