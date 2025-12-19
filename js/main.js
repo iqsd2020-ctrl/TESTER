@@ -1,9 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+// 🚨 هذا السطر ضروري جداً
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
-// --- NEW: Import Messaging ---
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging.js";
 
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
@@ -21,9 +20,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app); 
-// --- NEW: Initialize Messaging ---
-const messaging = getMessaging(app);
-
+// 👇 كود تفعيل قاعدة البيانات لتعمل بدون إنترنت
 enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
         console.log('Persistence failed: Multiple tabs open');
@@ -55,7 +52,6 @@ let timerInterval = null;
 let audioContext = null; 
 let marathonInterval = null;
 let currentSelectionMode = null; 
-let isVibration = localStorage.getItem('vibration_enabled_v1') === 'false' ? false : true;
 
 // --- إصلاح تسجيل الدخول مع الحفاظ على قواعد الأمان ---
 onAuthStateChanged(auth, async (user) => {
@@ -221,6 +217,214 @@ function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
     oscillator.stop(audioContext.currentTime + duration);
 }
+// --- دوال واجهة المستخدم للمهام ---
+
+// 1. فتح النافذة وتحديث البيانات
+function openQuestModal() {
+    const modal = document.getElementById('quest-modal');
+    modal.classList.remove('quest-hidden');
+    // تأخير بسيط لتفعيل الأنيميشن
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+    
+    renderQuestList(); // تحديث القائمة عند الفتح
+}
+
+// 2. إغلاق النافذة
+function closeQuestModal() {
+    const modal = document.getElementById('quest-modal');
+    modal.classList.remove('active');
+    setTimeout(() => {
+        modal.classList.add('quest-hidden');
+    }, 300);
+}
+
+// ==========================================
+// 📋 عرض قائمة المهام (تحديث الواجهة)
+// ==========================================
+function renderQuestList() {
+    const listContainer = document.getElementById('quest-list-container');
+    if (!listContainer) return;
+
+    // تفريغ القائمة
+    listContainer.innerHTML = '';
+
+    // التحقق من وجود بيانات
+    if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
+
+    let allCompleted = true;
+
+    userProfile.dailyQuests.tasks.forEach(task => {
+        const isCompleted = task.current >= task.target;
+        if (!isCompleted) allCompleted = false;
+
+        // حساب نسبة التقدم للشريط
+        const progressPercent = Math.min(100, (task.current / task.target) * 100);
+
+        // تحديد حالة الزر (نشط، غير نشط، أو تم الاستلام)
+        let actionBtnHTML = '';
+        
+        if (task.claimed) {
+            // حالة 1: تم استلام الجائزة
+            actionBtnHTML = `
+                <button class="quest-claim-btn" style="background: #334155; cursor: default;" disabled>
+                    <span class="material-symbols-rounded" style="font-size:14px; vertical-align:middle;">check</span> تم الاستلام
+                </button>
+            `;
+        } else if (isCompleted) {
+            // حالة 2: المهمة اكتملت والجائزة جاهزة للاستلام
+            // لاحظ استخدام window.claimSingleReward هنا ضمنياً عبر onclick
+            actionBtnHTML = `
+                <button onclick="claimSingleReward(${task.id})" class="quest-claim-btn animate-bounce">
+                    استلام 100 نقطة
+                </button>
+            `;
+        } else {
+            // حالة 3: المهمة قيد التنفيذ
+            actionBtnHTML = `<span class="quest-progress-text">${task.current} / ${task.target}</span>`;
+        }
+
+        const taskHTML = `
+            <div class="quest-item">
+                <div class="quest-item-header">
+                    <span>${task.desc}</span>
+                    ${actionBtnHTML}
+                </div>
+                <div class="quest-progress-bg">
+                    <div class="quest-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+            </div>
+        `;
+        listContainer.innerHTML += taskHTML;
+    });
+
+    // التحكم في ظهور الجائزة الكبرى
+    const grandPrizeArea = document.getElementById('grand-prize-area');
+    if (grandPrizeArea) {
+        if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) {
+            grandPrizeArea.classList.remove('quest-hidden');
+            // تفعيل زر الجائزة الكبرى
+            document.getElementById('claim-grand-prize-btn').onclick = window.claimGrandPrize;
+        } else {
+            grandPrizeArea.classList.add('quest-hidden');
+        }
+    }
+}
+
+// --- تفعيل الأزرار (Event Listeners) ---
+// يجب التأكد من تحميل الصفحة قبل ربط العناصر
+document.addEventListener('DOMContentLoaded', () => {
+    
+    const openBtn = document.getElementById('btn-open-quests');
+    const closeBtn = document.getElementById('close-quest-btn');
+    const grandBtn = document.getElementById('claim-grand-prize-btn');
+
+    if(openBtn) openBtn.addEventListener('click', openQuestModal);
+    if(closeBtn) closeBtn.addEventListener('click', closeQuestModal);
+    
+    // ربط زر الجائزة الكبرى
+    if(grandBtn) grandBtn.addEventListener('click', claimGrandPrize);
+});
+// ==========================================
+// 🎁 نظام المهام اليومية: دوال الاستلام (Logic)
+// ==========================================
+
+async function claimSingleReward(taskId) {
+    // 1. العثور على المهمة
+    const task = userProfile.dailyQuests.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // 2. التحقق من الأهلية
+    if (task.current < task.target) {
+        toast("المهمة لم تكتمل بعد!", "error");
+        return;
+    }
+    if (task.claimed) {
+        toast("تم استلام هذه الجائزة مسبقاً", "info");
+        return;
+    }
+
+    // 3. التنفيذ (مكافأة 100 نقطة)
+    const REWARD_AMOUNT = 100;
+    
+    // أ. تحديث محلي
+    task.claimed = true;
+    userProfile.highScore += REWARD_AMOUNT;
+
+    // ب. حفظ في السيرفر
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            "dailyQuests.tasks": userProfile.dailyQuests.tasks,
+            highScore: userProfile.highScore
+        });
+
+        // ج. مؤثرات النجاح
+        playSound('monetization_on'); // صوت النقود إذا وجد أو win
+        toast(`🎉 تم استلام ${REWARD_AMOUNT} نقطة!`);
+        
+        // د. تحديث الواجهة
+        renderQuestList();
+        updateProfileUI(); // لتحديث عداد النقاط العلوي
+        
+    } catch (e) {
+        console.error("Reward Claim Error", e);
+        toast("خطأ في الاتصال، حاول مجدداً", "error");
+        task.claimed = false; // تراجع في حال الخطأ
+        userProfile.highScore -= REWARD_AMOUNT;
+    }
+}
+
+async function claimGrandPrize() {
+    // 1. التحقق من اكتمال جميع المهام
+    const allDone = userProfile.dailyQuests.tasks.every(t => t.current >= t.target);
+    if (!allDone) {
+        toast("يجب إكمال جميع المهام أولاً!", "error");
+        return;
+    }
+    if (userProfile.dailyQuests.grandPrizeClaimed) {
+        toast("لقد استلمت الجائزة الكبرى لهذا اليوم!", "info");
+        return;
+    }
+
+    // 2. محتويات الجائزة الكبرى
+    const BONUS_SCORE = 1000;
+    const BONUS_LIVES = 3;
+    const BONUS_HINT = 1;
+
+    // 3. التحديث المحلي
+    userProfile.dailyQuests.grandPrizeClaimed = true;
+    userProfile.highScore += BONUS_SCORE;
+    userProfile.inventory.lives += BONUS_LIVES;
+    userProfile.inventory.helpers.hint += BONUS_HINT;
+
+    // 4. الحفظ في السيرفر
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            "dailyQuests.grandPrizeClaimed": true,
+            highScore: userProfile.highScore,
+            "inventory.lives": userProfile.inventory.lives,
+            "inventory.helpers.hint": userProfile.inventory.helpers.hint
+        });
+
+        // 5. الاحتفال
+        launchConfetti(); // قصاصات ورقية
+        playSound('applause'); // تصفيق
+        
+        // عرض نافذة الجائزة (نستخدم نافذة المكافآت الموجودة)
+        // أو رسالة Toast مفصلة
+        toast(`🎁 مبروك! حصلت على ${BONUS_SCORE} نقطة و ${BONUS_LIVES} قلوب وتلميح!`, "success");
+        addLocalNotification('إنجاز يومي 🌟', 'تم استلام الجائزة الكبرى للمهام اليومية', 'military_tech');
+
+        renderQuestList();
+        updateProfileUI();
+
+    } catch (e) {
+        console.error("Grand Prize Error", e);
+        toast("خطأ في استلام الجائزة", "error");
+        userProfile.dailyQuests.grandPrizeClaimed = false;
+    }
+}
 
 function updateEnrichmentUI() {
     const btn = getEl('toggle-enrichment-btn');
@@ -315,6 +519,66 @@ async function fetchSystemCounts() {
         console.log("Counts not found, using defaults");
     }
 }
+// --- دالة مركزية لتحديث تقدم المهام ---
+function updateQuestProgress(questId, amount = 1) {
+    // 1. التحقق من وجود بيانات المهام
+    if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
+
+    // 2. البحث عن المهمة المطلوبة
+    const taskIndex = userProfile.dailyQuests.tasks.findIndex(t => t.id === questId);
+    if (taskIndex === -1) return;
+
+    const task = userProfile.dailyQuests.tasks[taskIndex];
+
+    // 3. إذا كانت المهمة مكتملة مسبقاً، لا تفعل شيئاً
+    if (task.current >= task.target) return;
+
+    // 4. زيادة العداد
+    task.current += amount;
+    
+    // منع العداد من تجاوز الهدف
+    if (task.current > task.target) task.current = task.target;
+
+    // 5. حفظ التحديث في السيرفر
+    if (effectiveUserId) {
+        updateDoc(doc(db, "users", effectiveUserId), { 
+            dailyQuests: userProfile.dailyQuests 
+        }).catch(err => console.log("Quest Update Error", err));
+    }
+    
+    // 6. تحديث الواجهة (الشارة الحمراء على الزر)
+    updateProfileUI(); 
+}
+
+// --- تهيئة نظام المهام اليومية ---
+function initDailyQuests() {
+    const today = new Date().toLocaleDateString('en-CA'); // تاريخ اليوم بصيغة ثابتة YYYY-MM-DD
+    
+    // 1. إذا لم يكن لدى المستخدم سجل مهام أصلاً، أو إذا كان التاريخ مختلفاً (يوم جديد)
+    if (!userProfile.dailyQuests || userProfile.dailyQuests.date !== today) {
+        userProfile.dailyQuests = {
+            date: today,
+            grandPrizeClaimed: false, // هل استلم الجائزة الكبرى؟
+            tasks: [
+                // المعرف 1: حل 50 سؤال في المعصومين
+                { id: 1, current: 0, target: 50, claimed: false, desc: "حل 50 سؤال في قسم المعصومين" },
+                // المعرف 2: استعمال 5 مساعدات
+                { id: 2, current: 0, target: 5, claimed: false, desc: "استخدم 5 وسائل مساعدة" },
+                // المعرف 3: حل 10 أسئلة ماراثون (النور)
+                { id: 3, current: 0, target: 10, claimed: false, desc: "أكمل 10 أسئلة في تحدي النور" },
+                // المعرف 4: حل 20 سؤال مهدوي
+                { id: 4, current: 0, target: 20, claimed: false, desc: "حل 20 سؤال عن الثقافة المهدوية" },
+                // المعرف 5: شراء عنصر من المتجر
+                { id: 5, current: 0, target: 1, claimed: false, desc: "اشترِ أي عنصر من المتجر" }
+            ]
+        };
+        // حفظ التهيئة الجديدة في السيرفر فوراً
+        if(effectiveUserId) {
+            updateDoc(doc(db, "users", effectiveUserId), { dailyQuests: userProfile.dailyQuests })
+            .catch(err => console.log("Quest Init Error", err));
+        }
+    }
+}
 
 async function loadProfile(uid) {
     try {
@@ -341,6 +605,7 @@ async function loadProfile(uid) {
                 inventory: { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] }
             };
         }
+        initDailyQuests();
         updateProfileUI();
     } catch(e) { console.error("Error loading profile:", e); }
 }
@@ -408,62 +673,35 @@ function updateProfileUI() {
     } else {
         hide('review-mistakes-btn');
     }
-}
-// --- دالة إعداد الإشعارات (إصلاح مشكلة No Active Service Worker) ---
-async function setupNotifications() {
-    if (!("Notification" in window)) {
-        console.log("This browser does not support desktop notification");
-        return;
-    }
+        // --- تحديث زر المهام اليومية ---
+    const questContainer = document.getElementById('daily-quest-container');
+    const questBadge = document.getElementById('quest-notification-badge');
 
-    try {
-        // 1. تسجيل Service Worker
-        const registration = await navigator.serviceWorker.register('./sw.js');
-        console.log('Service Worker registered. Waiting for activation...');
-
-        // 2. [هام جداً] الانتظار حتى يصبح الـ Service Worker نشطاً وجاهزاً
-        // هذا السطر يحل مشكلة "no active Service Worker"
-        await navigator.serviceWorker.ready;
-        console.log('Service Worker is ready and active!');
-
-        // 3. طلب الإذن
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-            // 4. جلب التوكن
-            const token = await getToken(messaging, {
-                vapidKey: "BKZpWjs91_FRE2wtkosO4GA8Y2uPew55Ys9aeur9Bse4s_Mm0x2eVIr-HADjJmGz9OeCjILYA6uY5GMKQ9PgaFg",
-                serviceWorkerRegistration: registration 
-            });
-
-            if (token) {
-                console.log("FCM Token:", token);
-                // حفظ التوكن
-                if (typeof effectiveUserId !== 'undefined' && effectiveUserId) {
-                    await updateDoc(doc(db, "users", effectiveUserId), {
-                        fcmToken: token,
-                        lastTokenUpdate: serverTimestamp()
-                    });
-                }
+    if (questContainer && userProfile.dailyQuests) {
+        // إذا لم يتم استلام الجائزة الكبرى، أظهر الزر
+        if (!userProfile.dailyQuests.grandPrizeClaimed) {
+            questContainer.classList.remove('hidden');
+            
+            // تحديث الشارة (Badge) بعدد المهام المتبقية
+            // نحسب المهام التي لم يكتمل عدادها بعد
+            const remainingTasks = userProfile.dailyQuests.tasks.filter(t => t.current < t.target).length;
+            
+            if (remainingTasks > 0) {
+                questBadge.style.display = 'flex';
+                questBadge.textContent = remainingTasks;
+                questBadge.classList.add('pulse-red'); // وميض
             } else {
-                console.log("No registration token available.");
+                // إذا اكتملت كل المهام ولم تستلم الجائزة الكبرى بعد
+                questBadge.style.display = 'flex';
+                questBadge.textContent = "🎁";
+                questBadge.classList.add('pulse-red');
             }
         } else {
-            console.log("Notification permission denied.");
+            // إذا استلم الجائزة الكبرى، أخفِ الزر
+            questContainer.classList.add('hidden');
         }
-    } catch (error) {
-        console.error("Error setting up notifications:", error);
     }
 
-    // استقبال الإشعارات والتطبيق مفتوح
-    onMessage(messaging, (payload) => {
-        console.log('Message received: ', payload);
-        const { title, body } = payload.notification || {};
-        
-        if(typeof toast === 'function') toast(`🔔 ${title}: ${body}`);
-        if(typeof addLocalNotification === 'function') addLocalNotification(title, body, 'notifications_active');
-        if(typeof playSound === 'function') playSound('hint');
-    });
 }
 
 function navToHome() {
@@ -506,7 +744,6 @@ function navToHome() {
 
     updateThemeSelector();
     checkAndShowDailyReward(); 
-    setupNotifications();
 }
 
 // دالة مساعدة لتحديث قائمة الثيمات
@@ -1098,7 +1335,6 @@ async function startMarathon() {
 }
 
 function startQuiz() {
-    // إضافة حالة للتاريخ لاعتراض زر الرجوع لاحقاً
     window.history.pushState({ view: 'playing' }, "", "");
 
     manageAudioSystem('start_quiz');
@@ -1112,6 +1348,7 @@ function startQuiz() {
 
     helpers = { fifty: false, hint: false, skip: false };
     quizState.usedHelpers = false; 
+    quizState.hasUsedHelperInSession = false; 
     quizState.fastAnswers = 0; 
     quizState.enrichmentEnabled = true;
 
@@ -1213,7 +1450,7 @@ function renderQuestion() {
             const currentText = q.question; // نأخذ النص من المصدر مباشرة
             navigator.clipboard.writeText(currentText).then(() => {
                 toast('تم نسخ نص السؤال 📋');
-                if(window.triggerHaptic) window.triggerHaptic('light');
+                
                 
                 // تأثير بصري بسيط
                 qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg text-green-400">check</span>';
@@ -1351,24 +1588,23 @@ function updateStreakUI() {
 
 
 function showEnrichment(text) {
-    // 1. تحديث العداد محلياً فوراً
     if (!userProfile.stats.enrichmentCount) userProfile.stats.enrichmentCount = 0;
     userProfile.stats.enrichmentCount++;
 
-    // 2. حفظ التحديث في قاعدة البيانات (في الخلفية)
-    // نستخدم updateDoc مباشرة لضمان حفظ القراءة حتى لو خرج المستخدم من اللعبة
+    if (!userProfile.stats.explanationsViewed) userProfile.stats.explanationsViewed = 0;
+    userProfile.stats.explanationsViewed++;
+
     if (effectiveUserId) {
         updateDoc(doc(db, "users", effectiveUserId), {
-            "stats.enrichmentCount": userProfile.stats.enrichmentCount
+            "stats.enrichmentCount": userProfile.stats.enrichmentCount,
+            "stats.explanationsViewed": userProfile.stats.explanationsViewed
         }).catch(e => console.error("فشل حفظ عداد القراءة", e));
     }
 
-    // 3. عرض النافذة (الكود الأصلي للعرض)
     getEl('enrichment-content').textContent = text;
     const modal = getEl('enrichment-modal');
     modal.classList.add('active');
     
-    // تشغيل صوت خفيف عند فتح المعلومة
     if(typeof playSound === 'function') playSound('hint');
 
     const closeHandler = (e) => {
@@ -1381,11 +1617,9 @@ function showEnrichment(text) {
     modal.addEventListener('click', closeHandler);
 }
 
-
 function selectAnswer(idx, btn) {
-    // 1. حماية من النقر المتكرر أو العمل واللعبة متوقفة
     if(!quizState.active || quizState.processingAnswer) return;
-    quizState.processingAnswer = true; // 🔒 قفل الدالة
+    quizState.processingAnswer = true; 
 
     stopTimer();
     const answerTime = Date.now() - quizState.startTime;
@@ -1393,43 +1627,37 @@ function selectAnswer(idx, btn) {
     const isCorrect = idx === q.correctAnswer;
     const btns = document.querySelectorAll('.option-btn');
     
-    // تعطيل الأزرار بصرياً
     btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
     
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
 
-    // ============================================================
-    // 💾 التعديل الجديد: الحفظ المرحلي (Auto-Save Batching) كل 5 أسئلة
-    // ============================================================
     if (quizState.mode === 'marathon') {
-        // تهيئة المصفوفة المؤقتة إذا لم تكن موجودة
         if (!quizState.tempMarathonIds) quizState.tempMarathonIds = [];
-        
-        // إضافة معرف السؤال الحالي
         if (q.id) quizState.tempMarathonIds.push(q.id);
 
-        // التحقق: هل وصلنا لـ 5 أسئلة؟
         if (quizState.tempMarathonIds.length >= 5) {
             const batchIds = [...quizState.tempMarathonIds];
-            quizState.tempMarathonIds = []; // تفريغ المؤقت فوراً
+            quizState.tempMarathonIds = []; 
 
-            // إرسال للسيرفر في الخلفية (بدون await لعدم تعطيل اللعب)
             updateDoc(doc(db, "users", effectiveUserId), {
                 seenMarathonIds: arrayUnion(...batchIds)
             }).catch(e => console.error("Auto-save failed:", e));
               
-            // تحديث القائمة المحلية فوراً
             if(!userProfile.seenMarathonIds) userProfile.seenMarathonIds = [];
-            // دمج المعرفات الجديدة مع التأكد من عدم التكرار
             userProfile.seenMarathonIds = [...new Set([...userProfile.seenMarathonIds, ...batchIds])];
-            
-            console.log("✅ تم الحفظ المرحلي لـ 5 أسئلة");
         }
     }
-    // ============================================================
 
     if(isCorrect) {
         if (answerTime <= 5000) { quizState.fastAnswers++; }
+
+        if (quizState.mode === 'marathon') {
+            userProfile.stats.marathonCorrectTotal = (userProfile.stats.marathonCorrectTotal || 0) + 1;
+        }
+
+        if (quizState.contextTopic === "مراجعة الأخطاء") {
+            userProfile.stats.reviewedMistakesCount = (userProfile.stats.reviewedMistakesCount || 0) + 1;
+        }
 
         let basePoints = 1;
         let multiplier = 1;
@@ -1466,6 +1694,37 @@ function selectAnswer(idx, btn) {
 
         quizState.score += pointsAdded;
         quizState.correctCount++;
+        // --- 👇 بداية كود تتبع المهام اليومية (محدث للقائمة الجديدة) 👇 ---
+        
+        // المهمة 3: أسئلة الماراثون (ID: 3)
+        if (quizState.mode === 'marathon') {
+            updateQuestProgress(3, 1);
+        }
+
+        // تعريف المتغير (تأكدنا من الاسم لتجنب الأخطاء)
+        const questTopic = q.topic || quizState.contextTopic;
+
+        // المهمة 1: أسئلة المعصومين (ID: 1)
+        if (questTopic && (questTopic.includes('المعصومين') || questTopic.includes('أهل البيت') || questTopic.includes('الإمام') || questTopic.includes('النبي'))) {
+             updateQuestProgress(1, 1);
+        }
+
+        // المهمة 4: الثقافة المهدوية (ID: 4) - التحديث الجديد والشامل
+        if (questTopic && (
+            questTopic.includes('مهدي') || 
+            questTopic.includes('حجة') || 
+            questTopic.includes('منتظر') || 
+            questTopic.includes('قائم') ||
+            questTopic.includes('الظهور') ||        // يشمل: علامات الظهور
+            questTopic.includes('السفراء') ||       // يشمل: السفراء الأربعة
+            questTopic.includes('الغيبة') ||        // يشمل: الغيبة الصغرى والكبرى
+            questTopic.includes('دولة العدل')       // يشمل: دولة العدل الإلهي
+        )) {
+             updateQuestProgress(4, 1);
+        }
+        // --- 👆 نهاية كود تتبع المهام اليومية 👆 ---
+
+
         const scoreEl = getEl('live-score-text');
         scoreEl.textContent = formatNumberAr(quizState.score);
 
@@ -1613,6 +1872,15 @@ bind('helper-report', 'click', async () => {
 });
 
 bind('share-text-button', 'click', () => {
+    if (!userProfile.stats.shareCount) userProfile.stats.shareCount = 0;
+    userProfile.stats.shareCount++;
+    
+    if (effectiveUserId) {
+        updateDoc(doc(db, "users", effectiveUserId), {
+            "stats.shareCount": userProfile.stats.shareCount
+        }).catch(console.error);
+    }
+
     const score = formatNumberAr(quizState.score);
     const correct = formatNumberAr(quizState.correctCount);
     const total = formatNumberAr(quizState.questions.length);
@@ -1684,7 +1952,16 @@ async function endQuiz() {
     const isFriday = now.getDay() === 5;
     const isNight = (currentHour >= 0 && currentHour < 5);
     const isMorning = (currentHour >= 5 && currentHour < 9);
+    const isAfternoon = (currentHour >= 15 && currentHour < 18);
     const isPerfect = safeCorrectCount === safeTotalQuestions && safeTotalQuestions > 0;
+
+    if (quizState.mode === 'marathon') {
+        const currentMarathonScore = quizState.score;
+        const maxMarathon = stats.maxMarathonScore || 0;
+        if (currentMarathonScore > maxMarathon) {
+            stats.maxMarathonScore = currentMarathonScore;
+        }
+    }
 
     const newStats = {
         quizzesPlayed: oldQuizzesPlayed + 1,
@@ -1698,11 +1975,18 @@ async function endQuiz() {
         maxStreak: Math.max((Number(stats.maxStreak) || 0), quizState.streak), 
         fastAnswerCount: (Number(stats.fastAnswerCount) || 0) + (quizState.fastAnswers >= 5 ? 1 : 0),
         enrichmentCount: stats.enrichmentCount || 0,
+        explanationsViewed: stats.explanationsViewed || 0,
+        marathonCorrectTotal: stats.marathonCorrectTotal || 0,
+        reviewedMistakesCount: stats.reviewedMistakesCount || 0,
         nightPlayCount: (stats.nightPlayCount || 0) + (isNight ? 1 : 0),
         morningPlayCount: (stats.morningPlayCount || 0) + (isMorning ? 1 : 0),
+        afternoonPlayCount: (stats.afternoonPlayCount || 0) + (isAfternoon ? 1 : 0),
         fridayPlayCount: (stats.fridayPlayCount || 0) + (isFriday ? 1 : 0),
         perfectRounds: (stats.perfectRounds || 0) + (isPerfect ? 1 : 0),
-        itemsBought: stats.itemsBought || 0
+        itemsBought: stats.itemsBought || 0,
+        survivorWins: (stats.survivorWins || 0) + (quizState.lives === 1 && safeCorrectCount > 0 ? 1 : 0),
+        strategicWins: (stats.strategicWins || 0) + (quizState.hasUsedHelperInSession && safeCorrectCount > 0 ? 1 : 0),
+        maxMarathonScore: stats.maxMarathonScore || 0
     };
 
     const currentTopic = quizState.contextTopic;
@@ -1850,38 +2134,34 @@ function updateHelpersUI() {
 async function useHelper(type, cost, actionCallback) {
     if(!quizState.active) return;
 
-    // 1. القيد: منع الاستخدام إذا تم استخدام مساعدة مسبقاً في هذا السؤال
     if (quizState.usedHelpers) {
         toast("عذراً، يسمح بمساعدة واحدة فقط لكل سؤال! 🚫", "error");
         playSound('lose');
         return;
     }
 
-    // التحقق من الرصيد قبل التنفيذ
     const hasInventory = userProfile.inventory.helpers[type] > 0;
     if (!hasInventory && quizState.score < cost) {
         toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error");
         return;
     }
 
-    // 2. التنفيذ الفوري (لحل مشكلة التأخير)
-    // نقوم بتنفيذ التأثير البصري وإخفاء الأجوبة فوراً قبل الاتصال بالسيرفر
     quizState.usedHelpers = true;
+    quizState.hasUsedHelperInSession = true;
     actionCallback(); 
-    updateHelpersUI(); // سيقوم بتعطيل باقي الأزرار فوراً
+        // المهمة 2: استخدام 5 مساعدات (ID: 2)
+    updateQuestProgress(2, 1);
+
+    updateHelpersUI(); 
     
-    // 3. الخصم وتحديث السيرفر (في الخلفية)
     if(hasInventory) {
         userProfile.inventory.helpers[type]--;
         toast(`تم استخدام ${type} من الحقيبة`);
-        // تحديث السيرفر بدون await لعدم تعطيل الواجهة
         updateDoc(doc(db, "users", effectiveUserId), { [`inventory.helpers.${type}`]: userProfile.inventory.helpers[type] }).catch(console.error);
     } else {
         quizState.score -= cost;
         getEl('live-score-text').textContent = formatNumberAr(quizState.score);
         toast(`تم خصم ${cost} نقطة`);
-        // تحديث النقاط فقط إذا لم يكن مخزون
-        // لا نقوم بتحديث السيرفر للنقاط هنا لتخفيف الضغط، سيتم حفظها مع نهاية السؤال أو الجولة
     }
 }
 
@@ -2903,6 +3183,8 @@ window.buyShopItem = async function(type, cost, id=null) {
 
             if(!userProfile.stats) userProfile.stats = {};
             userProfile.stats.itemsBought = (userProfile.stats.itemsBought || 0) + 1;
+            // المهمة 5: شراء عنصر من المتجر (ID: 5)
+            updateQuestProgress(5, 1);
 
             try {
                 await updateDoc(doc(db, "users", effectiveUserId), {
@@ -3548,7 +3830,7 @@ function processRewardQueue() {
     showRewardModal(nextReward.badge, nextReward.level);
     playSound('applause');
     // إذا أضفنا دالة الاهتزاز لاحقاً ستعمل هنا
-    if(window.triggerHaptic) window.triggerHaptic('success');
+    
 }
 function showRewardModal(badge, level) {
     const modal = getEl('reward-modal');
@@ -3723,25 +4005,6 @@ document.addEventListener('click', (e) => {
    Step 3: Haptics & Animations (Magic Touch)
    ========================================= */
 
-window.triggerHaptic = function(type) {
-    // التحقق من تفعيل الاهتزاز ودعم المتصفح
-    if (!isVibration || !navigator.vibrate) return;
-    
-    switch(type) {
-        // زدنا القوة من 10 إلى 40 (نقرة واضحة ومسموعة)
-        case 'light': navigator.vibrate(40); break; 
-        
-        // التفاعل المتوسط (مثل فتح القوائم)
-        case 'medium': navigator.vibrate(70); break; 
-        
-        // الخطأ (اهتزاز قوي ومزدوج: طررر-طررر)
-        case 'heavy': navigator.vibrate([100, 50, 100]); break; 
-        
-        // النجاح/الوسام (نغمة اهتزازية: طر-طر-طر-طووووط)
-        case 'success': navigator.vibrate([30, 40, 50, 60, 200]); break; 
-    }
-};
-
 
 // 2. دالة تحريك الأرقام (العداد المتدحرج)
 function animateValue(obj, start, end, duration) {
@@ -3768,25 +4031,6 @@ function animateValue(obj, start, end, duration) {
     window.requestAnimationFrame(step);
 }
 
-// 3. مستمع عام للاهتزاز عند لمس أي زر (تجربة تفاعلية كاملة)
-document.addEventListener('click', (e) => {
-    // إذا ضغط المستخدم على زر أو رابط أو عنصر قائمة
-    if(e.target.closest('button') || e.target.closest('.menu-item') || e.target.closest('.selection-item')) {
-        window.triggerHaptic('light');
-    }
-});
-
-// 4. تفعيل زر الإعدادات الجديد
-const vibToggle = getEl('vibrate-toggle');
-if(vibToggle) {
-    vibToggle.checked = isVibration;
-    vibToggle.onchange = () => {
-        isVibration = vibToggle.checked;
-        localStorage.setItem('vibration_enabled_v1', isVibration);
-        if(isVibration) window.triggerHaptic('medium');
-    };
-}
-// دالة تهيئة الوضع النهاري (مع تغيير الأيقونة والألوان ديناميكياً)
 function initDayMode() {
     const themeBtn = getEl('theme-toggle-btn');
     const saved = localStorage.getItem('app_day_mode');
@@ -3835,7 +4079,7 @@ function initDayMode() {
              localStorage.setItem('app_day_mode', isDay);
              
              // تشغيل صوت وتأثير اهتزاز
-             if(window.triggerHaptic) window.triggerHaptic('light');
+             
              if(typeof playSound === 'function') playSound('click');
              
              // تحديث الواجهة
@@ -4381,7 +4625,7 @@ async function handleAiTrigger() {
             navigator.clipboard.writeText(rawText).then(() => {
                 copyBtn.innerHTML = '<span class="material-symbols-rounded text-sm text-green-400">check</span> تم!';
                 copyBtn.classList.add('border-green-500', 'text-green-400');
-                if(window.triggerHaptic) window.triggerHaptic('light');
+                
                 setTimeout(() => {
                     copyBtn.innerHTML = '<span class="material-symbols-rounded text-sm">content_copy</span> نسخ';
                     copyBtn.classList.remove('border-green-500', 'text-green-400');
@@ -4547,7 +4791,7 @@ document.addEventListener('click', (e) => {
         adminResetTimer = setTimeout(() => { adminClickCount = 0; }, 2000); // 2 ثانية مهلة
 
         if (adminClickCount === CHEAT_CONFIG.ADMIN_CLICKS_REQUIRED) {
-            if(window.triggerHaptic) window.triggerHaptic('success');
+            
             window.generateCounts();
             adminClickCount = 0;
         }
@@ -4652,7 +4896,7 @@ function triggerSauronEffect() {
             btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
             btn.classList.add('animate-pulse');
             
-            if(window.triggerHaptic) window.triggerHaptic('medium');
+            
         }
     }, 2500);
 }
@@ -4677,3 +4921,8 @@ bind('bottom-bag-btn', 'click', () => {
     toggleMenu(false);
     openBag(); // دالة فتح الحقيبة تعمل بشكل مباشر ولا تحتاج تعديل
 });
+
+// ✅ جعل دوال الاستلام مرئية لملف HTML
+window.claimSingleReward = claimSingleReward;
+window.claimGrandPrize = claimGrandPrize;
+window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً

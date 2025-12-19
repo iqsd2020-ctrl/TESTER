@@ -167,6 +167,69 @@ badgesData.push(generateBadge(
     'supporter', 'الداعم السخي', '33.png', 'counter',
     2, 'شراء عناصر ومساعدات من المتجر.', { statKey: 'itemsBought' }
 ));
+// ==========================================
+// إضافة الأوسمة الجديدة (تم التصحيح)
+// ==========================================
+
+// 1. وسام حامل النور
+badgesData.push(generateBadge(
+    'light_bearer', 'حامل النور', '34.png', 'counter',
+    100, 'أجب على 100 سؤال في وضع "أكمل النور".', { statKey: 'marathonCorrectTotal' }
+));
+
+// 2. وسام المُثابر
+badgesData.push(generateBadge(
+    'perseverant', 'المُثابر', '35.png', 'counter',
+    20, 'قم بمراجعة وتصحيح 20 سؤالاً من أخطائك.', { statKey: 'reviewedMistakesCount' }
+));
+
+// 3. وسام الناجي
+badgesData.push(generateBadge(
+    'survivor', 'الناجي', '36.png', 'counter',
+    5, 'فز في 5 جولات مع تبقي قلب واحد فقط.', { statKey: 'survivorWins' }
+));
+
+// 4. وسام سفير المعرفة
+badgesData.push(generateBadge(
+    'ambassador', 'سفير المعرفة', '37.png', 'counter',
+    10, 'شارك نتائجك ومعلومات التطبيق مع الآخرين.', { statKey: 'shareCount' }
+));
+
+// 5. وسام جليس العصر
+badgesData.push(generateBadge(
+    'afternoon_friend', 'جليس العصر', '38.png', 'counter',
+    5, 'العب في وقت العصر (بين 3 و 6 مساءً).', { statKey: 'afternoonPlayCount' }
+));
+
+// 6. وسام العلاّمة الكاملة (النسخة الخارقة - تم تغيير الـ ID لمنع التكرار)
+badgesData.push(generateBadge(
+    'perfectionist_pro', 'العلاّمة الكاملة', '39.png', 'counter',
+    5, 'أحرز نتيجة كاملة 10/10 في 5 جولات.', { statKey: 'perfectRounds' }
+));
+
+// 7. وسام الباحث عن الحقيقة
+badgesData.push(generateBadge(
+    'truth_seeker', 'الباحث عن الحقيقة', '40.png', 'counter',
+    30, 'اطلع على "الشرح والمعنى" للاستفادة.', { statKey: 'explanationsViewed' }
+));
+
+// 8. وسام عاشق الانتظار (تم تصحيح topicName إلى topicKey)
+badgesData.push(generateBadge(
+    'mahdi_lover', 'عاشق الانتظار', '41.png', 'topic',
+    50, 'تميز في الأسئلة الخاصة بالإمام المهدي (عج).', { topicKey: 'الإمام المهدي (عج)' }
+));
+
+// 9. وسام الخبير الاستراتيجي
+badgesData.push(generateBadge(
+    'strategic_master', 'الخبير الاستراتيجي', '42.png', 'counter',
+    10, 'فز بجولات استخدمت فيها وسائل المساعدة بذكاء.', { statKey: 'strategicWins' }
+));
+
+// 10. وسام نفس لا ينقطع
+badgesData.push(generateBadge(
+    'endless_breath', 'نفس لا ينقطع', '43.png', 'counter',
+    500, 'وصل رصيدك في جلسة ماراثون واحدة إلى 500 نقطة.', { statKey: 'maxMarathonScore' }
+));
 
 export const badgesMap = badgesData.reduce((acc, badge) => {
     acc[badge.id] = badge;
