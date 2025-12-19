@@ -1,907 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>من وحي أهل البيت (ع)</title>
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#064E3B">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="flex flex-col items-center justify-center p-4 pb-24 min-h-screen">
-
-<div id="bottom-nav">
-    <div class="nav-glass-body">
-        
-        <button id="menu-btn" class="nav-item-btn">
-            <span class="material-symbols-rounded">menu</span>
-            <span class="label">القائمة</span>
-        </button>
-
-        <button id="bottom-leaderboard-btn" class="nav-item-btn">
-            <span class="material-symbols-rounded">trophy</span>
-            <span class="label">المتصدرون</span>
-        </button>
-
-        <div class="nav-spacer"></div>
-
-        <div class="nav-floating-btn-container">
-            <div id="user-profile-btn" class="nav-floating-btn" title="حسابي">
-                <img id="user-avatar-img" class="hidden" src="" alt="Avatar">
-                <span id="user-avatar-icon" class="material-symbols-rounded text-3xl">account_circle</span>
-            </div>
-        </div>
-
-        <button id="bottom-bag-btn" class="nav-item-btn">
-            <span class="material-symbols-rounded">inventory_2</span>
-            <span class="label">حقيبتي</span>
-        </button>
-
-        <div class="relative h-full flex-1">
-            <button id="notif-btn" class="nav-item-btn w-full">
-                <span class="material-symbols-rounded">notifications</span>
-                <span class="label">تنبيهات</span>
-                <span id="notif-badge" class="nav-badge hidden"></span>
-            </button>
-            
-            <div id="notif-dropdown" class="hidden absolute bottom-[85px] left-0 w-64 bg-slate-900 border border-amber-500/30 rounded-xl shadow-2xl overflow-hidden origin-bottom-left transition-all duration-200">
-                <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800">
-                    <span class="text-amber-400 font-bold text-xs font-heading"> الإشعارات</span>
-                    <button id="clear-notif-btn" class="text-[10px] text-red-400 hover:text-red-300">مسح الكل</button>
-                </div>
-                <div id="notif-list" class="max-h-64 overflow-y-auto bg-slate-900/95"></div>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-
-
-    <div id="side-menu-overlay"></div>
-    <div id="side-menu">
-        <div class="p-6 border-b border-slate-700 text-center"><h2 class="text-xl font-bold text-amber-400 font-heading">القائمة</h2></div>
-        <div class="flex-grow overflow-y-auto p-2">
-            
-            <div class="menu-item" id="nav-bag"><span class="material-symbols-rounded text-amber-500">inventory_2</span> حقيبتي</div>
-            <div class="menu-item" id="nav-badges"><span class="material-symbols-rounded text-purple-400">military_tech</span> الأوسمة</div>
-            <div class="menu-item" id="nav-leaderboard"><span class="material-symbols-rounded text-yellow-400">trophy</span> المتصدرون</div>
-            <div class="menu-item" id="nav-favs"><span class="material-symbols-rounded text-red-400">favorite</span> المفضلة</div>
-            <div class="menu-item" id="nav-mistakes"><span class="material-symbols-rounded text-orange-400">history_edu</span> مراجعة الأخطاء</div>
-            <div class="menu-item" id="nav-settings"><span class="material-symbols-rounded text-gray-400">settings</span> الإعدادات</div>
-            <div class="menu-item" id="nav-about"><span class="material-symbols-rounded text-slate-400">info</span> عن التطبيق</div>
-            <div class="menu-item" id="nav-contact"><span class="material-symbols-rounded text-cyan-400">mail</span> تواصل معنا</div>
-        </div>
-        <div class="p-4 border-t border-slate-700"><button id="logout-btn-menu" class="w-full py-2 bg-red-900/50 text-red-300 rounded-lg flex justify-center gap-2 hover:bg-red-900 transition"><span class="material-symbols-rounded">logout</span> خروج</button></div>
-    </div>
-
-    <div id="main-container" class="glass-card w-full max-w-2xl p-6 min-h-[500px] relative z-10">
-
-        <div id="auth-loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0f172a] transition-opacity duration-700">
-    
-    <div class="absolute inset-0 opacity-10 pointer-events-none" 
-         style="background-image: url('https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png'); 
-                background-size: 500px; background-position: center; filter: blur(10px);">
-    </div>
-
-    <div class="relative mb-8 z-10">
-        <div class="absolute inset-0 bg-amber-500/20 blur-xl rounded-full animate-pulse"></div>
-        <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" 
-             class="w-32 h-32 object-contain drop-shadow-2xl relative animate-[bounce_2s_infinite]" 
-             alt="App Logo">
-    </div>
-
-    <h1 class="text-3xl font-bold text-white font-heading mb-2 tracking-wide drop-shadow-lg relative z-10">
-        من وحي أهل البيت (ع)
-    </h1>
-    
-    <p class="text-amber-400/80 text-sm font-bold mb-6 relative z-10 animate-pulse">
-        اللّهم صَلِّ على محمد وآل محمد
-
-    <div class="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700 relative z-10 shadow-lg">
-        <div class="h-full bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 w-full origin-left animate-[loadingBar_1.5s_infinite_ease-in-out]"></div>
-    </div>
-
-    <style>
-        @keyframes loadingBar {
-            0% { transform: translateX(-100%); }
-            50% { transform: translateX(0%); }
-            100% { transform: translateX(100%); }
-        }
-    </style>
-</div>
-
-
-        <div id="login-area" class="hidden fade-in">
-            <div id="login-view">
-                <div class="text-center mb-8">
-                    <span class="material-symbols-rounded text-6xl text-amber-400 mb-2 pulse-slow">mosque</span>
-                    <h1 class="text-3xl font-bold font-heading">من وحي أهل البيت (ع)</h1>
-                    <p class="text-slate-400 text-sm mt-2">مسابقات عقائدية وتاريخية</p>
-                </div>
-                <div class="space-y-4">
-                    <input type="text" id="login-username-input" class="input-glass" placeholder="اسم المستخدم">
-                    <input type="password" id="login-password-input" class="input-glass" placeholder="كلمة المرور">
-                    <p id="login-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                   <button id="login-btn" class="btn-gold-action text-fixed-white">دخول</button>
-                    <div class="text-center mt-4"><button id="show-register-btn" class="text-amber-400 text-sm hover:underline">إنشاء حساب جديد</button></div>
-                </div>
-            </div>
-
-            <div id="register-view" class="hidden">
-                <h2 class="text-2xl text-center text-white mb-6 font-heading">حساب جديد</h2>
-                <div class="space-y-4">
-                    <input type="text" id="reg-username-input" class="input-glass" placeholder="اسم المستخدم (فريد)">
-                    <input type="password" id="reg-password-input" class="input-glass" placeholder="كلمة المرور">
-                    <input type="password" id="reg-confirm-password-input" class="input-glass" placeholder="تأكيد كلمة المرور">
-                    <p id="register-error-message" class="text-red-400 text-center text-sm min-h-[20px]"></p>
-                    <button id="register-btn" class="btn-gold-action bg-gradient-to-r from-green-600 to-green-500 text-fixed-white">تسجيل</button>
-                    <div class="text-center mt-4"><button id="show-login-btn" class="text-slate-400 text-sm hover:underline">عودة للدخول</button></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="welcome-area" class="hidden fade-in">
-            
-
-            <div class="text-center mb-8">
-                <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
-                <h1 class="text-3xl font-bold text-amber-400 font-heading tracking-wide drop-shadow-md">من وحي أهل البيت (ع)</h1>
-            </div>
-            
-            <button id="review-mistakes-btn" class="hidden w-full bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/30 text-orange-200 font-bold py-2 px-4 rounded-lg mb-4 flex items-center justify-center gap-2 transition">
-                <span class="material-symbols-rounded">history_edu</span> <span id="review-mistakes-text">مراجعة أخطائي</span>
-            </button>
-
-            <div class="space-y-4">
-                <div class="relative">
-                    <button id="btn-category-trigger" class="custom-select-trigger">
-                        <span id="txt-category-display">تصفح المكتبة</span>
-                        <span class="material-symbols-rounded trigger-icon">expand_more</span>
-                    </button>
-                    <input type="hidden" id="category-select" value="">
-                </div>
-                <div class="relative">
-                    <button id="btn-topic-trigger" class="custom-select-trigger" disabled>
-                        <span id="txt-topic-display">اختر الموضوع</span>
-                        <span class="material-symbols-rounded trigger-icon">expand_more</span>
-                    </button>
-                    <input type="hidden" id="topic-select" value="">
-                </div>
-                            <div class="flex gap-2">
-                                <div class="relative w-1/2">
-                    <button id="btn-count-trigger" class="custom-select-trigger h-full justify-center gap-2">
-                        <span id="txt-count-display">10 أسئلة</span>
-                        <span class="material-symbols-rounded trigger-icon text-sm">expand_more</span>
-                    </button>
-                    <input type="hidden" id="ai-question-count" value="10">
-                </div>
-
-                
-                
-                <button id="btn-marathon-start" class="w-1/2 btn-marathon-silver btn-marathon-silver-anim">
-    <span class="text-lg">(أكمل النور)</span> 
-    <span class="material-symbols-rounded">local_fire_department</span> </button>
-
-
-            </div>
-            <button id="ai-generate-btn" class="btn-gold-action mt-2">
-                <span class="text-lg">ابدأ التحدي</span> 
-                <span class="material-symbols-rounded">menu_book</span>
-            </button>
-
-                <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem]"></div>
-            </div>
-        </div>
-
-        <div id="quiz-proper" class="hidden">
-    <div id="quiz-topic-display" class="text-center text-amber-300/90 text-sm font-heading mb-2 tracking-wide bg-white/5 py-1 rounded-lg mx-auto w-fit px-4 border border-white/5"></div>
-    <div class="flex justify-between items-center text-sm text-slate-400 font-heading mb-2">
-        <div class="flex items-center gap-2">
-            <button id="quit-quiz-btn" class="text-slate-500 hover:text-red-400 transition p-1" title="خروج"><span class="material-symbols-rounded">close</span></button>
-            <button id="toggle-timer-btn" class="text-amber-400 hover:text-white transition p-1" title="إيقاف/تشغيل المؤقت"><span class="material-symbols-rounded">timer</span></button>
-            <button id="toggle-enrichment-btn" class="text-amber-400 hover:text-white transition p-1" title="إيقاف/تشغيل المعلومات الإثرائية">
-                <span class="material-symbols-rounded">lightbulb</span>
-            </button>
-            <span id="question-counter-text" class="bg-slate-800 px-2 py-1 rounded-lg text-xs">1/10</span>
-        </div>
-        <div class="flex items-center gap-1">
-            <span id="streak-icon" class="material-symbols-rounded text-orange-500 streak-fire text-2xl">local_fire_department</span>
-            <span id="streak-count" class="text-orange-400 font-bold text-lg opacity-0 transition">x0</span>
-            <div id="lives-display" class="flex items-center gap-1 mx-2"></div>
-        </div>
-        <span id="live-score-text" class="text-amber-400 font-bold text-lg transition-all">0</span>
-    </div>
-    <div id="timer-bar-container" class="timer-container"><div id="timer-bar" class="timer-bar"></div></div>
-    <div class="flex justify-center gap-1 mb-4 opacity-50"><div id="progress-dots" class="flex gap-1"></div></div>
-    <div class="min-h-[100px] flex items-center justify-center text-center mb-6 p-6 relative question-card-3d">
-         <h2 id="question-text" class="text-xl font-bold text-white leading-relaxed">...</h2>
-    </div>
-    <div id="options-container" class="space-y-1 mb-6"></div> 
-    <div class="flex justify-center gap-4 border-t border-slate-700 pt-4" id="helper-bar">
-        <button id="helper-fifty-fifty" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">percent</span>50/50</button>
-        <button id="helper-hint" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">lightbulb</span>تلميح</button>
-        <button id="helper-skip" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">skip_next</span>تخطي</button>
-        <button id="action-fav" class="text-slate-500 hover:text-red-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-red-400 transition">favorite_border</span>حفظ</button>
-        <button id="helper-report" class="text-slate-500 hover:text-red-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-red-400 transition">flag</span>إبلاغ</button>
-    </div>
-    <p id="feedback-text" class="text-center mt-2 font-bold h-6"></p>
-</div>
-  
-        <div id="results-area" class="hidden text-center fade-in">
-            <h2 class="text-3xl font-bold text-white mb-6 font-heading">النتيجة النهائية</h2>
-                        <div id="score-card" class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mb-6 relative overflow-hidden shadow-2xl transform hover:scale-[1.01] transition duration-500">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600"></div>
-                <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
-                
-                <div class="flex justify-between border-b border-slate-700 pb-2 mb-4">
-                    <div class="text-right">
-                        <p class="text-slate-400 text-xs">اللاعب</p>
-                        <p id="card-username" class="text-lg font-bold text-fixed-white font-heading">...</p>
-                    </div>
-                    <div class="text-left">
-                        <p class="text-slate-400 text-xs">المستوى</p>
-                        <p id="card-difficulty" class="text-fixed-white font-mono text-xs">موحد</p>
-                    </div>
-                </div>
-
-                <div class="py-4">
-                    <span id="card-score" class="text-6xl font-bold text-fixed-white font-heading block mb-2 drop-shadow-lg">0</span>
-                    <span class="text-amber-400 text-sm font-heading uppercase tracking-widest">نقطة مكتسبة</span>
-                </div>
-
-                <div class="flex justify-center gap-4 mt-2 text-xs text-slate-400">
-                    <span id="card-correct-count" class="flex items-center gap-1"><span class="material-symbols-rounded text-green-400 text-sm">check_circle</span> 0</span>
-                    <span id="card-wrong-count" class="flex items-center gap-1"><span class="material-symbols-rounded text-red-400 text-sm">cancel</span> 0</span>
-                </div>
-                
-                <p id="final-message" class="text-lg text-slate-300 mt-4 font-bold"></p>
-                <div id="share-footer" class="hidden mt-4 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between"><span>من تطبيق: وحي أهل البيت (ع)</span></div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <button id="share-text-button" class="btn-secondary bg-slate-700 text-white py-3 rounded-xl justify-center border border-slate-600 hover:bg-slate-600 hover:border-amber-400 transition">مشاركة النتيجة</button>
-                <button id="restart-button" class="btn-gold-action">الرئيسية</button>
-            </div>
-            <div id="review-area" class="hidden text-right mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                 <h3 class="text-amber-400 font-bold mb-3">مراجعة الأخطاء</h3>
-                 <div id="review-items-container" class="max-h-60 overflow-y-auto space-y-3 scrollbar-thin"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="enrichment-modal" class="modal-overlay">
-        <div class="modal-box border-amber-500 border-2">
-            <div class="text-center">
-                <span class="material-symbols-rounded text-amber-400 text-5xl mb-4 animate-bounce">lightbulb</span>
-                <h3 class="text-2xl font-bold text-white font-heading mb-4">معلومة إثرائية</h3>
-                <p id="enrichment-content" class="text-slate-200 text-lg leading-loose font-body">...</p>
-                <p class="text-xs text-slate-500 mt-6">اضغط في أي مكان للمتابعة</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="badges-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-amber-400 font-heading">مكتبة الأوسمة</h3>
-                <button class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-            <div id="badges-list" class="badges-grid"></div>
-            
-      </div>
-         </div>
-    
-           <div id="news-modal" class="modal-overlay z-[70]">
-           <div class="modal-box border-2 border-amber-500/50 relative overflow-hidden bg-[#1e293b]">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-full pointer-events-none"></div>
-            
-            <div class="text-center relative z-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 mb-4 border border-amber-500/20">
-                    <span class="material-symbols-rounded text-amber-500 text-4xl animate-pulse">campaign</span>
-                </div>
-                
-                <h3 class="text-xl font-bold text-white font-heading mb-2">الاخبار</h3>
-                <p class="text-xs text-slate-400 mb-4">تحديث</p>
-
-                <div id="news-content" class="text-slate-200 text-sm leading-loose bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 mb-6 text-right whitespace-pre-line max-h-60 overflow-y-auto">
-                    </div>
-
-                <button id="close-news-btn" class="btn-gold-action w-full py-2 text-sm shadow-lg">
-                    فهمت
-                </button>
-            </div>
-        </div>
-    </div>
-
-    
-    <div id="leaderboard-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-yellow-400 font-heading">لوحة الشرف</h3>
-                <button class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-            <div id="leaderboard-loading" class="text-center text-amber-500">اللّهم صَلِّ على محمد وآل محمد</div>
-            <div id="leaderboard-list" class="space-y-2 hidden"></div>
-            <p class="text-xs text-slate-500 text-center mt-3">اضغط على اسم اللاعب لعرض ملفه</p>
-        </div>
-    </div>
-    
-    <div id="player-profile-modal" class="modal-overlay">
-        <div class="modal-box border border-amber-500/30">
-            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white z-50 p-2 text-xl font-bold transition hover:scale-110">✕</button>
-
-            <div class="text-center mb-6 relative">
-                 <div class="w-24 h-24 rounded-full mx-auto border-4 border-amber-500 shadow-lg overflow-hidden relative bg-slate-800 flex items-center justify-center">
-                     <img id="popup-player-img" src="" class="w-full h-full object-cover hidden" alt="">
-                     <span id="popup-player-icon" class="material-symbols-rounded text-6xl text-slate-500">account_circle</span>
-                 </div>
-                 <h3 id="popup-player-name" class="text-2xl font-bold text-white mt-4 font-heading">...</h3>
-                 <div class="flex justify-center gap-2 mt-2">
-                     <span id="popup-player-score" class="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-sm font-bold border border-amber-500/30">0 نقطة</span>
-                 </div>
-            </div>
-            <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                <h4 class="text-sm text-slate-400 mb-3 border-b border-slate-700 pb-2">الأوسمة المكتسبة</h4>
-                <div id="popup-player-badges" class="flex flex-wrap gap-2 justify-center min-h-[50px]"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="fav-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-red-400 font-heading">المفضلة</h3>
-                <button class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-            <div id="fav-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1"></div>
-        </div>
-    </div>
-    
-        <div id="settings-modal" class="modal-overlay">
-        <div class="modal-box">
-            <h3 class="text-xl font-bold text-gray-300 mb-6 font-heading">الإعدادات</h3>
-
-            <div class="space-y-3 mb-6">
-                
-    
-    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-rounded text-amber-400">volume_up</span>
-            <span class="text-slate-300 text-sm">المؤثرات الصوتية</span>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="mute-toggle" class="sr-only peer" checked>
-            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-        </label>
-    </div>
-
-    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-rounded text-amber-400">vibration</span>
-            <span class="text-slate-300 text-sm">الاهتزاز اللمسي</span>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="vibrate-toggle" class="sr-only peer" checked>
-            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-        </label>
-    </div>
-
-        <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-rounded text-amber-400">wb_sunny</span>
-            <span class="text-slate-300 text-sm">الوضع النهاري</span>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="day-mode-toggle" class="sr-only peer">
-            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-        </label>
-    </div>
-
-            </div>
-
-            <div class="mb-6 space-y-4">
-                <div>
-                    <label class="block text-slate-400 mb-2 text-xs font-bold">مظهر التطبيق</label>
-                    <div class="relative">
-                        <button id="btn-theme-trigger" class="custom-select-trigger">
-                            <span id="txt-theme-display">الافتراضي</span>
-                            <span class="material-symbols-rounded trigger-icon">expand_more</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-slate-400 mb-2 text-xs font-bold">مستوى صوت الموسيقى</label>
-                    <input type="range" id="bg-music-volume" min="0" max="100" value="30" class="w-full accent-amber-500">
-                </div>
-                
-               <div>
-    <div class="flex justify-between items-end mb-2">
-        <label class="text-slate-400 text-xs font-bold">
-            حجم الخط: <span id="font-size-number" class="text-amber-400 text-sm mx-1">16</span>
-        </label>
-        
-        <span id="font-size-preview" class="text-white/80 font-bold transition-all duration-75 origin-left">
-            مثال على نص السؤال
-        </span>
-    </div>
-    
-    <input type="range" id="font-size-slider" min="12" max="22" value="16" class="w-full accent-amber-500 cursor-pointer">
-</div>
-    
-    
-
-                
-                <div>
-                    <label class="block text-slate-400 mb-2 text-xs font-bold">سرعة الانتقال للسؤال التالي: <span id="delay-val" class="text-amber-400">2</span> ثواني</label>
-                    <input type="range" id="delay-slider" min="1" max="5" step="1" value="2" class="w-full accent-amber-500">
-                </div>
-            </div>
-
-            <div class="border-t border-slate-700 pt-4 mb-4">
-                <h4 class="text-cyan-400 text-sm font-bold mb-3 flex items-center gap-2">
-                    <span class="material-symbols-rounded">psychology</span> إعدادات الشرح الذكي (AI)
-                </h4>
-                <div class="space-y-3">
-                    <div>
-                        <input type="password" id="ai-api-key" class="input-glass text-sm text-left font-mono" placeholder="الصق مفتاح API هنا (Gemini)" dir="ltr">
-                    </div>
-                   <div>
-    <input type="text" list="ai-models-list" id="ai-model-select" class="input-glass text-sm text-left font-mono" placeholder="اختر الموديل أو اكتبه" dir="ltr">
-    
-    <datalist id="ai-models-list">
-    <option value="gemini-2.5-flash"></option>
-    <option value="gemini-2.5-flash-lite"></option>
-    <option value="gemini-2.5-pro"></option>
-    <option value="gemini-2.0-flash"></option>
-    <option value="gemini-1.5-flash"></option>
-    <option value="gemini-1.5-pro"></option>
-</datalist>
-</div>
-
-                    <button id="btn-save-ai" class="bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 w-full py-2 rounded-lg text-xs font-bold hover:bg-cyan-900/60 transition">حفظ إعدادات الذكاء الاصطناعي</button>
-                </div>
-            </div>
-
-            <div class="border-t border-slate-700 pt-4 mb-4">
-                <h4 class="text-amber-400 text-sm font-bold mb-3 flex items-center gap-2">
-                    <span class="material-symbols-rounded">manage_accounts</span> إدارة الحساب
-                </h4>
-                
-                <div class="flex gap-2 mb-3">
-                    <input type="password" id="settings-new-password" class="input-glass text-sm" placeholder="تعيين كلمة مرور جديدة">
-                    <button id="btn-update-password" class="bg-amber-600 hover:bg-amber-500 text-white px-3 rounded-lg text-xs font-bold transition whitespace-nowrap">تحديث</button>
-                </div>
-
-                <button id="logout-btn" class="w-full py-2.5 bg-red-900/40 text-red-300 border border-red-900/50 rounded-lg flex justify-center items-center gap-2 hover:bg-red-900/60 transition mb-2">
-                    <span class="material-symbols-rounded text-lg">logout</span> تسجيل خروج
-                </button>
-                
-                <button id="clear-cache-btn" class="w-full py-2 text-xs text-slate-500 hover:text-slate-300 transition underline">
-                    مسح البيانات المحلية وإصلاح الأخطاء
-                </button>
-            </div>
-
-            <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white">✕</button>
-        </div>
-    </div>
-
-
-    
-   <div id="about-modal" class="modal-overlay">
-    <div class="modal-box border-2 border-amber-500/30 bg-[#0f172a] relative overflow-hidden">
-        
-        <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" 
-             style="background-image: url('https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png'); 
-                    background-repeat: no-repeat; 
-                    background-position: center; 
-                    background-size: 60%;">
-        </div>
-
-        <div class="text-center mb-6 relative z-10">
-            <div class="inline-block p-4 rounded-full border border-amber-500/20 bg-amber-500/5 mb-2">
-                <span class="material-symbols-rounded text-amber-400 text-5xl animate-pulse-slow">auto_stories</span>
-            </div>
-            <h3 class="text-2xl font-bold text-white mt-2 font-heading">من وحي أهل البيت (ع)</h3>
-            <p class="text-amber-400 text-sm font-bold tracking-widest mt-1">رحلة في رحاب النور</p>
-        </div>
-        
-        <div id="about-content" class="text-slate-300 text-sm leading-loose space-y-4 font-body relative z-10 px-2">
-            
-            <p class="text-justify text-shadow-sm">
-                ليس مجرد لعبة، بل هو نافذة تطل منها على بساتين المعرفة وتراث العترة الطاهرة. 
-                صُمم هذا التطبيق ليكون جسراً يربطك بسيرة المعصومين (ع)، تاريخهم، فقههم، ومناقبهم بأسلوب تفاعلي يمزج بين 
-                <span class="text-white font-bold">متعة التحدي وعمق الفائدة</span> والمعلومة الثقافية والدينية العامة.
-            </p>
-            
-            <div class="h-px w-1/2 mx-auto bg-gradient-to-r from-transparent via-amber-500/50 to-transparent my-4"></div>
-
-            <p class="text-justify">
-                هنا.. كل إجابة صحيحة هي خطوة تقربك أكثر، وكل وسام تناله هو <span class="text-amber-400">وسام فخرٍ بمعرفتك</span>. 
-                نافس المحبين في لوحة الشرف، واختبر معلوماتك، واجعل من ذكرهم (ع) رفيقاً ليومك.
-            </p>
-            
-            <div class="mt-8 pt-4 border-t border-slate-700/50 text-center opacity-60">
-                <p class="text-[10px] text-slate-400">الإصدار 3.0 • تم التطوير لخدمة نشر علوم آل محمد (ص)</p>
-            </div>
-        </div>
-        
-        <button class="close-modal absolute top-4 left-4 text-slate-400 hover:text-white transition p-2 bg-black/20 rounded-full">✕</button>
-    </div>
-</div>
-
-
-
-        <div id="user-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-amber-400 font-heading">الملف الشخصي</h3>
-                <button id="close-user-modal" class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            <div class="text-center mb-6 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50">
-                <div class="relative w-24 h-24 mx-auto mb-4 group">
-                    <img id="profile-img-preview" src="" class="w-full h-full rounded-full object-cover border-2 border-amber-500 hidden bg-slate-800 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
-                    <div id="profile-icon-preview" class="w-full h-full rounded-full bg-slate-700 flex items-center justify-center border-2 border-slate-600">
-                        <span class="material-symbols-rounded text-4xl text-slate-400">account_circle</span>
-                    </div>
-                    <label for="avatar-upload" class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition">
-                        <span class="material-symbols-rounded text-white">photo_camera</span>
-                    </label>
-                    <input type="file" id="avatar-upload" accept="image/*" class="hidden">
-                </div>
-                
-                <div class="flex justify-center gap-2 mb-4">
-                     <button id="delete-custom-avatar" class="text-[10px] text-red-400 hover:text-red-300 hidden border border-red-900/50 px-2 py-1 rounded bg-red-900/10">حذف الصورة</button>
-                </div>
-
-                <div class="space-y-2">
-                    <input type="text" id="edit-username" class="input-glass text-center font-bold" placeholder="تغيير الاسم">
-                    <p id="profile-join-date" class="text-[10px] text-slate-500 font-mono" dir="ltr">In: ...</p>
-                    <button id="save-user-btn" class="btn-gold-action py-1.5 text-sm mt-2">حفظ التعديلات</button>
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-sm text-slate-400 mb-3 font-bold flex items-center gap-2">
-                    <span class="material-symbols-rounded text-blue-400 text-sm">analytics</span>
-                    سجل الأداء
-                </h4>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-                        <span class="text-xs text-slate-500 block mb-1">مجموع النقاط</span>
-                        <span id="profile-stat-score" class="text-amber-400 font-bold text-xl font-heading">0</span>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-                        <span class="text-xs text-slate-500 block mb-1">المسابقات</span>
-                        <span id="profile-stat-played" class="text-white font-bold text-xl font-heading">0</span>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-                        <span class="text-xs text-slate-500 block mb-1">إجابات صحيحة</span>
-                        <span id="profile-stat-correct" class="text-green-400 font-bold text-xl font-heading">0</span>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-                        <span class="text-xs text-slate-500 block mb-1">دقة الإجابة</span>
-                        <span id="profile-stat-accuracy" class="text-blue-400 font-bold text-xl font-heading">0%</span>
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <h4 class="text-sm text-slate-400 mb-3 font-bold flex items-center gap-2">
-                    <span class="material-symbols-rounded text-yellow-400 text-sm">military_tech</span>
-                    الأوسمة المكتسبة
-                </h4>
-                <div id="profile-badges-display" class="flex flex-wrap gap-2 justify-center bg-slate-900/50 p-3 rounded-xl border border-slate-800 min-h-[80px]">
-                    </div>
-            </div>
-        </div>
-    </div>
-
-    
-    <div id="selection-modal" class="modal-overlay">
-        <div class="modal-box border border-amber-500/50" style="max-height: 70vh;">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                <h3 id="selection-title" class="text-xl font-bold text-amber-400 font-heading">اختر القائمة</h3>
-                <button class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-            <div id="selection-list-container" class="flex flex-col"></div>
-        </div>
-    </div>
-<div id="bag-modal" class="modal-overlay">
-    <div class="modal-box border-2 border-amber-500/50 bg-[#0f172a]">
-        <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-            <h3 class="text-xl font-bold text-amber-400 font-heading">حقيبتي والمتجر</h3>
-            <button class="close-modal text-slate-400 hover:text-white">✕</button>
-        </div>
-        
-        <div class="bg-slate-800/50 p-3 rounded-xl mb-4 flex justify-between items-center border border-slate-700">
-            <span class="text-slate-400 text-sm">رصيدك:</span>
-            <span class="text-amber-400 font-bold text-xl font-heading flex items-center gap-1">
-                <span id="bag-user-score">0</span> <span class="material-symbols-rounded text-sm">monetization_on</span>
-            </span>
-        </div>
-
-        <div class="flex gap-2 mb-4">
-            <button id="tab-inventory" class="flex-1 py-2 rounded-lg bg-amber-500 text-black font-bold text-sm transition">مقتنياتي</button>
-            <button id="tab-shop" class="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 font-bold text-sm hover:bg-slate-600 transition">المتجر</button>
-        </div>
-
-        <div id="inventory-view" class="space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 bg-red-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-red-500">favorite</span></div>
-                    <p class="text-slate-400 text-xs mt-2">قلوب إضافية</p>
-                    <p id="inv-lives-count" class="text-2xl font-bold text-white mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 bg-blue-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-blue-400">percent</span></div>
-                    <p class="text-slate-400 text-xs mt-2">50/50</p>
-                    <p id="inv-fifty-count" class="text-2xl font-bold text-white mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 bg-yellow-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-yellow-400">lightbulb</span></div>
-                    <p class="text-slate-400 text-xs mt-2">تلميحات</p>
-                    <p id="inv-hint-count" class="text-2xl font-bold text-white mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 bg-green-500/20 p-2 rounded-bl-xl"><span class="material-symbols-rounded text-green-400">skip_next</span></div>
-                    <p class="text-slate-400 text-xs mt-2">تخطي</p>
-                    <p id="inv-skip-count" class="text-2xl font-bold text-white mt-1">0</p>
-                </div>
-            </div>
-            <div>
-                <h4 class="text-sm text-slate-400 mb-2 border-b border-slate-700 pb-1">الثيمات المملوكة</h4>
-                <div id="inv-themes-list" class="flex flex-wrap gap-2"></div>
-            </div>
-        </div>
-
-        <div id="shop-view" class="hidden space-y-6">
-            <div>
-                <h4 class="text-amber-400 text-sm font-bold mb-3 flex items-center gap-1"><span class="material-symbols-rounded">medical_services</span> المساعدات والقلوب</h4>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="window.buyShopItem('life', 100)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-red-500 transition text-center relative">
-                         <span class="material-symbols-rounded text-red-500 text-2xl mb-1">favorite</span>
-                         <p class="text-white text-sm font-bold">قلب إضافي</p>
-                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">100 نقطة</span>
-                    </button>
-                    <button onclick="window.buyShopItem('fifty', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-blue-500 transition text-center relative">
-                         <span class="material-symbols-rounded text-blue-400 text-2xl mb-1">percent</span>
-                         <p class="text-white text-sm font-bold">50/50</p>
-                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
-                    </button>
-                    <button onclick="window.buyShopItem('hint', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-yellow-400 transition text-center relative">
-                         <span class="material-symbols-rounded text-yellow-400 text-2xl mb-1">lightbulb</span>
-                         <p class="text-white text-sm font-bold">تلميح</p>
-                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
-                    </button>
-                    <button onclick="window.buyShopItem('skip', 50)" class="bg-slate-800 p-3 rounded-xl border border-slate-600 hover:border-green-400 transition text-center relative">
-                         <span class="material-symbols-rounded text-green-400 text-2xl mb-1">skip_next</span>
-                         <p class="text-white text-sm font-bold">تخطي</p>
-                         <span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded mt-2 inline-block">50 نقطة</span>
-                    </button>
-                </div>
-            </div>
-
-                <div>
-                       <h4 class="text-amber-400 text-sm font-bold mb-3 flex items-center gap-1"><span class="material-symbols-rounded">palette</span> الثيمات (500 نقطة)</h4>
-                     <div id="shop-themes-list" class="grid grid-cols-2 gap-3"></div>
-              </div>
-          </div>
-      </div>
-</div>
-    <div id="toast-notification" class="hidden"></div>
-    <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50"></canvas>
-
-<div id="marathon-rules-modal" class="modal-overlay">
-    <div class="modal-box border-2 border-slate-400/50">
-        <h3 class="text-2xl font-bold text-white mb-4 font-heading text-center">🏆 قواعد (أكمل النور)</h3>
-        <div class="space-y-3 p-4 bg-slate-800/60 rounded-lg border border-slate-700 mb-6">
-            <p class="text-slate-300 text-sm flex items-start gap-2">
-                <span class="material-symbols-rounded text-red-400 mt-1 shrink-0">favorite</span>
-                حياة اللاعب: تبدأ بـ 3 قلوب (محاولات). كل إجابة خاطئة تفقد قلباً.
-            </p>
-            <p class="text-slate-300 text-sm flex items-start gap-2">
-                <span class="material-symbols-rounded text-amber-400 mt-1 shrink-0">timer</span>
-                الضغط الزمني: المؤقت إجباري التشغيل ولا يمكن إيقافه.
-            </p>
-            <p class="text-slate-300 text-sm flex items-start gap-2">
-                <span class="material-symbols-rounded text-green-400 mt-1 shrink-0">add_circle</span>
-                الهدف: الإجابة على أكبر عدد ممكن من الأسئلة من جميع التصنيفات.
-            </p>
-            <p class="text-xs text-amber-500 font-bold mt-4 border-t border-slate-700 pt-3">
-                ملاحظة: يمكنك استخدام المساعدات (تخطي, خذف اجابات) بالتكلفة العادية.
-            </p>
-        </div>
-        <button id="btn-marathon-confirm" class="btn-gold-action w-full py-3">بدء التحدي الآن!</button>
-        <button class="close-modal w-full text-slate-500 hover:text-white mt-3 text-sm transition">إلغاء</button>
-    </div>
-</div>
-
-
-    <script type="module" src="js/main.js?v=3.1"></script>
-        <div id="confirm-modal" class="modal-overlay z-[90]">
-        <div class="modal-box border-2 border-amber-500/50 text-center bg-[#0f172a]">
-            <div class="mb-4 flex justify-center">
-                <span id="confirm-icon" class="material-symbols-rounded text-5xl text-amber-400 animate-bounce">help</span>
-            </div>
-            <h3 id="confirm-title" class="text-2xl font-bold text-white mb-2 font-heading">تأكيد الإجراء</h3>
-            <p id="confirm-msg" class="text-slate-300 text-sm mb-6 leading-relaxed">...</p>
-            <div class="flex gap-3 justify-center">
-                <button id="btn-confirm-yes" class="btn-gold-action w-1/2 py-2 text-sm">نعم، متأكد</button>
-                <button id="btn-confirm-no" class="bg-slate-700 text-white w-1/2 rounded-xl border border-slate-600 hover:bg-slate-600 transition font-heading">إلغاء</button>
-            </div>
-        </div>
-    </div>
-    <div id="force-review-modal" class="modal-overlay z-[80]">
-        <div class="modal-box border-2 border-orange-500/50 text-center bg-[#0f172a]">
-            <div class="mb-4 flex justify-center">
-                <span class="material-symbols-rounded text-5xl text-orange-400 animate-pulse">history_edu</span>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2 font-heading">تنبيه هام</h3>
-            <p class="text-slate-300 text-sm mb-6 leading-relaxed">لديك أسئلة سابقة أخطأت فيها.<br>يجب مراجعتها وتصحيحها أولاً قبل بدء تحدي جديد!</p>
-            <div class="flex gap-3 justify-center">
-                <button id="btn-force-review-confirm" class="btn-gold-action w-1/2 py-2 text-sm">مراجعة الآن</button>
-                <button class="close-modal bg-slate-700 text-white w-1/2 rounded-xl border border-slate-600 hover:bg-slate-600 transition font-heading">إلغاء</button>
-            </div>
-        </div>
-    </div>
-
-<div id="reward-modal" class="modal-overlay z-[80]">
-    <div class="modal-box border-2 border-amber-500/50 bg-[#0f172a] text-center">
-        <div id="reward-content-area" class="reward-modal-content">
-            </div>
-        <button onclick="document.getElementById('reward-modal').classList.remove('active'); playSound('click');" class="btn-gold-action w-full mt-4">استلام الجوائز</button>
-    </div>
-</div>
-
-
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => console.log('SW Registered:', registration.scope))
-                .catch(err => console.log('SW Registration Failed:', err));
-        });
-    }
-</script>
-
-    <audio id="audio-intro">
-        <source src="https://cdn.pixabay.com/audio/2025/11/08/audio_b58830fd9d.mp3" type="audio/mpeg">
-    </audio>
-
-    <audio id="audio-quiz" loop>
-        <source src="https://github.com/iqsd2020-ctrl/New/raw/refs/heads/main/js/StartQuiz.mp3" type="audio/mpeg">
-    </audio>
-
-
-    <div id="low-health-vignette" class="pointer-events-none fixed inset-0 z-[60] opacity-0 transition-opacity duration-500"></div>
-<div id="daily-reward-modal" class="modal-overlay z-[80]">
-    <div class="modal-box border-2 border-amber-500/50 text-center bg-[#0f172a] relative overflow-hidden">
-        
-        <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-amber-500/10 to-transparent pointer-events-none"></div>
-
-        <div class="mb-6 relative z-10 mt-4">
-            <div class="inline-block p-2 rounded-full bg-amber-500/5 border border-amber-500/20 mb-2 animate-bounce">
-                <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Pic/33.png" 
-                     class="w-24 h-24 object-contain drop-shadow-[0_0_20px_rgba(251,191,36,0.5)]" 
-                     alt="Daily Reward">
-            </div>
-        </div>
-
-        <h3 class="text-3xl font-bold text-white mb-2 font-heading">المكافأة اليومية</h3>
-        <p class="text-slate-300 text-sm mb-6 leading-relaxed">أهلاً بعودتك <br> إليك هديتك اليومية لدعمك في المسابقات.</p>
-
-        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 mb-6 flex justify-center gap-4">
-            <div class="text-center">
-                <span class="block text-amber-400 font-bold text-2xl font-heading">+200</span>
-                <span class="text-[10px] text-slate-400">نقطة</span>
-            </div>
-            <div class="w-px h-10 bg-slate-600"></div>
-            <div class="text-center">
-                <span class="block text-red-500 font-bold text-2xl font-heading">+1</span>
-                <span class="text-[10px] text-slate-400">قلب</span>
-            </div>
-        </div>
-
-        <button onclick="window.claimDailyReward()" class="btn-gold-action w-full py-3 text-lg shadow-lg relative overflow-hidden group">
-            <span class="relative z-10">استلام المكافأة</span>
-            <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition duration-300"></div>
-        </button>
-    </div>
-</div>
-    <div id="contact-modal" class="modal-overlay">
-        <div class="modal-box border border-cyan-500/30">
-            <div class="flex justify-between mb-4">
-                <h3 class="text-xl font-bold text-cyan-400 font-heading">رسالة للمطور</h3>
-                <button class="close-modal text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            <div class="min-h-[150px] p-4 mb-4 relative question-card-3d flex flex-col">
-                 <label class="text-[10px] text-slate-400 mb-2 flex items-center gap-1"><span class="material-symbols-rounded text-[10px]">edit</span> نص الرسالة:</label>
-                 <textarea id="contact-msg-body" class="w-full h-full bg-transparent border-none text-white font-bold text-lg resize-none focus:outline-none placeholder-slate-600 leading-relaxed" placeholder="اكتب رسالتك أو اقتراحك هنا..."></textarea>
-            </div>
-
-            <div class="space-y-3">
-                
-                <div class="option-btn !p-2 !items-stretch cursor-default">
-                    <div class="flex items-center gap-3 w-full">
-                        <span class="option-number text-cyan-400 border-cyan-500/50">1</span>
-                        <div class="flex flex-col w-full text-right">
-                            <span class="text-[10px] text-slate-500">المرسل (اسم المستخدم)</span>
-                            <input type="text" id="contact-username" class="bg-transparent border-none text-white font-bold w-full focus:outline-none" readonly>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="option-btn !p-2 !items-stretch">
-                     <div class="flex items-center gap-3 w-full">
-                        <span class="option-number">2</span>
-                        <div class="flex flex-col w-full text-right">
-                            <span class="text-[10px] text-slate-500">العنوان (موضوع الرسالة)</span>
-                            <input type="text" id="contact-title" class="bg-transparent border-none text-white font-bold w-full focus:outline-none" placeholder="اكتب عنواناً مختصراً...">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="option-btn !p-2 !items-stretch">
-                     <div class="flex items-center gap-3 w-full">
-                        <span class="option-number">3</span>
-                        <div class="flex flex-col w-full text-right">
-                            <span class="text-[10px] text-slate-500">ملاحظة إضافية (اختياري)</span>
-                            <input type="text" id="contact-note" class="bg-transparent border-none text-white font-bold w-full focus:outline-none" placeholder="...">
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btn-send-contact" class="option-btn !bg-gradient-to-r from-green-700 to-green-600 !border-green-500 justify-center group relative overflow-hidden transition transform hover:scale-[1.02]">
-                    <span class="relative z-10 font-bold text-white flex items-center gap-2 text-lg">
-                        <span class="material-symbols-rounded">send</span> إرسال الرسالة
-                    </span>
-                    <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition duration-300"></div>
-                </button>
-
-            </div>
-            
-            <p id="contact-feedback" class="text-center text-xs mt-3 h-4"></p>
-        </div>
-    </div>
-    <div id="ai-explanation-modal" class="modal-overlay z-[90]">
-        <div class="modal-box border-2 border-cyan-500/50 bg-[#0f172a] relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-bl-full pointer-events-none"></div>
-            
-            <div class="text-center relative z-10">
-                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-cyan-500/10 mb-4 border border-cyan-500/20 p-3">
-                 <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" alt="AI Icon" class="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse">
-             </div>
-                <h3 class="text-xl font-bold text-white font-heading mb-2">الشــرح والـمـعـنـى</h3>
-                <p id="ai-word-target" class="text-sm text-cyan-400 font-bold mb-4 border-b border-cyan-500/30 pb-2 inline-block">...</p>
-
-                <div id="ai-result-content" class="text-slate-200 text-sm leading-loose bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 mb-4 text-right whitespace-pre-line max-h-60 overflow-y-auto min-h-[100px] flex items-center justify-center">
-                    <span class="animate-pulse">اللّهم صَلِّ على محمد وآل محمد</span>
-                </div>
-
-                <button onclick="document.getElementById('ai-explanation-modal').classList.remove('active')" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition border border-slate-600">
-                    إغلاق
-                </button>
-            </div>
-        </div>
-    </div>
-
-</body>
-<div id="offline-banner" class="hidden fixed top-0 left-0 w-full bg-red-900/90 text-white text-center py-2 z-[200] border-b border-red-500 backdrop-blur-sm transition-transform duration-300 transform -translate-y-full">
-    <span class="text-sm font-bold flex justify-center items-center gap-2">
-        <span class="material-symbols-rounded text-lg">wifi_off</span>
-        أنت غير متصل بالإنترنت، بعض المميزات قد لا تعمل
-    </span>
-</div>
-
-
-</html>
