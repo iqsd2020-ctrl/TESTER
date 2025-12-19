@@ -14,26 +14,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
     <link rel="stylesheet" href="style.css?v=4.0">
-    <script>
-    // جعل الوضع النهاري هو الافتراضي عند فتح التطبيق
-    (function() {
-        try {
-            // التحقق من الإعداد المحفوظ
-            const savedMode = localStorage.getItem('app_day_mode');
-            
-            // الشرط الجديد: إذا كانت القيمة "true" أو "غير موجودة" (مستخدم جديد) -> تفعيل النهاري
-            // الوضع الليلي يعمل فقط إذا كانت القيمة "false" بشكل صريح
-            if (savedMode === 'true' || savedMode === null) {
-                document.documentElement.classList.add('light-mode');
-            } else {
-                document.documentElement.classList.remove('light-mode');
-            }
-        } catch (e) {
-            // في حال حدوث أي خطأ، نعتمد الوضع النهاري كاحتياط
-            document.documentElement.classList.add('light-mode');
-        }
-    })();
-</script>
 
 </head>
 <body class="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-[#0f172a]">
