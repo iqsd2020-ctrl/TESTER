@@ -26,116 +26,6 @@
     --wrong-bg: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
 }
 
-/* 1. ثيم النور الياقوتي (Ruby) - أسود وقرمزي وذهبي */
-[data-theme="ruby"] {
-    --bg-body: radial-gradient(circle at center, #2C0606 0%, #100000 100%);
-    --bg-card-gradient: linear-gradient(145deg, rgba(44, 6, 6, 0.95), rgba(16, 0, 0, 0.98));
-    --bg-input: rgba(160, 0, 0, 0.2);
-    --bg-side-menu: #1a0000;
-    --text-main: #F7F0E0;
-    --text-muted: #ffcccc;
-    --accent-color: #FFC300;
-    --accent-dark: #A00000;
-    --border-color: #A00000;
-    --btn-gradient-start: #A00000;
-    --btn-gradient-end: #7a0000;
-    --shadow-color: rgba(255, 195, 0, 0.2);
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFC300' fill-opacity='1'%3E%3Cpath d='M20 0v20h-4v-4H0v-4h16V0h4zM40 80v20h-4v-4H0v-4h36v-4h4z'/%3E%3C/g%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.01;
-}
-
-
-/* 3. ثيم الزجاجي الليلي (Midnight Glass) - أزرق وزبرجدي */
-[data-theme="midnight"] {
-    --bg-body: linear-gradient(135deg, #1a1a2e 0%, #0f3460 50%, #16213e 100%);
-    --bg-card-gradient: linear-gradient(145deg, rgba(50, 70, 100, 0.2), rgba(15, 52, 96, 0.5));
-    --bg-input: rgba(15, 52, 96, 0.5);
-    --bg-side-menu: #0f3460;
-    --text-main: #f4f4f4;
-    --text-muted: #a0a0a0;
-    --accent-color: #79f2c0; /* Mint */
-    --accent-dark: #2cb67d;
-    --border-color: rgba(121, 242, 192, 0.3);
-    --btn-gradient-start: #2cb67d;
-    --btn-gradient-end: #2cb67d;
-    --shadow-color: rgba(121, 242, 192, 0.1);
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='1' fill='%23FFFFFF' fill-opacity='0.1'/%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.1;
-}
-
-/* 4. ثيم نور الإمام (Royal) - ملكي فاخر */
-[data-theme="royal"] {
-    --bg-body: radial-gradient(circle, #1E3A24 0%, #0a191e 100%);
-    --bg-card-gradient: linear-gradient(145deg, rgba(62, 98, 75, 0.95), rgba(20, 30, 20, 0.98));
-    --bg-input: rgba(30, 58, 36, 0.6);
-    --bg-side-menu: #1E3A24;
-    --text-main: #F0E6D2;
-    --text-muted: #D4AF37;
-    --accent-color: #D4AF37;
-    --accent-dark: #aa8c2c;
-    --border-color: #D4AF37;
-    --btn-gradient-start: #D4AF37;
-    --btn-gradient-end: #aa8c2c;
-    --shadow-color: rgba(212, 175, 55, 0.3);
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 5L5 0L10 5L5 10z' fill='%23D4AF37' fill-opacity='0.1'/%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.08;
-}
-
-/* 5. ثيم الزجاج الأسود المصنفر (Black Frost) */
-[data-theme="blackfrost"] {
-    --bg-body: #000000;
-    --bg-card-gradient: linear-gradient(145deg, rgba(40, 40, 40, 0.9), rgba(10, 10, 10, 0.98));
-    --bg-input: rgba(50, 50, 50, 0.5);
-    --bg-side-menu: #000000;
-    --text-main: #ffffff;
-    --text-muted: #888888;
-    --accent-color: #ffffff; 
-    --accent-dark: #cccccc;
-    --accent-contrast: #000000;
-    --border-color: rgba(255, 255, 255, 0.1);
-    --btn-gradient-start: #333333;
-    --btn-gradient-end: #111111;
-    --shadow-color: rgba(255, 255, 255, 0.05);
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cline x1='0' y1='10' x2='20' y2='10' stroke='%23888888' stroke-width='0.5'/%3E%3Cline x1='10' y1='0' x2='10' y2='20' stroke='%23888888' stroke-width='0.5'/%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.04;
-}
-
-/* 6. ثيم المنمنمات الفارسية (Persian) - فيروزي ولازوردي محسن */
-[data-theme="persian"] {
-    --bg-body: linear-gradient(135deg, #006064 0%, #082f49 100%); 
-    --bg-card-gradient: linear-gradient(145deg, rgba(10, 70, 90, 0.95), rgba(8, 47, 73, 0.98));
-    --bg-input: rgba(8, 47, 73, 0.7); 
-    --bg-side-menu: #00363a;
-    --text-main: #E0F7FA; 
-    --text-muted: #4DD0E1; 
-    --accent-color: #FFD700; 
-    --accent-dark: #ccad00;
-    --border-color: #FFD700; 
-    --btn-gradient-start: #00838F;
-    --btn-gradient-end: #082f49; 
-    --shadow-color: rgba(255, 215, 0, 0.3); 
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FFD700' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M30 0L45 15L30 30L15 15L30 0zM30 30L45 45L30 60L15 45L30 30z'/%3E%3C/g%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.04;
-}
-
-
-/* 8. ثيم الحزن العاشورائي (Ashura) - معدل للملائمة */
-[data-theme="ashura"] {
-    --bg-body: linear-gradient(to bottom, #050505 0%, #1a0505 100%); /* أسود عميق */
-    --bg-card-gradient: linear-gradient(145deg, rgba(40, 0, 0, 0.95), rgba(10, 0, 0, 0.98));
-    --bg-input: rgba(50, 0, 0, 0.3);
-    --bg-side-menu: #050000;
-    --text-main: #cfcfcf;
-    --text-muted: #94a3b8; /* رمادي هادئ (يشبه لون الرماد) ليعكس الحزن */
-    --accent-color: #d82e2e; /* أحمر داكن قوي (للدلالة على المصاب) */
-    --accent-dark: #991b1b;
-    --border-color: #b91c1c; 
-    --btn-gradient-start: #7f1d1d;
-    --btn-gradient-end: #450a0a;
-    --shadow-color: rgba(216, 46, 46, 0.2); 
-    --bg-pattern-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 6.5C11 9.5 8.5 12 5.5 12S0 9.5 0 6.5 2.5 1 5.5 1 11 3.5 11 6.5zM6 11V7H2v4h4z' fill='%23d82e2e' fill-opacity='0.8'/%3E%3C/svg%3E");
-    --bg-pattern-opacity: 0.06;
-}
 
 body { 
     font-family: var(--font-body); 
@@ -1492,24 +1382,6 @@ z-index: 10;
 }
 @keyframes rgbSpin { 100% { filter: hue-rotate(360deg); } }
 
-/* --- تنسيق معاينة الثيم في المتجر --- */
-.theme-preview-box {
-    height: 60px;
-    width: 100%;
-    border-radius: 12px;
-    margin-bottom: 8px;
-    border: 1px solid rgba(255,255,255,0.2);
-    position: relative;
-    overflow: hidden;
-}
-.theme-preview-box::after {
-    content: 'Aa';
-    position: absolute;
-    bottom: 5px; right: 8px;
-    font-family: 'Amiri';
-    font-size: 1.2rem;
-    color: rgba(255,255,255,0.5);
-}
 
 /* =========================================
    1. تحسينات حقول كلمة المرور (Password Eye)
@@ -2839,4 +2711,60 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+}
+/* ========================================= */
+/* 🔒 إصلاح ثبات عداد النقاط والعناصر العلوية */
+/* ========================================= */
+
+#live-score-text {
+    user-select: none !important;           /* يمنع تحديد النص عند النقر */
+    -webkit-user-select: none !important;   /* ضروري لأجهزة الآيفون */
+    touch-action: manipulation !important;  /* يمنع التكبير (Zoom) عند النقر المزدوج */
+    display: inline-block !important;       /* يحوله لكتلة صلبة */
+    min-width: 40px;                        /* يحجز مساحة ثابتة حتى لا يهتز عند تغير الرقم */
+    text-align: center;                     /* يوسط الرقم */
+    cursor: default;                        /* يبقي المؤشر عادياً */
+}
+
+/* تطبيق نفس القواعد على الأيقونات العلوية لمنع تحديدها */
+.material-symbols-rounded {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* ========================================= */
+/* 🚀 تسريع حركات التطبيق (Turbo Mode) */
+/* ========================================= */
+
+/* تسريع ظهور النوافذ المنبثقة */
+.modal-box {
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s !important;
+}
+
+/* تسريع الأزرار عند الضغط */
+.btn-gold-action, 
+.option-btn, 
+.nav-item-btn {
+    transition: all 0.1s ease-out !important;
+}
+
+/* تسريع ظهور القوائم (مثل الإشعارات) */
+#notif-dropdown, 
+#side-menu {
+    transition-duration: 0.2s !important;
+}
+
+/* تسريع حركة شريط التقدم في المهام */
+.quest-progress-fill {
+    transition: width 0.3s ease-out !important;
+}
+
+/* تسريع حركات الظهور العامة */
+.fade-in {
+    animation-duration: 0.3s !important;
+}
+
+/* تسريع حركة الهيدر السفلي */
+.nav-glass-body {
+    transition: all 0.2s !important;
 }
