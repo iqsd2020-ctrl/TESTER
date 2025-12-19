@@ -443,7 +443,7 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
     color: var(--text-main); 
     padding: 1rem 2rem; 
     border-radius: 1rem; 
-    z-index: 100; 
+    z-index: 2001; 
     
     /* --- التعديلات الجديدة للخط --- */
     font-family: 'Amiri', serif;
@@ -3385,4 +3385,289 @@ html.light-mode #marathon-rules-modal .text-slate-500:hover {
     0% { transform: scale(0.95); opacity: 0.8; }
     50% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(0.95); opacity: 0.8; }
+}
+/* --- تصميم زر المهام اليومية (Pure CSS) --- */
+
+.quest-container {
+    margin-top: 15px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    /* سيتم التحكم بالظهور والاخفاء عبر JS */
+}
+
+.quest-floating-btn {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 2px solid #fbbf24; /* لون ذهبي */
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 50px; /* شكل بيضوي/دائري */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Amiri', serif;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: visible;
+}
+
+.quest-floating-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.5);
+    background: linear-gradient(135deg, #334155, #1e293b);
+}
+
+.quest-floating-btn:active {
+    transform: scale(0.95);
+}
+
+.quest-icon {
+    font-size: 24px;
+    color: #fbbf24;
+}
+
+/* شارة التنبيه الحمراء */
+.quest-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ef4444;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #0f172a;
+    animation: questPulse 2s infinite;
+}
+
+@keyframes questPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* كلاس مساعد للإخفاء (سنستخدمه لاحقاً إذا انتهت المهام) */
+.quest-hidden {
+    display: none !important;
+}
+/* --- تنسيق نافذة المهام (Modal) --- */
+.quest-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* خلفية معتمة جداً */
+    backdrop-filter: blur(5px);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.quest-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.quest-modal-content {
+    background: linear-gradient(to bottom, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 450px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.1);
+    position: relative;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.quest-modal-overlay.active .quest-modal-content {
+    transform: scale(1);
+}
+
+.quest-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 10px;
+}
+
+.quest-title {
+    color: #fbbf24;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 20px;
+    margin: 0;
+}
+
+.quest-close-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 30px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+/* --- تنسيق قائمة المهام --- */
+.quest-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.quest-item-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #e2e8f0;
+    margin-bottom: 8px;
+}
+
+/* شريط التقدم الخلفي */
+.quest-progress-bg {
+    width: 100%;
+    height: 10px;
+    background: #334155;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* شريط التقدم الأمامي (المتحرك) */
+.quest-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #fbbf24, #d97706);
+    width: 0%; /* سيتم تغييره بالجافاسكربت */
+    border-radius: 5px;
+    transition: width 0.5s ease-out;
+}
+
+.quest-progress-text {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 5px;
+    text-align: left;
+    display: block;
+}
+
+/* زر الاستلام الصغير */
+.quest-claim-btn {
+    background: #10b981; /* أخضر */
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 8px;
+    animation: bounce 1s infinite;
+}
+
+/* زر الجائزة الكبرى */
+.quest-grand-prize {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quest-claim-grand-btn {
+    background: linear-gradient(45deg, #f59e0b, #fbbf24, #f59e0b);
+    background-size: 200% auto;
+    color: #000;
+    font-weight: bold;
+    padding: 12px 30px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Reem Kufi', sans-serif;
+    animation: gradientMove 3s linear infinite;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+/* =========================================
+   إصلاح نظام المهام في الوضع النهاري (Daily Quests Fix)
+   ========================================= */
+
+/* 1. زر المهام العائم (تفتيح الخلفية وتغميق النص) */
+html.light-mode .quest-floating-btn {
+    background: linear-gradient(135deg, #fffcf2, #f1f5f9) !important; /* خلفية كريمية فاتحة */
+    color: #4a2c1b !important;       /* نص بني داكن */
+    border: 2px solid #d97706 !important; /* حدود ذهبية داكنة */
+    box-shadow: 0 5px 15px rgba(217, 119, 6, 0.2) !important; /* ظل ذهبي ناعم */
+}
+html.light-mode .quest-floating-btn:hover {
+    background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
+    transform: translateY(-3px);
+}
+html.light-mode .quest-icon {
+    color: #d97706 !important; /* الأيقونة بلون ذهبي داكن */
+}
+
+/* 2. نافذة المهام المنبثقة (Modal) */
+html.light-mode .quest-modal-content {
+    background: #fffcf2 !important; /* خلفية كريمية بدلاً من الكحلي */
+    border: 2px solid #e7d5c0 !important; /* حدود بنية فاتحة */
+    box-shadow: 0 20px 60px rgba(74, 44, 27, 0.15) !important; /* ظل بني ناعم */
+}
+
+/* 3. العناوين والنصوص داخل النافذة */
+html.light-mode .quest-title {
+    color: #4a2c1b !important; /* العنوان بالبني الداكن */
+    text-shadow: none !important;
+}
+html.light-mode .quest-close-btn {
+    color: #94a3b8 !important; /* زر الإغلاق رمادي */
+}
+html.light-mode .quest-close-btn:hover {
+    color: #ef4444 !important; /* أحمر عند التحويم */
+}
+
+/* 4. بطاقة المهمة الواحدة (Quest Item) */
+html.light-mode .quest-item {
+    background: #ffffff !important; /* خلفية بيضاء */
+    border: 1px solid #e2e8f0 !important; /* حدود رمادية فاتحة */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* 5. نصوص وصف المهمة */
+html.light-mode .quest-item-header {
+    color: #5c4033 !important; /* نص بني متوسط */
+    font-weight: 600 !important;
+}
+html.light-mode .quest-progress-text {
+    color: #64748b !important; /* أرقام العداد رمادية داكنة */
+}
+
+/* 6. خلفية شريط التقدم */
+html.light-mode .quest-progress-bg {
+    background: #e2e8f0 !important; /* رمادي فاتح جداً */
+}
+
+/* 7. زر الجائزة الكبرى */
+html.light-mode .quest-claim-grand-btn {
+    color: #fff !important; /* النص يبقى أبيض لأن الزر ملون */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3) !important;
 }

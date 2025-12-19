@@ -36,7 +36,7 @@
 </script>
 
 </head>
-<body class="flex flex-col items-center justify-center p-4 pb-24 min-h-screen">
+<body class="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-[#0f172a]">
 
 <div id="bottom-nav">
     <div class="nav-glass-body">
@@ -102,7 +102,7 @@
         <div class="p-4 border-t border-slate-700"><button id="logout-btn-menu" class="w-full py-2 bg-red-900/50 text-red-300 rounded-lg flex justify-center gap-2 hover:bg-red-900 transition"><span class="material-symbols-rounded">logout</span> خروج</button></div>
     </div>
 
-    <div id="main-container" class="glass-card w-full max-w-2xl p-6 min-h-[500px] relative z-10">
+    <div id="main-container" class="w-full max-w-2xl h-full p-4 relative z-10 flex flex-col justify-center">
 
         <div id="auth-loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900 transition-opacity duration-700">
     
@@ -218,12 +218,20 @@
                 <span class="text-lg">ابدأ التحدي</span> 
                 <span class="material-symbols-rounded">menu_book</span>
             </button>
+<div id="daily-quest-container" class="quest-container hidden">
+    <button id="btn-open-quests" class="quest-floating-btn">
+        <span class="material-symbols-rounded quest-icon">assignment</span>
+        <span class="quest-label">المهام اليومية</span>
+        <span id="quest-notification-badge" class="quest-badge">!</span>
+    </button>
+</div>
 
                 <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem]"></div>
             </div>
         </div>
 
-        <div id="quiz-proper" class="hidden">
+        <div id="quiz-proper" class="hidden w-full h-full flex flex-col justify-center py-2 relative">
+
     <div id="quiz-topic-display" class="text-center text-amber-300/90 text-sm font-heading mb-2 tracking-wide bg-white/5 py-1 rounded-lg mx-auto w-fit px-4 border border-white/5"></div>
     <div class="flex justify-between items-center text-sm text-slate-400 font-heading mb-2">
         <div class="flex items-center gap-2">
@@ -243,10 +251,11 @@
     </div>
     <div id="timer-bar-container" class="timer-container"><div id="timer-bar" class="timer-bar"></div></div>
     <div class="flex justify-center gap-1 mb-4 opacity-50"><div id="progress-dots" class="flex gap-1"></div></div>
-    <div class="min-h-[100px] flex items-center justify-center text-center mb-6 p-6 relative question-card-3d">
+    <div class="flex items-center justify-center text-center mb-4 p-4 relative question-card-3d shrink-0">
          <h2 id="question-text" class="text-xl font-bold text-white leading-relaxed">...</h2>
     </div>
-    <div id="options-container" class="space-y-1 mb-6"></div> 
+    <div id="options-container" class="space-y-1 mb-4 flex-1 flex flex-col justify-center"></div>
+ 
     <div class="flex justify-center gap-4 border-t border-slate-700 pt-4" id="helper-bar">
         <button id="helper-fifty-fifty" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">percent</span>50/50</button>
         <button id="helper-hint" class="text-slate-500 hover:text-amber-400 text-xs flex flex-col items-center transition group"><span class="material-symbols-rounded bg-slate-800 p-2 rounded-full border border-slate-600 mb-1 group-hover:border-amber-400 transition">lightbulb</span>تلميح</button>
@@ -403,18 +412,6 @@
             <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
         </label>
     </div>
-
-    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-rounded text-amber-400">vibration</span>
-            <span class="text-slate-300 text-sm">الاهتزاز اللمسي</span>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="vibrate-toggle" class="sr-only peer" checked>
-            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-        </label>
-    </div>
-
 
             </div>
 
@@ -907,6 +904,25 @@
             </div>
         </div>
     </div>
+
+<div id="quest-modal" class="quest-modal-overlay quest-hidden">
+    <div class="quest-modal-content">
+        <div class="quest-header">
+            <h2 class="quest-title">المهام اليومية</h2>
+            <button id="close-quest-btn" class="quest-close-btn">×</button>
+        </div>
+        
+        <div id="quest-list-container" class="quest-list">
+            </div>
+
+        <div id="grand-prize-area" class="quest-grand-prize quest-hidden">
+            <p>أكملت جميع المهام!</p>
+            <button id="claim-grand-prize-btn" class="quest-claim-grand-btn">
+                استلم الجائزة الكبرى 
+            </button>
+        </div>
+    </div>
+</div>
 
 </body>
 <div id="offline-banner" class="hidden fixed top-0 left-0 w-full bg-red-900/90 text-white text-center py-2 z-[200] border-b border-red-500 backdrop-blur-sm transition-transform duration-300 transform -translate-y-full">
