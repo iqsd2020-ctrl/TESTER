@@ -87,21 +87,6 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-
-// --- Theme Logic ---
-const themes = {
-    default: 'الافتراضي',
-    ruby: 'الياقوتي',
-    midnight: 'الزجاجي الليلي',
-    royal: 'ملكي',
-    blackfrost: 'الزجاج الأسود',
-    persian: 'المنمنمات',
-    ashura: 'العاشورائي',
-};
-
-// في ملف main.js
-// استبدل المتغير framesData الموجود بهذا الكود:
-
 const framesData = [
     { id: 'default', name: 'بدون إطار', price: 0, cssClass: '' },
     
@@ -190,13 +175,6 @@ function setupPresenceSystem() {
     });
 }
 
-function applyTheme(themeName) {
-    if (themeName === 'default') {
-        document.documentElement.removeAttribute('data-theme');
-    } else {
-        document.documentElement.setAttribute('data-theme', themeName);
-    }
-}
 
 const getEl = (id) => document.getElementById(id);
 const show = (id) => getEl(id)?.classList.remove('hidden');
@@ -740,37 +718,12 @@ function navToHome() {
 
     setTimeout(checkWhatsNew, 1500); 
     checkMarathonStatus();
-    initTheme(); 
+     
 
-    updateThemeSelector();
+    
     checkAndShowDailyReward(); 
 }
 
-// دالة مساعدة لتحديث قائمة الثيمات
-function initTheme() {
-    const savedTheme = localStorage.getItem('app_theme_v2') || 'default';
-    applyTheme(savedTheme);
-    // لم نعد بحاجة لربط select.onchange هنا لأن handleSelection يقوم بالمهمة
-}
-
-// دالة تحديث واجهة الثيم (تحديث النص الظاهر على الزر)
-function updateThemeSelector() {
-    const displayEl = getEl('txt-theme-display');
-    if(!displayEl) return;
-    
-    const current = localStorage.getItem('app_theme_v2') || 'default';
-    // التأكد من أن المستخدم يملك الثيم الحالي، وإلا نعود للافتراضي
-    const owned = userProfile.inventory.themes || ['default'];
-    
-    if (owned.includes(current)) {
-        displayEl.textContent = themes[current] || 'الافتراضي';
-    } else {
-        // حالة نادرة: الثيم المحفوظ غير مملوك (ربما تم حذف بيانات)
-        applyTheme('default');
-        displayEl.textContent = 'الافتراضي';
-        localStorage.setItem('app_theme_v2', 'default');
-    }
-}
 
 function openSelectionModal(mode) {
     currentSelectionMode = mode;
@@ -800,15 +753,6 @@ function openSelectionModal(mode) {
         title.textContent = 'عدد الأسئلة';
         [5, 10, 15, 20].forEach(c => renderSelectionItem(`${c} أسئلة`, c, container));
 
-    } else if (mode === 'theme') { // --- الكود الجديد للثيمات ---
-        title.textContent = 'اختر المظهر';
-        const owned = userProfile.inventory.themes || ['default'];
-        // نستخدم كائن themes المعرف في بداية الملف
-        Object.keys(themes).forEach(key => {
-            if (owned.includes(key)) {
-                renderSelectionItem(themes[key], key, container);
-            }
-        });
     }
 }
 
@@ -817,7 +761,6 @@ function initDropdowns() {
     const btnCat = document.getElementById('btn-category-trigger');
     const btnTop = document.getElementById('btn-topic-trigger');
     const btnCount = document.getElementById('btn-count-trigger');
-    const btnTheme = document.getElementById('btn-theme-trigger'); // <-- جديد
     
     if(btnCat) btnCat.onclick = () => openSelectionModal('category');
     if(btnTop) btnTop.onclick = () => {
@@ -825,7 +768,7 @@ function initDropdowns() {
         else toast("يرجى اختيار القسم الرئيسي أولاً", "error");
     };
     if(btnCount) btnCount.onclick = () => openSelectionModal('count');
-    if(btnTheme) btnTheme.onclick = () => openSelectionModal('theme'); // <-- جديد
+   
 }
 
 function renderSelectionItem(text, value, container) {
@@ -925,13 +868,7 @@ function handleSelection(text, value) {
         document.getElementById('ai-question-count').value = value;
         document.getElementById('txt-count-display').textContent = text;
 
-    } else if (currentSelectionMode === 'theme') { // --- الكود الجديد للثيمات ---
-        applyTheme(value);
-        localStorage.setItem('app_theme_v2', value);
-        document.getElementById('txt-theme-display').textContent = text;
-        toast(`تم تطبيق: ${text}`);
     }
-
     modal.classList.remove('active');
 }
 
@@ -1420,46 +1357,6 @@ function renderQuestion() {
     // كتابة نص السؤال
     typeWriter('question-text', q.question);
     
-    // ==========================================
-    // 📋 إضافة زر نسخ السؤال (جديد)
-    // ==========================================
-    const questionCard = document.querySelector('.question-card-3d');
-    
-    // التحقق لمنع تكرار الزر إذا كان موجوداً
-    let qCopyBtn = document.getElementById('btn-copy-question');
-    if (!qCopyBtn) {
-        qCopyBtn = document.createElement('button');
-        qCopyBtn.id = 'btn-copy-question';
-        // تنسيق الزر: في الزاوية اليسرى العليا
-        qCopyBtn.className = 'absolute top-2 left-2 text-slate-500 hover:text-amber-400 transition p-1.5 rounded-full hover:bg-white/5 z-20 opacity-50 hover:opacity-100';
-        qCopyBtn.title = "نسخ نص السؤال";
-        qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg">content_copy</span>';
-        
-        // إضافته للبطاقة
-        if(questionCard) {
-            // تأكد أن البطاقة relative ليعمل الـ absolute
-            questionCard.style.position = 'relative'; 
-            questionCard.appendChild(qCopyBtn);
-        }
-    }
-    
-    // برمجة وظيفة النسخ (تتحدث مع كل سؤال جديد)
-    if(qCopyBtn) {
-        qCopyBtn.onclick = (e) => {
-            e.stopPropagation(); // لمنع تفعيل أي حدث آخر
-            const currentText = q.question; // نأخذ النص من المصدر مباشرة
-            navigator.clipboard.writeText(currentText).then(() => {
-                toast('تم نسخ نص السؤال 📋');
-                
-                
-                // تأثير بصري بسيط
-                qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg text-green-400">check</span>';
-                setTimeout(() => qCopyBtn.innerHTML = '<span class="material-symbols-rounded text-lg">content_copy</span>', 1500);
-                
-            }).catch(() => toast('فشل النسخ', 'error'));
-        };
-    }
-    // ==========================================
 
     if (quizState.mode === 'marathon') {
         getEl('question-counter-text').textContent = `${quizState.idx+1}`;
@@ -1670,7 +1567,12 @@ function selectAnswer(idx, btn) {
 
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
             if(quizState.marathonCorrectStreak === 15) {
-                unlockRandomThemeReward();
+                userProfile.inventory.lives++;
+                updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
+                toast("🎉 إنجاز رائع! حصلت على قلب إضافي", "success");
+                quizState.lives++;
+                renderLives();
+
                 quizState.marathonCorrectStreak = 0;
             }
 
@@ -1827,29 +1729,6 @@ function selectAnswer(idx, btn) {
     }
 }
 
-// دالة مكافأة النور
-async function unlockRandomThemeReward() {
-    const allThemes = ['ruby', 'midnight', 'royal', 'blackfrost', 'persian', 'ashura'];
-    const owned = userProfile.inventory.themes || [];
-    const available = allThemes.filter(t => !owned.includes(t));
-    
-    if(available.length > 0) {
-        const newTheme = available[Math.floor(Math.random() * available.length)];
-        userProfile.inventory.themes.push(newTheme);
-        await updateDoc(doc(db, "users", effectiveUserId), { "inventory.themes": userProfile.inventory.themes });
-        
-        toast(`🎉 إنجاز رائع! فتحت ثيم جديد: ${newTheme} أكمل النور`, "success");
-        playSound('applause');
-        updateThemeSelector();
-    } else {
-        // إذا كان يملك كل الثيمات، امنحه قلباً هدية
-        userProfile.inventory.lives++;
-        await updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
-        toast("🎉 إنجاز رائع! حصلت على قلب إضافي (أكمل النور)", "success");
-        quizState.lives++; // زيادة فورية في اللعبة الحالية
-        renderLives();
-    }
-}
 
 
 bind('helper-report', 'click', async () => {
@@ -3012,59 +2891,6 @@ function renderBag() {
         framesSection.appendChild(btn);
     });
 
-    // --- (2) مقتنياتي: عرض الثيمات (كنص أو معاينة صغيرة) ---
-    // سنبقيها نصاً لعدم ازدحام الحقيبة، أو يمكن تحويلها لصور لاحقاً
-    const themesList = getEl('inv-themes-list');
-    themesList.innerHTML = '';
-    const themesNames = {
-        default: 'الافتراضي', ruby: 'الياقوتي', midnight: 'الليلي',
-        royal: 'الملكي', blackfrost: 'الأسود', persian: 'الفارسي', ashura: 'عاشوراء',
-    };
-    
-    // عرض بسيط للثيمات المملوكة
-    (inv.themes || ['default']).forEach(t => {
-        const span = document.createElement('span');
-        span.className = "text-[10px] bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-600 cursor-default";
-        span.textContent = themesNames[t] || t;
-        themesList.appendChild(span);
-    });
-
-
-    // --- (3) المتجر: عرض الثيمات كصور/ألوان (Visual Preview) ---
-    const shopList = getEl('shop-themes-list');
-    shopList.innerHTML = '';
-    
-    // تعريف ألوان المعاينة لكل ثيم
-    const themePreviews = {
-        default: 'linear-gradient(to bottom, #1e293b, #020617)',
-        ruby: 'linear-gradient(135deg, #2C0606, #100000)',
-        midnight: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
-        royal: 'linear-gradient(to bottom, #1E3A24, #0a191e)',
-        blackfrost: 'linear-gradient(135deg, #333, #000)',
-        persian: 'linear-gradient(135deg, #006064, #082f49)',
-        ashura: 'linear-gradient(to bottom, #1a0505, #000)'
-    };
-
-    Object.keys(themesNames).forEach(key => {
-        if(key === 'default') return; 
-        const isOwned = inv.themes.includes(key);
-        
-        const btn = document.createElement('button');
-        // جعلنا الزر يبدو كبطاقة
-        btn.className = `p-3 rounded-xl border border-slate-600 text-center relative transition hover:border-amber-400 flex flex-col items-center justify-between gap-2 h-full ${isOwned ? 'shop-item-owned' : ''}`;
-        
-        // صندوق المعاينة اللوني
-        const previewStyle = themePreviews[key] || '#333';
-        
-        btn.innerHTML = `
-            <div class="theme-preview-box" style="background: ${previewStyle};"></div>
-            <p class="text-white text-xs font-bold">${themesNames[key]}</p>
-            ${!isOwned ? `<span class="text-amber-400 text-xs bg-slate-900 px-2 py-1 rounded inline-block">500 نقطة</span>` : ''}
-        `;
-        
-        if(!isOwned) btn.onclick = () => window.buyShopItem('theme', 500, key);
-        shopList.appendChild(btn);
-    });
 
     // --- (4) المتجر: عرض الإطارات (كما هي) ---
     const existingFramesHeader = document.getElementById('shop-frames-header');
@@ -3160,10 +2986,8 @@ window.buyShopItem = async function(type, cost, id=null) {
         async () => {
             userProfile.highScore -= cost;
             
-            if(type === 'theme') {
-                userProfile.inventory.themes.push(id);
-                toast(`تم شراء ثيم: ${id}`);
-            } else if (type === 'frame') { 
+            // ✅ التصحيح: جعلنا هذا الشرط هو الأول (if بدلاً من else if)
+            if (type === 'frame') { 
                 if(!userProfile.inventory.frames) userProfile.inventory.frames = [];
                 userProfile.inventory.frames.push(id);
                 toast("تم شراء الإطار بنجاح! 🖼️");
@@ -3183,7 +3007,7 @@ window.buyShopItem = async function(type, cost, id=null) {
 
             if(!userProfile.stats) userProfile.stats = {};
             userProfile.stats.itemsBought = (userProfile.stats.itemsBought || 0) + 1;
-            // المهمة 5: شراء عنصر من المتجر (ID: 5)
+            
             updateQuestProgress(5, 1);
 
             try {
@@ -3195,9 +3019,9 @@ window.buyShopItem = async function(type, cost, id=null) {
                 playSound('win');
                 renderBag(); 
                 updateProfileUI(); 
-                updateThemeSelector(); 
-                
-                let itemName = type === 'frame' ? 'إطار أفاتار' : (type === 'theme' ? 'ثيم' : 'عنصر');
+                 
+                // إزالة ذكر الثيم من الإشعار
+                let itemName = type === 'frame' ? 'إطار أفاتار' : 'عنصر';
                 addLocalNotification('عملية شراء 🛒', `تم شراء ${itemName} مقابل ${cost} نقطة`, 'shopping_bag');
 
                 setTimeout(async () => {
@@ -4615,229 +4439,6 @@ window.addEventListener('offline', updateOnlineStatus);
 // التحقق عند بدء التشغيل
 document.addEventListener('DOMContentLoaded', updateOnlineStatus);
 
-// =========================================================================
-// 🕵️‍♂️ CHEAT CODES MANAGER & ADMIN TOOLS (نظام إدارة الأسرار - النهائي)
-// =========================================================================
-
-// --- ⚙️ إعدادات الحساسية ---
-const CHEAT_CONFIG = {
-    ADMIN_CLICKS_REQUIRED: 10,     // 10 نقرات لتحديث العدادات
-    MARATHON_RESET_CLICKS: 7,      // 7 نقرات لفك حظر الماراثون
-    SAURON_TIMEOUT: 6000           // الوقت المتاح لإكمال تسلسل عين ساورون (6 ثواني)
-};
-
-// -------------------------------------------------------------------------
-// 1. حقن تأثيرات CSS الخاصة بالعين (Sauron Eye CSS)
-// -------------------------------------------------------------------------
-(function injectCheatStyles() {
-    const styleId = 'sauron-css-effects';
-    if (document.getElementById(styleId)) return;
-
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.innerHTML = `
-        @keyframes sauronPulse {
-            0% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
-            50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 120px #ff4500; }
-            100% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 40px #ff3300; }
-        }
-        @keyframes pupilMove {
-            0%, 100% { transform: scaleY(0.9) translateX(0); }
-            25% { transform: scaleY(1) translateX(6px); }
-            50% { transform: scaleY(1.1) translateX(-6px); }
-            75% { transform: scaleY(1) translateX(4px); }
-        }
-        .sauron-overlay {
-            position: fixed; inset: 0; z-index: 9999;
-            background: radial-gradient(circle at 50% 60%, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.98) 100%);
-            display: flex; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.8s ease-in-out;
-        }
-        .sauron-overlay.active { opacity: 1; pointer-events: auto; }
-        .eye-shape {
-            position: relative; width: clamp(200px, 30vw, 320px); height: clamp(100px, 15vw, 180px);
-            background: radial-gradient(circle at 50% 50%, #ffe066 0%, #ff8800 25%, #cc0000 65%, #220000 100%);
-            border-radius: 60% / 100%; border: 3px solid #660000;
-            box-shadow: 0 0 80px #ff2200, inset 0 0 40px #000;
-            animation: sauronPulse 4s infinite ease-in-out;
-            display: flex; justify-content: center; align-items: center; overflow: hidden;
-        }
-        .eye-pupil {
-            width: 18px; height: 65%; background: #000; border-radius: 50%;
-            box-shadow: 0 0 20px #ff2200; filter: blur(0.8px);
-            animation: pupilMove 2s infinite ease-in-out;
-        }
-    `;
-    document.head.appendChild(style);
-
-    const sauronDiv = document.createElement('div');
-    sauronDiv.id = 'sauron-modal';
-    sauronDiv.className = 'sauron-overlay';
-    sauronDiv.innerHTML = '<div class="eye-shape"><div class="eye-pupil"></div></div>';
-    document.body.appendChild(sauronDiv);
-})();
-
-// -------------------------------------------------------------------------
-// 2. تحديث العدادات (Admin)
-// التفعيل: 10 نقرات على العنوان الرئيسي في صفحة الترحيب
-// -------------------------------------------------------------------------
-window.generateCounts = async function() {
-    if(document.getElementById('admin-loading-badge')) return;
-
-    const badge = document.createElement('div');
-    badge.id = 'admin-loading-badge';
-    badge.innerHTML = '⚙️ جاري تحديث العدادات...';
-    badge.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); color:#fbbf24; padding:8px 15px; z-index:9999; border-radius:20px; border:1px solid #fbbf24; font-size:12px; font-weight:bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);";
-    document.body.appendChild(badge);
-
-    try {
-        const counts = {};
-        const q = query(collection(db, "questions"));
-        const snap = await getDocs(q);
-        
-        snap.forEach(doc => {
-            const d = doc.data();
-            if (d.topic) {
-                const cleanTopic = d.topic.trim();
-                counts[cleanTopic] = (counts[cleanTopic] || 0) + 1;
-            }
-        });
-        
-        await setDoc(doc(db, "system", "counts"), counts);
-        
-        badge.innerHTML = '✅ تم التحديث!';
-        badge.style.borderColor = '#4ade80'; badge.style.color = '#4ade80';
-        if(typeof playSound === 'function') playSound('applause');
-        dbTopicCounts = counts; 
-        setTimeout(() => badge.remove(), 3000);
-    } catch (e) {
-        console.error(e);
-        badge.innerHTML = '❌ فشل التحديث';
-        badge.style.color = '#ef4444';
-        setTimeout(() => badge.remove(), 3000);
-    }
-};
-
-let adminClickCount = 0;
-let adminResetTimer = null;
-
-document.addEventListener('click', (e) => {
-    const titleEl = e.target.closest('#welcome-area h1');
-    if (titleEl) {
-        adminClickCount++;
-        if (adminResetTimer) clearTimeout(adminResetTimer);
-        adminResetTimer = setTimeout(() => { adminClickCount = 0; }, 2000); // 2 ثانية مهلة
-
-        if (adminClickCount === CHEAT_CONFIG.ADMIN_CLICKS_REQUIRED) {
-            
-            window.generateCounts();
-            adminClickCount = 0;
-        }
-    }
-});
-
-// -------------------------------------------------------------------------
-// 3. كاسر الماراثون (فك الحظر)
-// التفعيل: 7 نقرات على زر الجرس (الإشعارات)
-// -------------------------------------------------------------------------
-let marathonCheatClicks = 0;
-let marathonResetTimer = null;
-
-// نستخدم addEventListener لضمان العمل بالتوازي مع وظيفة الزر الأصلية
-const notifBtnCheat = document.getElementById('notif-btn');
-if(notifBtnCheat) {
-    notifBtnCheat.addEventListener('click', async () => {
-        marathonCheatClicks++;
-        
-        // إعادة تعيين المؤقت مع كل نقرة (Debounce)
-        // هذا يسمح لك بالنقر براحتك دون أن يتصفر العداد فجأة
-        if (marathonResetTimer) clearTimeout(marathonResetTimer);
-        
-        marathonResetTimer = setTimeout(() => { 
-            marathonCheatClicks = 0; 
-        }, 1000); // يتصفر فقط إذا توقفت عن النقر لمدة ثانية
-
-        if(marathonCheatClicks === CHEAT_CONFIG.MARATHON_RESET_CLICKS) {
-            if(userProfile && effectiveUserId) {
-                userProfile.lastMarathonDate = null;
-                // تحديث السيرفر
-                await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
-                checkMarathonStatus();
-                toast("🔓 تم كسر قيد الوقت (Sauron Power)", "success");
-                if(typeof playSound === 'function') playSound('win');
-            }
-            marathonCheatClicks = 0;
-        }
-    });
-}
-
-// -------------------------------------------------------------------------
-// 4. عين ساورون (كشف الإجابة)
-// التفعيل: دبل كليك (القلوب) -> دبل كليك (رقم السؤال) -> دبل كليك (مصباح المعلومة)
-// -------------------------------------------------------------------------
-let cheatStep1 = false;
-let cheatStep2 = false;
-
-// الخطوة 1: دبل كليك على القلوب
-bind('lives-display', 'dblclick', () => {
-    if(!quizState.active) return;
-    cheatStep1 = true;
-    
-    // مهلة طويلة لإكمال الخطوات براحة
-    setTimeout(() => { 
-        cheatStep1 = false; 
-        cheatStep2 = false; 
-    }, CHEAT_CONFIG.SAURON_TIMEOUT);
-});
-
-// الخطوة 2: دبل كليك على رقم السؤال
-bind('question-counter-text', 'dblclick', () => {
-    if(cheatStep1) cheatStep2 = true;
-    else { cheatStep1 = false; cheatStep2 = false; }
-});
-
-// الخطوة 3 (النهاية): دبل كليك على مصباح المعلومة
-bind('toggle-enrichment-btn', 'dblclick', () => {
-    if(cheatStep1 && cheatStep2) {
-        triggerSauronEffect();
-        cheatStep1 = false; 
-        cheatStep2 = false;
-    } else {
-        cheatStep1 = false; 
-        cheatStep2 = false;
-    }
-});
-
-function triggerSauronEffect() {
-    const modal = document.getElementById('sauron-modal');
-    
-    if(!isMuted && typeof audioContext !== 'undefined') {
-        createOscillator(80, 'sawtooth', 2.0, 0.6);
-        createOscillator(60, 'square', 2.0, 0.6);
-    }
-
-    modal.classList.add('active');
-    
-    setTimeout(() => {
-        modal.classList.remove('active');
-        
-        if (!quizState.active) return;
-        
-        const q = quizState.questions[quizState.idx];
-        const btns = document.querySelectorAll('.option-btn');
-        
-        if(btns[q.correctAnswer]) {
-            const btn = btns[q.correctAnswer];
-            btn.style.transition = "all 0.5s";
-            btn.style.border = "2px solid #ef4444";
-            btn.style.boxShadow = "0 0 25px rgba(220, 38, 38, 0.8), inset 0 0 10px rgba(220, 38, 38, 0.5)";
-            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
-            btn.classList.add('animate-pulse');
-            
-            
-        }
-    }, 2500);
-}
 
 // --- تفعيل أزرار الشريط السفلي الجديدة (محدث للعمل المباشر) ---
 
@@ -4864,3 +4465,4 @@ bind('bottom-bag-btn', 'click', () => {
 window.claimSingleReward = claimSingleReward;
 window.claimGrandPrize = claimGrandPrize;
 window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً
+
