@@ -898,6 +898,60 @@
         </div>
     </div>
 </div>
+<div id="audio-learning-modal" class="audio-modal-overlay hidden">
+    <div class="audio-modal-content">
+        
+        <div class="audio-header">
+            <h2 id="audio-topic-title" class="audio-title">جارِ التحميل...</h2>
+            <button id="close-audio-btn" class="audio-close-btn">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+
+        <div class="audio-visual-wrapper">
+            <div class="audio-visual-circle">
+                <span class="material-symbols-rounded audio-main-icon">headphones</span>
+                <div class="wave w1"></div>
+                <div class="wave w2"></div>
+                <div class="wave w3"></div>
+            </div>
+            <div id="audio-reward-badge" class="audio-reward-badge hidden">
+                +1 نقطة <span class="material-symbols-rounded text-xs">military_tech</span>
+            </div>
+        </div>
+
+        <div class="audio-player-container">
+            
+            <div class="audio-progress-bar-area" id="audio-progress-area">
+                <div class="audio-progress-fill" id="audio-progress-fill" style="width: 0%"></div>
+                <div class="audio-progress-handle" style="left: 0%"></div>
+            </div>
+
+            <div class="audio-time-display">
+                <span id="audio-current-time">00:00</span>
+                <span id="audio-total-duration">00:00</span>
+            </div>
+
+            <div class="audio-controls">
+                <button id="audio-rewind-btn" class="audio-sec-btn">
+                    <span class="material-symbols-rounded">replay_10</span>
+                </button>
+                
+                <button id="audio-play-pause-btn" class="audio-main-btn">
+                    <span id="audio-play-icon" class="material-symbols-rounded">play_arrow</span>
+                    <span id="audio-pause-icon" class="material-symbols-rounded hidden">pause</span>
+                </button>
+
+                <button id="audio-forward-btn" class="audio-sec-btn">
+                    <span class="material-symbols-rounded">forward_10</span>
+                </button>
+            </div>
+
+            <audio id="hidden-audio-element"></audio>
+        </div>
+
+    </div>
+</div>
 
 </body>
 <div id="offline-banner" class="hidden fixed top-0 left-0 w-full bg-red-900/90 text-white text-center py-2 z-[200] border-b border-red-500 backdrop-blur-sm transition-transform duration-300 transform -translate-y-full">

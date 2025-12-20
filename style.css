@@ -2893,3 +2893,226 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     font-family: monospace !important;
     direction: ltr !important;
 }
+/* --- نافذة التعلم الصوتي (The Cyan Theme) - نسخة نظيفة وموحدة --- */
+
+/* 1. الخلفية المعتمة */
+.audio-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(8, 47, 73, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.audio-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 2. جسم النافذة */
+.audio-modal-content {
+    width: 90%;
+    max-width: 400px;
+    background: linear-gradient(145deg, rgba(21, 94, 117, 0.6) 0%, rgba(8, 47, 73, 0.9) 100%);
+    border: 1px solid rgba(103, 232, 249, 0.3);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.2), inset 0 0 20px rgba(6, 182, 212, 0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.audio-modal-overlay.active .audio-modal-content {
+    transform: translateY(0);
+}
+
+/* 3. المنطقة البصرية */
+.audio-visual-wrapper {
+    position: relative; /* ضروري جداً لتموضع الإشعار داخله */
+    width: 140px;
+    height: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px 0;
+}
+
+/* الدائرة المركزية */
+.audio-visual-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
+    box-shadow: 0 10px 20px rgba(6, 182, 212, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.audio-main-icon {
+    font-size: 48px;
+    color: white;
+}
+
+/* --- تنسيق إشعار النقطة (تم الدمج هنا) --- */
+.audio-reward-badge {
+    position: absolute !important;
+    top: 0px !important;
+    right: 10px !important;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 0.85rem;
+    font-weight: bold;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+    z-index: 20;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.audio-reward-badge:not(.hidden) {
+    transform: translateY(0);
+    animation: popBadge 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popBadge {
+    0% { transform: scale(0.5) translateY(10px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* الموجات الخلفية */
+.wave {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid rgba(103, 232, 249, 0.5);
+    width: 100%; height: 100%;
+    z-index: 1;
+    opacity: 0;
+}
+
+.audio-visual-circle.playing .wave {
+    animation: wavePulse 2s infinite linear;
+}
+.audio-visual-circle.playing .wave.w2 { animation-delay: 0.6s; }
+.audio-visual-circle.playing .wave.w3 { animation-delay: 1.2s; }
+
+@keyframes wavePulse {
+    0% { width: 100px; height: 100px; opacity: 0.8; border-width: 2px; }
+    100% { width: 220px; height: 220px; opacity: 0; border-width: 0px; }
+}
+
+.audio-visual-circle.playing .audio-main-icon {
+    animation: slowSpin 10s infinite linear;
+}
+
+/* 4. المشغل والتحكم */
+.audio-title {
+    color: #cffafe;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 1.1rem;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.audio-player-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.audio-progress-bar-area {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.audio-progress-fill {
+    height: 100%;
+    background: #22d3ee;
+    border-radius: 10px;
+    width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px #22d3ee;
+}
+
+.audio-time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #67e8f9;
+    font-family: monospace;
+}
+
+.audio-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 5px;
+}
+
+.audio-main-btn {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: white;
+    color: #0891b2;
+    border: none;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 32px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.audio-main-btn:active { transform: scale(0.95); }
+
+.audio-sec-btn {
+    background: transparent;
+    border: none;
+    color: #a5f3fc;
+    font-size: 24px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.audio-sec-btn:hover { opacity: 1; }
+
+.audio-close-btn {
+    position: absolute;
+    top: 15px; left: 15px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+}
+.audio-header {
+    width: 100%;
+    text-align: center;
+    position: relative;
+}
