@@ -1718,33 +1718,42 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     white-space: nowrap; /* منع النص من النزول لسطر ثاني */
 }
 
-/* حل نهائي لمشكلة لون زر ابدأ التحدي الرئيسي */
-#ai-generate-btn {
-    /* فرض التدرج الذهبي يدوياً لإصلاح الخلل */
-    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%) !important;
+.dual-gold-btn {
+    display: flex;
+    width: 100%;
+    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-bottom: 5px solid #78350f;
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+    overflow: hidden;
+    height: 56px;
+}
+
+.btn-side {
+    flex: 1;
+    background: transparent;
+    border: none;
     color: #ffffff !important;
-    
-    /* تنسيق الحدود والعمق 3D */
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    border-bottom: 5px solid #78350f !important; /* لون بني داكن للحافة السفلية */
-    
-    /* تأثيرات الظل والظهور */
-    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4) !important;
-    opacity: 1 !important;
-    filter: none !important;
-    
-    /* ضمان أبعاد وشكل الزر */
-    display: flex !important;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.1s;
 }
 
-/* تأثير الضغط للزر الذهبي */
-#ai-generate-btn:active {
-    border-bottom-width: 1px !important;
-    transform: translateY(4px) !important;
-    box-shadow: none !important;
+.btn-side:active {
+    transform: translateY(2px);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.divider-v {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 12px 0;
 }
 
 /* --- تنسيق شبكة مربعات (وضع أكمل النور) --- */
