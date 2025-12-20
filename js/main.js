@@ -940,6 +940,9 @@ bind('ai-generate-btn', 'click', async () => {
         openModal('force-review-modal');
         return;
     }
+bind('ai-learn-btn', 'click', () => {
+    toast("قريباً: وضع التعلم التفاعلي", "info");
+});
 
     // 2. إعداد المتغيرات
     const cat = getEl('category-select').value;
@@ -2640,7 +2643,14 @@ bind('user-profile-btn', 'click', () => {
     }
     getEl('profile-join-date').textContent = `انضم في: ${joinDateStr}`;
 
-    // 3. عرض الصورة الشخصية
+    // 3. عرض الصورة الشخصية + الإطار (التعديل الجديد) 🌟
+    const avatarContainer = document.querySelector('#user-modal .relative.w-24.h-24');
+    
+    // أ) تنظيف أي إطار قديم لمنع التكرار
+    const oldFrame = avatarContainer.querySelector('.avatar-frame-overlay');
+    if (oldFrame) oldFrame.remove();
+
+    // ب) عرض الصورة أو الأيقونة
     if(userProfile.customAvatar) {
          getEl('profile-img-preview').src = userProfile.customAvatar;
          show('profile-img-preview');
@@ -2650,6 +2660,19 @@ bind('user-profile-btn', 'click', () => {
          hide('profile-img-preview');
          show('profile-icon-preview');
          hide('delete-custom-avatar');
+    }
+
+    // ج) إضافة الإطار المختار (إن وجد)
+    const currentFrameId = userProfile.equippedFrame || 'default';
+    if (currentFrameId !== 'default') {
+        const frameObj = framesData.find(f => f.id === currentFrameId);
+        if (frameObj) {
+            const frameDiv = document.createElement('div');
+            // نضيف pointer-events-none لضمان إمكانية الضغط على زر تغيير الصورة
+            frameDiv.className = `avatar-frame-overlay ${frameObj.cssClass}`;
+            frameDiv.style.pointerEvents = 'none'; 
+            avatarContainer.appendChild(frameDiv);
+        }
     }
     
     // 4. عرض الإحصائيات
@@ -2663,30 +2686,22 @@ bind('user-profile-btn', 'click', () => {
     getEl('profile-stat-correct').textContent = formatNumberAr(totalC);
     getEl('profile-stat-accuracy').textContent = `%${formatNumberAr(accuracy)}`;
 
-    // 5. عرض الأوسمة (النظام الجديد)
+    // 5. عرض الأوسمة
     const badgesContainer = getEl('profile-badges-display');
     badgesContainer.innerHTML = '';
-    
-    // ضبط الحاوية لتكون شبكة مرتبة
     badgesContainer.className = 'grid grid-cols-3 gap-4 justify-items-center bg-slate-900/50 p-4 rounded-xl border border-slate-800 min-h-[100px] max-h-[300px] overflow-y-auto';
 
     if (userProfile.badges && userProfile.badges.length > 0) {
         const bestBadges = {};
-
-        // أ. تجميع الأوسمة واختيار الأعلى رتبة فقط
         userProfile.badges.forEach(bid => {
-            if (bid === 'beginner') return; // تجاهل وسام البداية
-            
+            if (bid === 'beginner') return;
             const [baseId, lvlPart] = bid.split('_lvl');
-            const level = parseInt(lvlPart) || 1; // رقم المستوى
-            
-            // إذا لم يكن الوسام موجوداً أو وجدنا مستوى أعلى منه، نقوم بتحديثه
+            const level = parseInt(lvlPart) || 1;
             if (!bestBadges[baseId] || level > bestBadges[baseId].level) {
                 bestBadges[baseId] = { id: bid, baseId: baseId, level: level };
             }
         });
 
-        // ب. رسم الأوسمة المصفاة
         const finalBadges = Object.values(bestBadges);
 
         if (finalBadges.length === 0) {
@@ -2696,47 +2711,39 @@ bind('user-profile-btn', 'click', () => {
             finalBadges.forEach(item => {
                 const bObj = badgesMap[item.baseId];
                 if(bObj) {
-                    // تحديد خصائص المستوى (اللون والاسم)
-                    // نفترض المستويات: 1=برونزي, 2=فضي, 3=ذهبي, 4=ماسي, 5=أسطوري
-                    // يمكنك تعديل الألوان والنصوص حسب نظامك في TIER_CONFIG
-                    let tierColor = 'border-amber-700 shadow-amber-900/50'; // افتراضي (برونزي)
                     let tierName = 'برونزي';
-                    let glowStyle = 'box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;'; // برونزي
+                    let glowStyle = 'box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;';
+                    let tierColorHex = '#b45309';
 
                     if(item.level === 2) { 
                         tierName = 'فضي'; 
                         glowStyle = 'box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';
+                        tierColorHex = '#cbd5e1';
                     } else if(item.level === 3) { 
                         tierName = 'ذهبي'; 
                         glowStyle = 'box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: #fbbf24;';
+                        tierColorHex = '#fbbf24';
                     } else if(item.level === 4) { 
                         tierName = 'ماسي'; 
                         glowStyle = 'box-shadow: 0 0 15px rgba(34, 211, 238, 0.8); border-color: #22d3ee;';
+                        tierColorHex = '#22d3ee';
                     } else if(item.level === 5) { 
                         tierName = 'أسطوري'; 
                         glowStyle = 'box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';
+                        tierColorHex = '#ef4444';
                     }
 
-                    // عنصر الوسام
                     const badgeDiv = document.createElement('div');
                     badgeDiv.className = 'flex flex-col items-center gap-2 group cursor-pointer';
-                    
                     badgeDiv.innerHTML = `
                         <div class="relative w-14 h-14 rounded-full border-2 bg-black transition transform group-hover:scale-110 duration-300" style="${glowStyle}">
                             <img src="${bObj.image}" class="w-full h-full object-cover rounded-full p-0.5">
                         </div>
                         <div class="text-center">
                             <span class="block text-[10px] text-white font-bold leading-tight">${bObj.name}</span>
-                            <span class="block text-[9px] text-slate-400 font-mono mt-0.5" style="color: inherit; opacity: 0.8">(${tierName})</span>
+                            <span class="block text-[9px] font-mono mt-0.5" style="color: ${tierColorHex}; opacity: 0.9">(${tierName})</span>
                         </div>
                     `;
-                    
-                    // إضافة تلوين للنص حسب الرتبة
-                    const textSpan = badgeDiv.querySelector('span:last-child');
-                    if(item.level === 3) textSpan.style.color = '#fbbf24'; // ذهبي
-                    if(item.level === 4) textSpan.style.color = '#22d3ee'; // سماوي
-                    if(item.level === 5) textSpan.style.color = '#ef4444'; // أحمر
-
                     badgesContainer.appendChild(badgeDiv);
                 }
             });
@@ -2746,7 +2753,6 @@ bind('user-profile-btn', 'click', () => {
         badgesContainer.innerHTML = '<span class="text-xs text-slate-500">لا توجد أوسمة</span>';
     }
 });
-
 
 
 bind('save-user-btn', 'click', async () => { 
