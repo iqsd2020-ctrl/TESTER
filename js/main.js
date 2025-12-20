@@ -3,6 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 // 🚨 هذا السطر ضروري جداً
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
 
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
@@ -934,16 +935,20 @@ function handleImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-bind('ai-generate-btn', 'click', async () => {
-    // 1. التحقق من بنك الأخطاء (كما هو سابقاً)
-    if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
-        openModal('force-review-modal');
-        return;
-    }
-bind('ai-learn-btn', 'click', () => {
-    toast("قريباً: وضع التعلم التفاعلي", "info");
-});
 
+
+    // 2. إعداد المتغيرات
+    const cat = getEl('category-select').value;
+    const count = parseInt(getEl('ai-question-count').value);
+    const topicValue = getEl('topic-select').value;
+    let topic = cat === 'random' || !cat ? "عام" : (topicValue || cat);
+
+    quizState.difficulty = 'موحد';
+    quizState.mode = 'standard';
+    quizState.contextTopic = topic;
+
+// --- إصلاح زر ابدأ التحدي (تمت إضافة الغلاف المفقود) ---
+bind('ai-generate-btn', 'click', async () => {
     // 2. إعداد المتغيرات
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
@@ -965,22 +970,12 @@ bind('ai-learn-btn', 'click', () => {
     }
 
     try {
-        // ============================================================
-        // 🚀 ميزة التحميل التلقائي الصامت (Silent Background Cache)
-        // ============================================================
-        // إذا كان المستخدم متصلاً، نقوم بتحميل ملف الماراثون في الخلفية
-        // ليتمكن من لعبه لاحقاً دون نت، دون أن يشعر بأي تأخير
         if (navigator.onLine) {
             const cacheBuster = Date.now();
             const marathonUrl = `https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Data/Noor/dataNooR.json?v=${cacheBuster}`;
-            // fetch هنا سيتم اعتراضه بواسطة sw.js وتخزينه في الكاش
             fetch(marathonUrl).catch(err => console.log("Background cache skipped:", err));
         }
-        // ============================================================
 
-        // 3. جلب الأسئلة العادية (التحدي)
-        // ملاحظة: الكود الحالي يستخدم limit(3000)
-        // هذا يعني أنه بمجرد جلب البيانات، ستقوم Firebase Persistence بتخزينها محلياً تلقائياً
         const QUERY_LIMIT = 3000;
         let qQuery;
 
@@ -990,11 +985,9 @@ bind('ai-learn-btn', 'click', () => {
             qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true), limit(QUERY_LIMIT));
         }
 
-        const snap = await getDocs(qQuery); // هنا يحدث السحر: البيانات تُجلب وتُخزّن محلياً
+        const snap = await getDocs(qQuery);
 
-        // التحقق من وجود أسئلة
         if (cat !== 'random' && cat !== '' && snap.empty) {
-            // رسالة مختلفة إذا كان أوفلاين
             const msg = navigator.onLine ? "عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً." : "لا توجد أسئلة محفوظة لهذا القسم، اتصل بالإنترنت وحاول مرة أخرى.";
             toast(msg, "error");
             btn.disabled = false;
@@ -1005,7 +998,6 @@ bind('ai-learn-btn', 'click', () => {
         let firebaseQs = [];
         snap.forEach(d => firebaseQs.push({ id: d.id, ...d.data() }));
 
-        // الفلترة وتوزيع الأسئلة
         let allAvailableQuestions = firebaseQs;
         const seenIds = userProfile.seenQuestions || [];
         let freshQuestions = allAvailableQuestions.filter(q => !seenIds.includes(q.id));
@@ -1029,7 +1021,6 @@ bind('ai-learn-btn', 'click', () => {
             throw new Error("No questions");
         }
 
-        // إشعار نجاح خفي (للمستخدم المتصل) ليطمئن
         if (navigator.onLine && cat === 'random') {
             toast("✅ تم تحديث البيانات للعمل بدون إنترنت", "success");
         }
@@ -4371,7 +4362,7 @@ document.addEventListener('contextmenu', (e) => {
 // 4. الدالة الرئيسية (مع إصلاح العلامات الزرقاء وزر النسخ)
 async function handleAiTrigger() {
     if (!navigator.onLine) {
-        toast("هذه الميزة تتطلب اتصالاً بالإنترنت 📡", "error");
+        toast("هذه الميزة تتطلب اتصالاً بالإنترنت ", "error");
         return; // إيقاف العملية فوراً
     }
     const selection = window.getSelection();
@@ -4499,14 +4490,14 @@ function updateOnlineStatus() {
         }, 10);
         
         // تنبيه المستخدم (Toast)
-        if(typeof toast === 'function') toast("انقطع الاتصال بالإنترنت 📡", "error");
+        if(typeof toast === 'function') toast("انقطع الاتصال بالإنترنت ", "error");
     }
 }
 
 // الاستماع للأحداث
 window.addEventListener('online', () => {
     updateOnlineStatus();
-    if(typeof toast === 'function') toast("عاد الاتصال! تمت المزامنة ✅", "success");
+    if(typeof toast === 'function') toast("عاد الاتصال! تمت المزامنة ", "success");
 });
 window.addEventListener('offline', updateOnlineStatus);
 
@@ -4540,3 +4531,277 @@ window.claimSingleReward = claimSingleReward;
 window.claimGrandPrize = claimGrandPrize;
 window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً
 
+// ==========================================
+// 🎵 نظام التعلم الصوتي (Audio Learning System)
+// ==========================================
+
+// متغيرات النظام
+let currentAudio = document.getElementById('hidden-audio-element');
+let listeningTimer = null;
+let currentSessionSeconds = 0; // عداد الثواني للدقيقة الحالية
+
+// 1. دالة فتح المشغل (المطورة والذكية 🧠)
+window.openAudioPlayer = function(topicName, fileId) {
+    const modal = document.getElementById('audio-learning-modal');
+    const titleEl = document.getElementById('audio-topic-title');
+    const playBtn = document.getElementById('audio-play-pause-btn'); // الزر الحاوي
+    const playBtnIcon = document.getElementById('audio-play-icon');
+    const pauseBtnIcon = document.getElementById('audio-pause-icon');
+    
+    // تجهيز الرابط
+    const audioUrl = `${AUDIO_BASE_URL}${fileId}.mp3`;
+    
+    // 1. حالة البدء: إظهار حالة التحميل فوراً
+    // نعطل زر التشغيل مؤقتاً ونظهر أيقونة تحميل
+    titleEl.innerHTML = `<span class="material-symbols-rounded animate-spin text-cyan-400 align-middle ml-2">autorenew</span> جاري التحميل...`;
+    playBtn.disabled = true; 
+    playBtn.style.opacity = "0.5";
+    playBtnIcon.classList.add('hidden');
+    pauseBtnIcon.classList.add('hidden');
+    
+    // تصفير العدادات
+    currentSessionSeconds = 0;
+    document.getElementById('audio-progress-fill').style.width = '0%';
+    document.getElementById('audio-current-time').textContent = '00:00';
+    document.getElementById('audio-total-duration').textContent = '--:--';
+    
+    // إظهار النافذة
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.add('active'), 10);
+
+    // 2. إعداد أحداث الصوت (الذكاء البرمجي هنا)
+    
+    // أ) عند حدوث خطأ (الملف غير موجود أو الرابط خطأ)
+    currentAudio.onerror = function() {
+        titleEl.textContent = "الملف غير متوفر";
+        toast("عذراً، هذا الملف لم يتم رفعة بعد", "error");
+        
+        // إغلاق النافذة تلقائياً بعد ثانيتين
+        setTimeout(() => {
+            document.getElementById('close-audio-btn').click();
+        }, 2000);
+    };
+
+    // ب) عند انتظار البيانات (تحميل ملف كبير)
+    currentAudio.onwaiting = function() {
+        titleEl.innerHTML = `<span class="material-symbols-rounded animate-spin text-amber-400 align-middle ml-2">hourglass_top</span> جاري التخزين المؤقت...`;
+    };
+
+    // ج) عندما يكون جاهزاً للتشغيل (ولو جزئياً)
+    currentAudio.oncanplay = function() {
+        // إعادة العنوان الأصلي
+        titleEl.textContent = topicName;
+        
+        // تفعيل زر التشغيل
+        playBtn.disabled = false;
+        playBtn.style.opacity = "1";
+        
+        // إظهار أيقونة التشغيل المناسبة
+        if (currentAudio.paused) {
+            playBtnIcon.classList.remove('hidden');
+            pauseBtnIcon.classList.add('hidden');
+        } else {
+            playBtnIcon.classList.add('hidden');
+            pauseBtnIcon.classList.remove('hidden');
+        }
+
+        // تحديث الوقت الكلي (إذا توفر)
+        if(currentAudio.duration) {
+            document.getElementById('audio-total-duration').textContent = formatTime(currentAudio.duration);
+        }
+    };
+
+    // د) عند بدء التشغيل الفعلي
+    currentAudio.onplay = function() {
+        titleEl.textContent = topicName; // التأكد من ثبات الاسم
+        playBtnIcon.classList.add('hidden');
+        pauseBtnIcon.classList.remove('hidden');
+    };
+
+    // 3. بدء عملية تحميل المصدر
+    currentAudio.src = audioUrl;
+    currentAudio.load(); 
+}
+
+// 2. التحكم في التشغيل/الإيقاف
+const playPauseBtn = document.getElementById('audio-play-pause-btn');
+playPauseBtn.addEventListener('click', toggleAudio);
+
+function toggleAudio() {
+    const visualCircle = document.querySelector('.audio-visual-circle');
+    const playIcon = document.getElementById('audio-play-icon');
+    const pauseIcon = document.getElementById('audio-pause-icon');
+
+    if (currentAudio.paused) {
+        currentAudio.play();
+        visualCircle.classList.add('playing');
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+        startRewardTimer(); // بدء احتساب المكافآت
+    } else {
+        currentAudio.pause();
+        visualCircle.classList.remove('playing');
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        stopRewardTimer(); // إيقاف احتساب المكافآت
+    }
+}
+
+// 3. تحديث شريط التقدم والوقت
+currentAudio.addEventListener('timeupdate', () => {
+    const percent = (currentAudio.currentTime / currentAudio.duration) * 100;
+    document.getElementById('audio-progress-fill').style.width = `${percent}%`;
+    document.querySelector('.audio-progress-handle').style.left = `${percent}%`;
+    
+    // تحديث النصوص
+    document.getElementById('audio-current-time').textContent = formatTime(currentAudio.currentTime);
+    document.getElementById('audio-total-duration').textContent = formatTime(currentAudio.duration || 0);
+});
+
+// دالة تنسيق الوقت (تحويل الثواني إلى 00:00)
+function formatTime(seconds) {
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min < 10 ? '0' + min : min}:${sec < 10 ? '0' + sec : sec}`;
+}
+
+// 4. القفز في الشريط (Seeking)
+const progressArea = document.getElementById('audio-progress-area');
+progressArea.addEventListener('click', (e) => {
+    const width = progressArea.clientWidth;
+    const clickX = e.offsetX;
+    const duration = currentAudio.duration;
+    
+    currentAudio.currentTime = (clickX / width) * duration;
+});
+
+// 5. أزرار التقديم والتأخير 10 ثواني
+document.getElementById('audio-forward-btn').addEventListener('click', () => currentAudio.currentTime += 10);
+document.getElementById('audio-rewind-btn').addEventListener('click', () => currentAudio.currentTime -= 10);
+
+// 6. زر الإغلاق
+document.getElementById('close-audio-btn').addEventListener('click', () => {
+    const modal = document.getElementById('audio-learning-modal');
+    
+    // إيقاف كل شيء
+    currentAudio.pause();
+    stopRewardTimer();
+    document.querySelector('.audio-visual-circle').classList.remove('playing');
+    
+    // إخفاء النافذة
+    modal.classList.remove('active');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+});
+
+// ==========================================
+// 🏆 نظام المكافآت (Reward Logic)
+// ==========================================
+
+function startRewardTimer() {
+    // نضمن عدم وجود مؤقت سابق
+    if (listeningTimer) clearInterval(listeningTimer);
+    
+    listeningTimer = setInterval(() => {
+        if (!currentAudio.paused) {
+            currentSessionSeconds++;
+            
+            // إذا وصل 60 ثانية (دقيقة كاملة)
+            if (currentSessionSeconds >= 60) {
+                grantAudioReward();
+                currentSessionSeconds = 0; // تصفير للدقيقة التالية
+            }
+        }
+    }, 1000);
+}
+
+function stopRewardTimer() {
+    if (listeningTimer) clearInterval(listeningTimer);
+}
+
+// دالة منح الجائزة وتحديث قاعدة البيانات (مصححة لتحديث لوحة الشرف)
+async function grantAudioReward() {
+    // 1. إظهار الإشعار المرئي (+1)
+    const badge = document.getElementById('audio-reward-badge');
+    if(badge) {
+        badge.innerHTML = '+1 <span class="material-symbols-rounded text-xs">check_circle</span>';
+        badge.classList.remove('hidden');
+        badge.classList.add('animate-bounce');
+        setTimeout(() => {
+            badge.classList.add('hidden');
+        }, 3000);
+    }
+
+    // 2. تحديث الإحصائيات (الكلي، الأسبوعي، الشهري)
+    try {
+        if (effectiveUserId && db) {
+            const userRef = doc(db, "users", effectiveUserId);
+
+            // أ. حساب المفاتيح الزمنية الحالية (لضمان أننا في الشهر/الأسبوع الصحيح)
+            const currentWeekKey = getCurrentWeekKey();
+            const currentMonthKey = getCurrentMonthKey();
+
+            // ب. تجهيز البيانات الأسبوعية الجديدة
+            let newWeekly = userProfile.weeklyStats || { key: currentWeekKey, correct: 0 };
+            // إذا بدأ أسبوع جديد، نصفر العداد
+            if (newWeekly.key !== currentWeekKey) newWeekly = { key: currentWeekKey, correct: 0 };
+            newWeekly.correct += 1;
+
+            // ج. تجهيز البيانات الشهرية الجديدة (المسؤولة عن اللوحة)
+            let newMonthly = userProfile.monthlyStats || { key: currentMonthKey, correct: 0 };
+            // إذا بدأ شهر جديد، نصفر العداد
+            if (newMonthly.key !== currentMonthKey) newMonthly = { key: currentMonthKey, correct: 0 };
+            newMonthly.correct += 1;
+
+            // د. إرسال التحديثات للسيرفر
+            await updateDoc(userRef, {
+                "stats.totalCorrect": increment(1), // المجموع الكلي
+                "weeklyStats": newWeekly,           // للأسبوع
+                "monthlyStats": newMonthly          // للوحة الشرف الشهرية
+            });
+            
+            // هـ. تحديث الملف الشخصي المحلي فوراً (لتعكس التغيير بدون تحديث الصفحة)
+            if (userProfile) {
+                if (userProfile.stats) userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + 1;
+                userProfile.weeklyStats = newWeekly;
+                userProfile.monthlyStats = newMonthly;
+            }
+            
+            toast("تم احتساب اجابة صحيحة", "success");
+            
+            if(typeof playSound === 'function') playSound('streak');
+        }
+    } catch (error) {
+        console.error("Error updating stats:", error);
+    }
+}
+
+// ✅ المكان الصحيح: في النطاق العام للملف (Global Scope)
+
+// ربط زر "تعلم" الجديد
+const learnBtn = document.getElementById('ai-learn-btn');
+if (learnBtn) {
+    learnBtn.addEventListener('click', () => {
+        // 1. قراءة الموضوع من الحقل المخفي
+        const topicSelect = document.getElementById('topic-select');
+        const selectedTopic = topicSelect.value; 
+
+        // التحقق من الاختيار
+        if (!selectedTopic || selectedTopic === "") {
+            if(typeof toast === 'function') toast("يرجى تحديد القسم والموضوع", "error");
+            return;
+        }
+
+        // 2. البحث في المكتبة الصوتية
+        const audioId = audioLibrary[selectedTopic];
+
+        if (audioId) {
+            // تشغيل الصوت
+            window.openAudioPlayer(selectedTopic, audioId);
+        } else {
+            // عدم توفر الملف
+            if(typeof toast === 'function') {
+                toast("جاري تجهيز المادة الصوتية لهذا القسم قريباً 🎙️", "info");
+            }
+        }
+    });
+}
