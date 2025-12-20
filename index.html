@@ -190,32 +190,34 @@
 
 
             </div>
-            <div class="dual-gold-btn mt-2">
-<div class="flex gap-2 mt-3 w-full">
+<div class="w-full mt-4 flex flex-col gap-3">
     
-    <button id="ai-generate-btn" class="flex-1 btn-gold-action justify-center gap-2 text-fixed-white shadow-lg">
-        <span class="text-lg font-bold">ابدأ التحدي</span> 
-        <span class="material-symbols-rounded">menu_book</span>
-    </button>
+    <div class="flex gap-3 w-full">
+        
+        <button id="ai-generate-btn" class="flex-1 btn-gold-action justify-center gap-2 text-fixed-white shadow-lg py-3">
+            <span class="text-lg font-bold">ابدأ التحدي</span> 
+            <span class="material-symbols-rounded">menu_book</span>
+        </button>
 
-    <button id="ai-learn-btn" class="flex-1 btn-gold-action justify-center gap-2 text-fixed-white shadow-lg" 
-            style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-bottom-color: #155e75; border-color: rgba(255,255,255,0.3);">
-        <span class="material-symbols-rounded">school</span>
-        <span class="text-lg font-bold">تعلم</span>
-    </button>
+        <button id="ai-learn-btn" class="flex-1 btn-gold-action justify-center gap-2 text-fixed-white shadow-lg py-3" 
+                style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-bottom-color: #155e75; border-color: rgba(255,255,255,0.3);">
+            <span class="material-symbols-rounded">school</span>
+            <span class="text-lg font-bold">تعلم</span>
+        </button>
+    </div>
+
+    <div id="daily-quest-container" class="quest-container w-full flex justify-center hidden">
+        <button id="btn-open-quests" class="quest-floating-btn animate-bounce">
+            <span class="material-symbols-rounded quest-icon">assignment</span>
+            <span class="quest-label">المهام اليومية</span>
+            <span id="quest-notification-badge" class="quest-badge hidden">!</span>
+        </button>
+    </div>
+
+    <div id="ai-status-area" class="text-center text-xs text-amber-400 min-h-[1.5rem]"></div>
 
 </div>
 
-
-
-
-<div id="daily-quest-container" class="quest-container hidden">
-    <button id="btn-open-quests" class="quest-floating-btn">
-        <span class="material-symbols-rounded quest-icon">assignment</span>
-        <span class="quest-label">المهام اليومية</span>
-        <span id="quest-notification-badge" class="quest-badge">!</span>
-    </button>
-</div>
 
                 <div id="ai-status-area" class="text-center text-xs text-amber-400 mt-2 min-h-[1.5rem]"></div>
             </div>
