@@ -14,6 +14,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
     <link rel="stylesheet" href="style.css?v=4.5">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
 
 </head>
 <body class="flex flex-col items-center justify-center w-full h-full overflow-hidden bg-[#0f172a] fixed inset-0">
@@ -952,6 +957,101 @@
 
     </div>
 </div>
+<div id="learn-mode-modal" class="modal-overlay z-[90]">
+    <div class="modal-box border-2 border-amber-500/50 bg-[#0f172a] text-center max-w-sm">
+        <h3 class="text-xl font-bold text-white font-heading mb-6">اختر طريقة التعلم</h3>
+        
+        <div class="flex flex-col gap-4">
+            <button id="btn-mode-listen" class="flex items-center gap-4 p-4 rounded-xl border border-slate-600 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-400 transition group relative overflow-hidden">
+                <div class="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30 group-hover:bg-cyan-500/20 group-hover:scale-110 transition">
+                    <span class="material-symbols-rounded text-cyan-400 text-2xl">headphones</span>
+                </div>
+                <div class="text-right flex-1">
+                    <span class="block text-white font-bold text-lg">استمع للشرح</span>
+                    <span class="text-xs text-slate-400">الاستماع للمحاضرة الصوتية</span>
+                </div>
+            </button>
+
+            <button id="btn-mode-read" class="flex items-center gap-4 p-4 rounded-xl border border-slate-600 bg-slate-800/50 hover:bg-slate-800 hover:border-amber-400 transition group relative overflow-hidden">
+                <div class="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/30 group-hover:bg-amber-500/20 group-hover:scale-110 transition">
+                    <span class="material-symbols-rounded text-amber-400 text-2xl">menu_book</span>
+                </div>
+                <div class="text-right flex-1">
+                    <span class="block text-white font-bold text-lg">اقرأ الملف</span>
+                    <span class="text-xs text-slate-400">تصفح ملف PDF (شرائح)</span>
+                </div>
+            </button>
+        </div>
+        
+        <button onclick="document.getElementById('learn-mode-modal').classList.remove('active')" class="close-modal mt-6 text-slate-500 hover:text-white text-sm">إلغاء</button>
+    </div>
+</div>
+ 
+ 
+ 
+<div id="pdf-viewer-modal" class="modal-overlay fixed inset-0 z-[100] hidden bg-black">
+    
+    <div class="modal-box bg-slate-950 w-full h-full max-w-none max-h-none m-0 rounded-none flex flex-col relative overflow-hidden">
+        
+        <div class="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-20 flex justify-between items-start pointer-events-none">
+            <div class="pointer-events-auto bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                <h3 id="pdf-topic-title" class="text-lg font-bold text-amber-500 font-heading shadow-black drop-shadow-md">عنوان الدرس</h3>
+            </div>
+            
+            <button id="close-pdf-btn" class="pointer-events-auto close-modal w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-red-900/50 transition">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+
+        <div id="pdf-canvas-container" class="flex-1 w-full h-full flex items-center justify-center bg-black overflow-hidden relative touch-none">
+            
+            <div id="pdf-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-30">
+                <div class="relative w-20 h-20">
+                    <div class="absolute inset-0 rounded-full border-4 border-slate-700"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+                </div>
+                <span class="mt-4 text-amber-500 font-heading animate-pulse">جاري تحميل الصفحة...</span>
+            </div>
+            
+            <div id="zoom-container" class="transition-transform duration-75 ease-out origin-center will-change-transform">
+                <canvas id="the-canvas" class="shadow-[0_0_50px_rgba(0,0,0,0.5)]"></canvas>
+            </div>
+        </div>
+
+        <div class="absolute bottom-0 left-0 w-full z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pb-6 pt-10 px-4 flex flex-col gap-4 pointer-events-none">
+            
+            <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden pointer-events-auto">
+                <div id="pdf-progress-bar" class="h-full bg-amber-500 w-0 shadow-[0_0_10px_#f59e0b] transition-all duration-300"></div>
+            </div>
+
+            <div class="flex justify-between items-center w-full pointer-events-auto">
+                
+                <span class="text-white/80 font-mono text-xs bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10">
+                    <span id="page-num">0</span> / <span id="page-count">0</span>
+                </span>
+
+                <div class="flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+                    <button id="pdf-btn-prev-bottom" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center hover:bg-amber-500 hover:text-black transition">
+                        <span class="material-symbols-rounded">chevron_right</span>
+                    </button>
+                    
+                    <button id="pdf-btn-auto-toggle" class="w-14 h-14 rounded-full bg-slate-800 border border-slate-600 text-slate-300 flex items-center justify-center shadow-lg transition group">
+                        <span class="material-symbols-rounded text-3xl group-hover:scale-110 transition-transform" id="pdf-auto-icon">play_arrow</span>
+                    </button>
+
+                    <button id="pdf-btn-next-bottom" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center hover:bg-amber-500 hover:text-black transition">
+                        <span class="material-symbols-rounded">chevron_left</span>
+                    </button>
+                </div>
+
+                <button id="pdf-finish-btn" class="btn-gold-action !w-auto !px-5 !py-2 text-xs opacity-0 pointer-events-none transform translate-y-4 transition-all duration-500 shadow-lg">
+                    <span>إنهاء</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 </body>
 <div id="offline-banner" class="hidden fixed top-0 left-0 w-full bg-red-900/90 text-white text-center py-2 z-[200] border-b border-red-500 backdrop-blur-sm transition-transform duration-300 transform -translate-y-full">

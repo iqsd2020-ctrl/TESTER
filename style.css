@@ -3116,3 +3116,78 @@ input[list]:hover::-webkit-calendar-picker-indicator {
     text-align: center;
     position: relative;
 }
+/* --- تنسيقات نافذة اختيار نمط التعلم --- */
+#learn-mode-modal .modal-box {      <-- التصحيح (ليطابق HTML)
+    background: linear-gradient(145deg, #0f172a, #1e293b);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+
+/* تأثيرات أزرار الاختيار */
+#btn-mode-listen:hover {
+    border-color: rgba(34, 211, 238, 0.5); /* Cyan glow */
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+    transform: translateY(-2px);
+}
+
+#btn-mode-read:hover {
+    border-color: rgba(251, 191, 36, 0.5); /* Amber glow */
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.1);
+    transform: translateY(-2px);
+}
+
+/* حالة الزر المعطل (غير متوفر) */
+button.mode-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
+/* --- تنسيقات عارض PDF --- */
+#pdf-canvas-container {
+    touch-action: pan-y pinch-zoom; /* تحسين التفاعل باللمس */
+    user-select: none;
+    background-image: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+}
+
+/* القماش (الصفحة) */
+#the-canvas {
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    max-width: 95%; /* هوامش جانبية صغيرة */
+    height: auto;
+    max-height: 90vh;
+}
+
+/* زر المكافأة الذهبي */
+.btn-gold-action {
+    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-gold-action:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(251, 191, 36, 0.5);
+}
+
+.btn-gold-action:active {
+    transform: translateY(0);
+}
+
+/* أنيميشن ظهور زر المكافأة */
+.fade-in-up {
+    opacity: 1 !important;
+    transform: translate(0) !important;
+    pointer-events: auto !important;
+}
