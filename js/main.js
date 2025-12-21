@@ -1715,24 +1715,6 @@ bind('ai-generate-btn', 'click', async () => {
     btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
 });
 
-// ✅ تم تحديث زر التعلم لاستخدام النظام الذكي الجديد
-bind('ai-learn-btn', 'click', () => {
-    const cat = document.getElementById('category-select').value;
-    const topicVal = document.getElementById('topic-select').value;
-    
-    // تحديد اسم الموضوع
-    let topic = (cat === 'random' || !cat) ? null : (topicVal || cat);
-
-    if (topic) {
-        // ✨ هنا السحر: استدعاء دالة التجهيز الذكية التي وضعناها في نهاية الملف
-        prepareLearnButtons(topic);
-        
-        // فتح النافذة
-        document.getElementById('learn-mode-modal').classList.add('active');
-    } else {
-        if(window.toast) window.toast("يرجى اختيار موضوع محدد من القائمة أولاً", "warning");
-    }
-});
 
 
 
@@ -5466,7 +5448,7 @@ function prepareLearnButtons(selectedTopic) {
 
         // ب. التحقق: هل الملف موجود وحقيقي؟ (ليس فارغاً ولا null)
         // نتحقق أيضاً أن النص ليس فارغاً بعد إزالة المسافات
-        const isValid = audioId && (typeof audioId === 'string' && audioId.trim() !== "");
+        const isValid = (audioId !== null && audioId !== undefined);
 
         if (isValid) {
             // ✅ الملف موجود: افتح المشغل
@@ -5487,7 +5469,9 @@ function prepareLearnButtons(selectedTopic) {
         const pdfId = findContentId(selectedTopic, pdfLibrary);
 
         // ب. التحقق من وجود الملف
-        const isValid = pdfId && (typeof pdfId === 'string' && pdfId.trim() !== "");
+        // ✅ التعديل الصحيح للكتاب أيضاً
+const isValid = (pdfId !== null && pdfId !== undefined);
+
 
         if (isValid) {
             // ✅ الملف موجود: افتح القارئ
@@ -5649,3 +5633,75 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('load', fixLearnButton);
     }
 })();
+
+
+// ==========================================
+// ✅ الحل الجذري والنهائي لزر التعلم (نسخة موحدة)
+// ==========================================
+window.addEventListener('load', function() {
+    const btn = document.getElementById('ai-learn-btn');
+    if (!btn) return;
+
+    // 1. استنساخ الزر لمسح أي أحداث قديمة عالقة (Reset)
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    // 2. إضافة الحدث الجديد
+    newBtn.onclick = (e) => {
+        e.preventDefault();
+        
+        // جلب الاختيارات من القائمة
+        const catSelect = document.getElementById('category-select');
+        const topicSelect = document.getElementById('topic-select');
+        
+        const catVal = catSelect ? catSelect.value : "";
+        const topicVal = topicSelect ? topicSelect.value : "";
+        
+        // التحقق من أن المستخدم اختار موضوعاً
+        if (!catVal || catVal === "random" || catVal === "" || catVal === "اختر القسم الرئيسي") {
+             if(window.toast) window.toast("الرجاء اختيار القسم والموضوع أولاً ⚠️", "warning");
+             return;
+        }
+
+        const topic = topicVal || catVal;
+
+        // 3. البحث عن المعرفات في المكتبات
+        const audioId = findContentId(topic, audioLibrary); 
+        const pdfId = findContentId(topic, pdfLibrary);
+
+        // 4. دالة التحقق الصارم (Strict Check)
+        // تعتبر النص الفارغ "" والصفر 0 كأنهما "غير موجود"
+        const isRealContent = (id) => {
+            if (id === null || id === undefined) return false;
+            if (typeof id === 'string' && id.trim() === '') return false;
+            if (id === 0) return false;
+            return true;
+        };
+
+        const hasAudio = isRealContent(audioId);
+        const hasPdf = isRealContent(pdfId);
+
+        // 5. الشرط: إذا لم يوجد محتوى حقيقي في الاثنين
+        if (!hasAudio && !hasPdf) {
+            if(window.toast) {
+                window.toast("عذراً، المحتوى غير متوفر لهذا العنوان حالياً. سيتم إضافته قريباً! ⏳", "info");
+            } else {
+                alert("عذراً، المحتوى غير متوفر لهذا العنوان حالياً. سيتم إضافته قريباً!");
+            }
+            return; // ⛔ توقف هنا - لا تفتح النافذة
+        }
+
+        // 6. إذا وجدنا محتوى، نجهز الأزرار الداخلية ونفتح النافذة
+        if (typeof prepareLearnButtons === 'function') {
+            prepareLearnButtons(topic);
+        }
+
+        const modal = document.getElementById('learn-mode-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+    };
+    
+    console.log("✅ تم تفعيل زر التعلم بنظام التحقق الصارم (Single Block)");
+});
