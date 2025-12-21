@@ -1,11 +1,599 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-// 🚨 هذا السطر ضروري جداً
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
-
+import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
+
+// ==========================================
+// 🛠️ أدوات الربط الذكي (Helper Functions)
+// ==========================================
+
+/**
+ * دالة لتنظيف النصوص العربية من الزوائد لضمان المطابقة
+ * تزيل: (ع)، (ص)، الهمزات، التشكيل، المسافات الزائدة
+ */
+function normalizeTextForMatch(text) {
+    if (!text) return "";
+    return text
+        .replace(/[^\u0621-\u064A\s]/g, "") // إبقاء الحروف العربية والمسافات فقط (حذف الأقواس والأرقام والرموز)
+        .replace(/(آ|إ|أ)/g, "ا")           // توحيد الألف
+        .replace(/ة/g, "ه")                // توحيد التاء المربوطة والهاء
+        .replace(/ى/g, "ي")                // توحيد الياء والألف المقصورة
+        .replace(/\s+/g, " ")              // إزالة المسافات المكررة
+        .trim();                           // إزالة الفراغات من البداية والنهاية
+}
+
+/**
+ * دالة البحث عن المعرف (ID) في المكتبة
+ * @param {string} selectedTopic - الموضوع الذي اختاره المستخدم
+ * @param {object} library - مكتبة البيانات (audioLibrary أو pdfLibrary)
+ */
+function findContentId(selectedTopic, library) {
+    // 1. المحاولة السريعة: تطابق تام
+    if (library[selectedTopic]) return library[selectedTopic];
+
+    // 2. البحث الذكي (Fuzzy Match)
+    const cleanSelection = normalizeTextForMatch(selectedTopic);
+    
+    // كلمات حشو نتجاهلها لزيادة دقة البحث
+    const ignoreWords = ["سيرة", "قصص", "قصة", "في", "عن", "حياة"];
+
+    // تنظيف إضافي لإزالة كلمات الحشو من اختيار المستخدم
+    let coreSelection = cleanSelection;
+    ignoreWords.forEach(word => {
+        coreSelection = coreSelection.replace(word, "").trim();
+    });
+
+    // الدوران على كل مفاتيح المكتبة للمقارنة
+    for (const [key, id] of Object.entries(library)) {
+        const cleanKey = normalizeTextForMatch(key);
+        
+        // التحقق: هل المفتاح في المكتبة يحتوي على الكلمات الجوهرية لاختيار المستخدم؟
+        // مثال: "سيرة الامام الحسين" (مكتبة) تحتوي على "الامام الحسين" (مستخدم)
+        if (cleanKey.includes(coreSelection) || coreSelection.includes(cleanKey)) {
+            console.log(`✅ تم العثور على تطابق ذكي: [${selectedTopic}] matches [${key}]`);
+            return id;
+        }
+    }
+
+    console.warn(`❌ لم يتم العثور على محتوى لـ: ${selectedTopic}`);
+    return null;
+}
+// ==========================================
+// 🎵 كلاس المشغل الصوتي المتقدم (SmartAudioPlayer)
+// ==========================================
+
+// ==========================================
+// 🎵 كلاس المشغل الصوتي المتقدم (SmartAudioPlayer) - نسخة مصححة
+// ==========================================
+
+class SmartAudioPlayer {
+    constructor() {
+        this.audio = new Audio();
+        this.isPlaying = false;
+        this.currentId = null;
+        
+        // ✅ تصحيح المعرفات لتتطابق مع index.html
+        this.elements = {
+            modal: document.getElementById('audio-learning-modal'), // كان خطأ
+            playBtn: document.getElementById('audio-play-pause-btn'), // كان خطأ
+            icon: document.getElementById('audio-play-icon'),
+            pauseIcon: document.getElementById('audio-pause-icon'), // إضافة أيقونة الإيقاف
+            progressBar: document.getElementById('audio-progress-area'), // المنطقة القابلة للنقر
+            progressFill: document.getElementById('audio-progress-fill'), // الشريط الملون
+            currentTime: document.getElementById('audio-current-time'),
+            duration: document.getElementById('audio-total-duration'), // كان خطأ
+            title: document.getElementById('audio-topic-title') // كان خطأ
+        };
+
+        this._bindAudioEvents();
+        this._bindControlEvents();
+    }
+
+      playTrack(id, title) {
+        if (!id) {
+            if(window.toast) window.toast("لا يوجد ملف صوتي لهذا العنوان", "error");
+            return;
+        }
+
+        this.currentId = id;
+        const src = `${AUDIO_BASE_URL}${id}.mp3`;
+        
+        console.log(`🎵 جاري تحميل الصوت: ${src}`);
+        
+        this.audio.src = src;
+        this.audio.load();
+        
+        if(this.elements.title) this.elements.title.textContent = title;
+        
+        // ✅ التعديل: إضافة active لتصبح النافذة مرئية
+        if(this.elements.modal) {
+            this.elements.modal.classList.remove('hidden');
+            this.elements.modal.classList.add('active'); // <-- هذا السطر كان مفقوداً
+            this.elements.modal.style.display = 'flex';
+        }
+
+        this.audio.play()
+            .then(() => {
+                this.isPlaying = true;
+                this._updatePlayIcon();
+            })
+            .catch(err => {
+                console.error("Autoplay prevented:", err);
+                this.isPlaying = false;
+                this._updatePlayIcon();
+            });
+    }
+
+    togglePlay() {
+        if (this.audio.paused) {
+            this.audio.play();
+            this.isPlaying = true;
+        } else {
+            this.audio.pause();
+            this.isPlaying = false;
+        }
+        this._updatePlayIcon();
+    }
+
+    skip(seconds) {
+        this.audio.currentTime += seconds;
+    }
+    close() {
+        this.audio.pause();
+        this.audio.currentTime = 0;
+        this.isPlaying = false;
+        if(this.elements.modal) {
+            this.elements.modal.classList.remove('active'); // إزالة تأثير الظهور
+            this.elements.modal.classList.add('hidden');    // إخفاء العنصر
+            this.elements.modal.style.display = 'none';
+        }
+    }
+
+    _bindAudioEvents() {
+        this.audio.addEventListener('timeupdate', () => {
+            if (isNaN(this.audio.duration)) return;
+            const percent = (this.audio.currentTime / this.audio.duration) * 100;
+            if(this.elements.progressFill) this.elements.progressFill.style.width = `${percent}%`;
+            
+            if(this.elements.currentTime) 
+                this.elements.currentTime.textContent = this._formatTime(this.audio.currentTime);
+            
+            if(this.elements.duration)
+                this.elements.duration.textContent = this._formatTime(this.audio.duration);
+        });
+
+        this.audio.addEventListener('ended', () => {
+            this.isPlaying = false;
+            this._updatePlayIcon();
+            if(window.toast) window.toast("انتهى المقطع الصوتي", "success");
+        });
+        
+        this.audio.addEventListener('loadedmetadata', () => {
+             if(this.elements.duration)
+                this.elements.duration.textContent = this._formatTime(this.audio.duration);
+        });
+    }
+
+    _bindControlEvents() {
+        if(this.elements.playBtn) {
+            this.elements.playBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.togglePlay();
+            };
+        }
+
+        // النقر على شريط التقدم
+        if(this.elements.progressBar) {
+            this.elements.progressBar.onclick = (e) => {
+                const rect = this.elements.progressBar.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const width = rect.width;
+                const percent = x / width;
+                if (!isNaN(this.audio.duration)) {
+                    this.audio.currentTime = percent * this.audio.duration;
+                }
+            };
+        }
+
+        // ✅ تصحيح أزرار التحكم (الأسماء في HTML تختلف عن الكود القديم)
+        const btnForward = document.getElementById('audio-forward-btn'); // كان audio-forward-10
+        const btnRewind = document.getElementById('audio-rewind-btn');   // كان audio-rewind-10
+        const btnClose = document.getElementById('close-audio-btn');
+
+        if(btnForward) btnForward.onclick = () => this.skip(10);
+        if(btnRewind) btnRewind.onclick = () => this.skip(-10);
+        if(btnClose) btnClose.onclick = () => this.close();
+    }
+
+    _updatePlayIcon() {
+        // التبديل بين أيقونات التشغيل والإيقاف بناءً على HTML الموجود
+        if (this.elements.icon && this.elements.pauseIcon) {
+            if (this.isPlaying) {
+                this.elements.icon.classList.add('hidden');
+                this.elements.pauseIcon.classList.remove('hidden');
+            } else {
+                this.elements.icon.classList.remove('hidden');
+                this.elements.pauseIcon.classList.add('hidden');
+            }
+        } else if (this.elements.icon) {
+            // حل احتياطي للنص فقط
+            this.elements.icon.textContent = this.isPlaying ? 'pause' : 'play_arrow';
+        }
+    }
+
+    _formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return "00:00";
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+}
+
+// تهيئة المشغل (Singleton)
+const audioPlayer = new SmartAudioPlayer();
+
+// ==========================================
+// 📚 كلاس قارئ الكتب المتطور (نسخة Fullscreen + Zoom)
+// ==========================================
+
+class SmartPdfViewer {
+    constructor() {
+        this.pdfDoc = null;
+        this.pageNum = 1;
+        this.pageRendering = false;
+        this.pageNumPending = null;
+        this.currentPdfId = null;
+        
+        // متغيرات التشغيل التلقائي
+        this.autoScrollInterval = null;
+        this.isAutoScrolling = false;
+
+        // متغيرات اللمس والتكبير
+        this.scale = 1;
+        this.lastScale = 1;
+        this.posX = 0;
+        this.posY = 0;
+        this.lastPosX = 0;
+        this.lastPosY = 0;
+        this.isDragging = false;
+        this.startDist = 0;
+        this.touchStartX = 0; // للسحب (تقليب الصفحات)
+
+        this.canvas = document.getElementById('the-canvas');
+        this.zoomContainer = document.getElementById('zoom-container'); // الحاوية الجديدة
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        
+        // الانتقال السلس
+        if (this.canvas) {
+            this.canvas.style.transition = "opacity 0.2s ease-out";
+            this.canvas.style.opacity = "0";
+        }
+
+        this.elements = {
+            modal: document.getElementById('pdf-viewer-modal'),
+            loading: document.getElementById('pdf-loading'),
+            pageNum: document.getElementById('page-num'),
+            pageCount: document.getElementById('page-count'),
+            progressBar: document.getElementById('pdf-progress-bar'),
+            finishBtn: document.getElementById('pdf-finish-btn'),
+            title: document.getElementById('pdf-topic-title'),
+            autoBtn: document.getElementById('pdf-btn-auto-toggle'),
+            autoIcon: document.getElementById('pdf-auto-icon'),
+            bottomNext: document.getElementById('pdf-btn-next-bottom'),
+            bottomPrev: document.getElementById('pdf-btn-prev-bottom')
+        };
+
+        this._bindEvents();
+        this._bindGestures(); // ربط إيماءات التكبير
+    }
+
+    async loadDocument(id, title) {
+        if (!id) return;
+        this.currentPdfId = id;
+        this.pageNum = 1;
+        this.stopAutoScroll();
+        this.resetZoom(); // إعادة تعيين التكبير
+
+        if (this.elements.modal) {
+            this.elements.modal.classList.remove('hidden');
+            this.elements.modal.classList.add('active'); // لا تستخدم display flex هنا لأننا نستخدم fixed
+        }
+        
+        if(this.elements.loading) this.elements.loading.classList.remove('hidden');
+        if(this.canvas) this.canvas.style.opacity = "0";
+        if (this.elements.title) this.elements.title.textContent = title;
+        this._toggleFinishButton(false);
+
+        try {
+            const url = `${PDF_BASE_URL}${id}.pdf`;
+            const loadingTask = pdfjsLib.getDocument(url);
+            this.pdfDoc = await loadingTask.promise;
+            
+            if (this.elements.pageCount) this.elements.pageCount.textContent = this.pdfDoc.numPages;
+            
+            await this.renderPage(this.pageNum);
+            
+            if(this.elements.loading) this.elements.loading.classList.add('hidden');
+
+        } catch (error) {
+            console.error('Error:', error);
+            if(window.toast) window.toast("خطأ في تحميل الملف", "error");
+        }
+    }
+
+    async renderPage(num) {
+        this.pageRendering = true;
+        
+        // تأثير الاختفاء السلس
+        if (this.canvas) this.canvas.style.opacity = "0";
+        await new Promise(r => setTimeout(r, 100));
+
+        try {
+            const page = await this.pdfDoc.getPage(num);
+            
+            // حساب الأبعاد لملء الشاشة مع الحفاظ على النسبة
+            const container = document.getElementById('pdf-canvas-container');
+            const containerWidth = container ? container.clientWidth : window.innerWidth;
+            const containerHeight = container ? container.clientHeight : window.innerHeight;
+            
+            const viewportRaw = page.getViewport({ scale: 1 });
+            
+            // معادلة ذكية لتناسب الشاشة (Contain)
+            const scaleX = containerWidth / viewportRaw.width;
+            const scaleY = containerHeight / viewportRaw.height;
+            // نختار المقياس الأصغر لضمان ظهور الصفحة بالكامل
+            let fitScale = Math.min(scaleX, scaleY) * 0.95; 
+
+            const outputScale = window.devicePixelRatio || 1;
+            const viewport = page.getViewport({ scale: fitScale });
+
+            this.canvas.width = Math.floor(viewport.width * outputScale);
+            this.canvas.height = Math.floor(viewport.height * outputScale);
+            this.canvas.style.width = Math.floor(viewport.width) + "px";
+            this.canvas.style.height = Math.floor(viewport.height) + "px";
+
+            const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+            await page.render({ canvasContext: this.ctx, transform, viewport }).promise;
+            
+            // ظهور
+            if (this.canvas) this.canvas.style.opacity = "1";
+            
+            // إعادة تعيين التكبير عند قلب الصفحة
+            this.resetZoom();
+
+            this.pageRendering = false;
+            if (this.pageNumPending !== null) {
+                this.renderPage(this.pageNumPending);
+                this.pageNumPending = null;
+            }
+        } catch (err) {
+            this.pageRendering = false;
+        }
+        this._updateUI();
+    }
+
+    queueRenderPage(num) {
+        if (this.pageRendering) this.pageNumPending = num;
+        else this.renderPage(num);
+    }
+
+    prevPage() {
+        if (this.pageNum <= 1) return;
+        this.pageNum--;
+        this.queueRenderPage(this.pageNum);
+    }
+
+    nextPage() {
+        if (this.pageNum >= this.pdfDoc.numPages) {
+            this.stopAutoScroll();
+            return;
+        }
+        this.pageNum++;
+        this.queueRenderPage(this.pageNum);
+    }
+
+    // --- منطق التكبير واللمس (Gestures) ---
+    _bindGestures() {
+        const container = document.getElementById('pdf-canvas-container');
+        if (!container) return;
+
+        // منع الحركات الافتراضية للمتصفح
+        container.addEventListener('touchstart', (e) => this._handleTouchStart(e), { passive: false });
+        container.addEventListener('touchmove', (e) => this._handleTouchMove(e), { passive: false });
+        container.addEventListener('touchend', (e) => this._handleTouchEnd(e));
+    }
+
+    _handleTouchStart(e) {
+        if (e.touches.length === 2) {
+            // بداية التكبير (إصبعين)
+            e.preventDefault();
+            this.startDist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+        } else if (e.touches.length === 1) {
+            // بداية السحب أو التحريك (إصبع واحد)
+            this.isDragging = true;
+            this.lastPosX = e.touches[0].pageX;
+            this.lastPosY = e.touches[0].pageY;
+            this.touchStartX = e.touches[0].pageX; // لحفظ مكان بداية السحب لتقليب الصفحة
+        }
+    }
+
+    _handleTouchMove(e) {
+        if (e.touches.length === 2) {
+            // منطق التكبير
+            e.preventDefault();
+            const dist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            
+            // حساب نسبة التكبير الجديدة
+            const delta = dist / this.startDist;
+            let newScale = this.lastScale * delta;
+
+            // حدود التكبير (بين 1 و 4)
+            newScale = Math.min(Math.max(1, newScale), 4);
+            
+            this.scale = newScale;
+            this._updateTransform();
+
+        } else if (e.touches.length === 1 && this.scale > 1 && this.isDragging) {
+            // منطق التحريك (Pan) - يعمل فقط إذا كانت الصورة مكبرة
+            e.preventDefault();
+            const currentX = e.touches[0].pageX;
+            const currentY = e.touches[0].pageY;
+            
+            const deltaX = currentX - this.lastPosX;
+            const deltaY = currentY - this.lastPosY;
+
+            this.posX += deltaX;
+            this.posY += deltaY;
+
+            this.lastPosX = currentX;
+            this.lastPosY = currentY;
+            this._updateTransform();
+        }
+    }
+
+    _handleTouchEnd(e) {
+        if (e.touches.length < 2) {
+            this.lastScale = this.scale;
+        }
+        
+        // منطق تقليب الصفحة (Swipe) - يعمل فقط إذا لم يكن هناك تكبير (Scale = 1)
+        if (this.scale === 1 && e.changedTouches.length === 1) {
+            const touchEndX = e.changedTouches[0].pageX;
+            const diff = this.touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > 50) { // مسافة السحب
+                this.stopAutoScroll();
+                if (diff > 0) this.nextPage();
+                else this.prevPage();
+            }
+        }
+        
+        this.isDragging = false;
+        
+        // إعادة التموضع إذا خرج عن الحدود (Snap back logic could go here)
+        if (this.scale === 1) {
+            this.posX = 0;
+            this.posY = 0;
+            this._updateTransform();
+        }
+    }
+
+    _updateTransform() {
+        if (this.zoomContainer) {
+            this.zoomContainer.style.transform = `translate(${this.posX}px, ${this.posY}px) scale(${this.scale})`;
+        }
+    }
+
+    resetZoom() {
+        this.scale = 1;
+        this.lastScale = 1;
+        this.posX = 0;
+        this.posY = 0;
+        this._updateTransform();
+    }
+
+    // --- الوظائف الأساسية الأخرى (مثل السابقة) ---
+    toggleAutoScroll() {
+        if (this.isAutoScrolling) {
+            this.stopAutoScroll();
+            if(window.toast) window.toast("تم إيقاف التقليب التلقائي");
+        } else {
+            this.startAutoScroll();
+            if(window.toast) window.toast("تم تفعيل التقليب التلقائي");
+        }
+    }
+
+    startAutoScroll() {
+        if(this.isAutoScrolling) return;
+        this.isAutoScrolling = true;
+        this.updateAutoIcon();
+        this.autoScrollInterval = setInterval(() => {
+            if (this.pageNum < this.pdfDoc.numPages) this.nextPage();
+            else this.stopAutoScroll();
+        }, 5000);
+    }
+
+    stopAutoScroll() {
+        this.isAutoScrolling = false;
+        if (this.autoScrollInterval) {
+            clearInterval(this.autoScrollInterval);
+            this.autoScrollInterval = null;
+        }
+        this.updateAutoIcon();
+    }
+
+    updateAutoIcon() {
+        if (this.elements.autoIcon && this.elements.autoBtn) {
+            this.elements.autoIcon.textContent = this.isAutoScrolling ? 'pause' : 'play_arrow';
+            if(this.isAutoScrolling) {
+                this.elements.autoBtn.classList.add('text-amber-500', 'border-amber-500', 'bg-amber-500/10');
+                this.elements.autoBtn.classList.remove('text-slate-300', 'bg-slate-800', 'border-slate-600');
+            } else {
+                this.elements.autoBtn.classList.remove('text-amber-500', 'border-amber-500', 'bg-amber-500/10');
+                this.elements.autoBtn.classList.add('text-slate-300', 'bg-slate-800', 'border-slate-600');
+            }
+        }
+    }
+
+    close() {
+        this.stopAutoScroll();
+        if (this.elements.modal) {
+            this.elements.modal.classList.remove('active');
+            this.elements.modal.classList.add('hidden');
+        }
+        this.pdfDoc = null;
+    }
+
+    _updateUI() {
+        if (this.elements.pageNum) this.elements.pageNum.textContent = this.pageNum;
+        if (this.elements.progressBar && this.pdfDoc) {
+            const percent = (this.pageNum / this.pdfDoc.numPages) * 100;
+            this.elements.progressBar.style.width = `${percent}%`;
+        }
+        if (this.pdfDoc && this.pageNum === this.pdfDoc.numPages) this._toggleFinishButton(true);
+        else this._toggleFinishButton(false);
+    }
+
+    _toggleFinishButton(show) {
+        if (!this.elements.finishBtn) return;
+        if (show) {
+            this.elements.finishBtn.style.opacity = "1";
+            this.elements.finishBtn.style.pointerEvents = "auto";
+            this.elements.finishBtn.classList.remove('translate-y-4');
+        } else {
+            this.elements.finishBtn.style.opacity = "0";
+            this.elements.finishBtn.style.pointerEvents = "none";
+            this.elements.finishBtn.classList.add('translate-y-4');
+        }
+    }
+
+    _bindEvents() {
+        const btnClose = document.getElementById('close-pdf-btn');
+        if(btnClose) btnClose.onclick = () => this.close();
+        if(this.elements.bottomPrev) this.elements.bottomPrev.onclick = () => { this.stopAutoScroll(); this.prevPage(); };
+        if(this.elements.bottomNext) this.elements.bottomNext.onclick = () => { this.stopAutoScroll(); this.nextPage(); };
+        if(this.elements.autoBtn) this.elements.autoBtn.onclick = () => this.toggleAutoScroll();
+    }
+}
+
+
+// تهيئة القارئ
+const pdfViewer = new SmartPdfViewer();
+
+// --- متغيرات نظام التعلم ---
+let currentLearnAudioId = null;
+let currentLearnPdfId = null;
+let currentLearnTopic = "";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC6FoHbL8CDTPX1MNaNWyDIA-6xheX0t4s",
@@ -1038,6 +1626,27 @@ bind('ai-generate-btn', 'click', async () => {
     btn.disabled = false;
     btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
 });
+
+// ✅ تم تحديث زر التعلم لاستخدام النظام الذكي الجديد
+bind('ai-learn-btn', 'click', () => {
+    const cat = document.getElementById('category-select').value;
+    const topicVal = document.getElementById('topic-select').value;
+    
+    // تحديد اسم الموضوع
+    let topic = (cat === 'random' || !cat) ? null : (topicVal || cat);
+
+    if (topic) {
+        // ✨ هنا السحر: استدعاء دالة التجهيز الذكية التي وضعناها في نهاية الملف
+        prepareLearnButtons(topic);
+        
+        // فتح النافذة
+        document.getElementById('learn-mode-modal').classList.add('active');
+    } else {
+        if(window.toast) window.toast("يرجى اختيار موضوع محدد من القائمة أولاً", "warning");
+    }
+});
+
+
 
 
 bind('review-mistakes-btn', 'click', () => {
@@ -4532,276 +5141,350 @@ window.claimGrandPrize = claimGrandPrize;
 window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً
 
 // ==========================================
-// 🎵 نظام التعلم الصوتي (Audio Learning System)
+// 📖 نظام قارئ PDF (النظام المحسن والمحمي)
 // ==========================================
 
-// متغيرات النظام
-let currentAudio = document.getElementById('hidden-audio-element');
-let listeningTimer = null;
-let currentSessionSeconds = 0; // عداد الثواني للدقيقة الحالية
+// تجميع المتغيرات في كائن واحد لتجنب أخطاء التعريف
+const pdfState = {
+    doc: null,
+    pageNum: 1,
+    pageRendering: false,
+    pageNumPending: null,
+    scale: 1.5,
+    isRewardClaimed: false
+};
 
-// 1. دالة فتح المشغل (المطورة والذكية 🧠)
-window.openAudioPlayer = function(topicName, fileId) {
-    const modal = document.getElementById('audio-learning-modal');
-    const titleEl = document.getElementById('audio-topic-title');
-    const playBtn = document.getElementById('audio-play-pause-btn'); // الزر الحاوي
-    const playBtnIcon = document.getElementById('audio-play-icon');
-    const pauseBtnIcon = document.getElementById('audio-pause-icon');
-    
-    // تجهيز الرابط
-    const audioUrl = `${AUDIO_BASE_URL}${fileId}.mp3`;
-    
-    // 1. حالة البدء: إظهار حالة التحميل فوراً
-    // نعطل زر التشغيل مؤقتاً ونظهر أيقونة تحميل
-    titleEl.innerHTML = `<span class="material-symbols-rounded animate-spin text-cyan-400 align-middle ml-2">autorenew</span> جاري التحميل...`;
-    playBtn.disabled = true; 
-    playBtn.style.opacity = "0.5";
-    playBtnIcon.classList.add('hidden');
-    pauseBtnIcon.classList.add('hidden');
-    
-    // تصفير العدادات
-    currentSessionSeconds = 0;
-    document.getElementById('audio-progress-fill').style.width = '0%';
-    document.getElementById('audio-current-time').textContent = '00:00';
-    document.getElementById('audio-total-duration').textContent = '--:--';
-    
-    // إظهار النافذة
+// 1. الدالة الرئيسية لفتح الملف
+window.openPdfViewer = function(topic, pdfId) {
+    if (typeof window.pdfjsLib === 'undefined') {
+        alert("جاري تحميل المكتبة... يرجى الانتظار دقيقة.");
+        return;
+    }
+
+    const modal = document.getElementById('pdf-viewer-modal');
+    const titleEl = document.getElementById('pdf-topic-title');
+    const loadingEl = document.getElementById('pdf-loading');
+    const canvas = document.getElementById('the-canvas');
+
+    // إعداد الواجهة
+    titleEl.textContent = topic;
     modal.classList.remove('hidden');
-    setTimeout(() => modal.classList.add('active'), 10);
-
-    // 2. إعداد أحداث الصوت (الذكاء البرمجي هنا)
+    modal.style.display = 'flex';
     
-    // أ) عند حدوث خطأ (الملف غير موجود أو الرابط خطأ)
-    currentAudio.onerror = function() {
-        titleEl.textContent = "الملف غير متوفر";
-        toast("عذراً، هذا الملف لم يتم رفعة بعد", "error");
+    loadingEl.classList.remove('hidden');
+    canvas.classList.add('opacity-0');
+
+    // تصفير الحالة
+    pdfState.pageNum = 1;
+    pdfState.isRewardClaimed = false;
+    pdfState.doc = null;
+    
+    // إخفاء زر المكافأة
+    const finishBtn = document.getElementById('pdf-finish-btn');
+    if(finishBtn) {
+        finishBtn.style.opacity = '0';
+        finishBtn.style.pointerEvents = 'none';
+        finishBtn.classList.remove('fade-in-up');
+        finishBtn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">check_circle</span>`;
+    }
+
+    // جلب الملف
+    const url = `${PDF_BASE_URL}${pdfId}.pdf`;
+
+    setTimeout(() => {
+        window.pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
+            pdfState.doc = pdfDoc_;
+            document.getElementById('page-count').textContent = pdfState.doc.numPages;
+            
+            renderPdfPage(pdfState.pageNum);
+            
+            loadingEl.classList.add('hidden');
+            canvas.classList.remove('opacity-0');
+        }).catch((error) => {
+            console.error('PDF Error:', error);
+            loadingEl.innerHTML = `<div class="text-red-500 font-bold p-4">لم يتم العثور على الملف.<br>تأكد من الاتصال بالإنترنت.</div>`;
+        });
+    }, 100);
+};
+
+// 2. دالة رسم الصفحة
+function renderPdfPage(num) {
+    pdfState.pageRendering = true;
+    
+    pdfState.doc.getPage(num).then((page) => {
+        const canvas = document.getElementById('the-canvas');
+        const container = document.getElementById('pdf-canvas-container');
         
-        // إغلاق النافذة تلقائياً بعد ثانيتين
-        setTimeout(() => {
-            document.getElementById('close-audio-btn').click();
-        }, 2000);
-    };
+        if (!canvas || !container) return;
 
-    // ب) عند انتظار البيانات (تحميل ملف كبير)
-    currentAudio.onwaiting = function() {
-        titleEl.innerHTML = `<span class="material-symbols-rounded animate-spin text-amber-400 align-middle ml-2">hourglass_top</span> جاري التخزين المؤقت...`;
-    };
-
-    // ج) عندما يكون جاهزاً للتشغيل (ولو جزئياً)
-    currentAudio.oncanplay = function() {
-        // إعادة العنوان الأصلي
-        titleEl.textContent = topicName;
+        const viewportRaw = page.getViewport({scale: 1});
+        const containerWidth = container.clientWidth || window.innerWidth;
+        const desiredScale = (containerWidth * 0.95) / viewportRaw.width;
         
-        // تفعيل زر التشغيل
-        playBtn.disabled = false;
-        playBtn.style.opacity = "1";
+        pdfState.scale = desiredScale > 2.0 ? 2.0 : desiredScale;
         
-        // إظهار أيقونة التشغيل المناسبة
-        if (currentAudio.paused) {
-            playBtnIcon.classList.remove('hidden');
-            pauseBtnIcon.classList.add('hidden');
-        } else {
-            playBtnIcon.classList.add('hidden');
-            pauseBtnIcon.classList.remove('hidden');
-        }
+        const viewport = page.getViewport({scale: pdfState.scale});
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-        // تحديث الوقت الكلي (إذا توفر)
-        if(currentAudio.duration) {
-            document.getElementById('audio-total-duration').textContent = formatTime(currentAudio.duration);
-        }
-    };
+        const ctx = canvas.getContext('2d');
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        const renderTask = page.render(renderContext);
 
-    // د) عند بدء التشغيل الفعلي
-    currentAudio.onplay = function() {
-        titleEl.textContent = topicName; // التأكد من ثبات الاسم
-        playBtnIcon.classList.add('hidden');
-        pauseBtnIcon.classList.remove('hidden');
-    };
-
-    // 3. بدء عملية تحميل المصدر
-    currentAudio.src = audioUrl;
-    currentAudio.load(); 
+        renderTask.promise.then(() => {
+            pdfState.pageRendering = false;
+            
+            if (pdfState.pageNumPending !== null) {
+                renderPdfPage(pdfState.pageNumPending);
+                pdfState.pageNumPending = null;
+            }
+            
+            document.getElementById('page-num').textContent = num;
+            updatePdfProgressBar();
+            
+            // فحص المكافأة عند الوصول للصفحة الأخيرة
+            if (pdfState.pageNum === pdfState.doc.numPages) {
+                setTimeout(showPdfRewardButton, 1000);
+            }
+        });
+    });
 }
 
-// 2. التحكم في التشغيل/الإيقاف
-const playPauseBtn = document.getElementById('audio-play-pause-btn');
-playPauseBtn.addEventListener('click', toggleAudio);
-
-function toggleAudio() {
-    const visualCircle = document.querySelector('.audio-visual-circle');
-    const playIcon = document.getElementById('audio-play-icon');
-    const pauseIcon = document.getElementById('audio-pause-icon');
-
-    if (currentAudio.paused) {
-        currentAudio.play();
-        visualCircle.classList.add('playing');
-        playIcon.classList.add('hidden');
-        pauseIcon.classList.remove('hidden');
-        startRewardTimer(); // بدء احتساب المكافآت
+// 3. دوال التنقل
+function queueRenderPdfPage(num) {
+    if (pdfState.pageRendering) {
+        pdfState.pageNumPending = num;
     } else {
-        currentAudio.pause();
-        visualCircle.classList.remove('playing');
-        playIcon.classList.remove('hidden');
-        pauseIcon.classList.add('hidden');
-        stopRewardTimer(); // إيقاف احتساب المكافآت
+        renderPdfPage(num);
     }
 }
 
-// 3. تحديث شريط التقدم والوقت
-currentAudio.addEventListener('timeupdate', () => {
-    const percent = (currentAudio.currentTime / currentAudio.duration) * 100;
-    document.getElementById('audio-progress-fill').style.width = `${percent}%`;
-    document.querySelector('.audio-progress-handle').style.left = `${percent}%`;
-    
-    // تحديث النصوص
-    document.getElementById('audio-current-time').textContent = formatTime(currentAudio.currentTime);
-    document.getElementById('audio-total-duration').textContent = formatTime(currentAudio.duration || 0);
-});
-
-// دالة تنسيق الوقت (تحويل الثواني إلى 00:00)
-function formatTime(seconds) {
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min < 10 ? '0' + min : min}:${sec < 10 ? '0' + sec : sec}`;
+function onPrevPdfPage() {
+    if (pdfState.pageNum <= 1) return;
+    pdfState.pageNum--;
+    queueRenderPdfPage(pdfState.pageNum);
 }
 
-// 4. القفز في الشريط (Seeking)
-const progressArea = document.getElementById('audio-progress-area');
-progressArea.addEventListener('click', (e) => {
-    const width = progressArea.clientWidth;
-    const clickX = e.offsetX;
-    const duration = currentAudio.duration;
-    
-    currentAudio.currentTime = (clickX / width) * duration;
-});
+function onNextPdfPage() {
+    if (pdfState.pageNum >= pdfState.doc.numPages) return;
+    pdfState.pageNum++;
+    queueRenderPdfPage(pdfState.pageNum);
+}
 
-// 5. أزرار التقديم والتأخير 10 ثواني
-document.getElementById('audio-forward-btn').addEventListener('click', () => currentAudio.currentTime += 10);
-document.getElementById('audio-rewind-btn').addEventListener('click', () => currentAudio.currentTime -= 10);
+function updatePdfProgressBar() {
+    if(pdfState.doc) {
+        const percent = (pdfState.pageNum / pdfState.doc.numPages) * 100;
+        const bar = document.getElementById('pdf-progress-bar');
+        if(bar) bar.style.width = `${percent}%`;
+    }
+}
 
-// 6. زر الإغلاق
-document.getElementById('close-audio-btn').addEventListener('click', () => {
-    const modal = document.getElementById('audio-learning-modal');
+// 4. المكافأة
+function showPdfRewardButton() {
+    if(pdfState.isRewardClaimed) return;
     
-    // إيقاف كل شيء
-    currentAudio.pause();
-    stopRewardTimer();
-    document.querySelector('.audio-visual-circle').classList.remove('playing');
-    
-    // إخفاء النافذة
-    modal.classList.remove('active');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-});
-
-// ==========================================
-// 🏆 نظام المكافآت (Reward Logic)
-// ==========================================
-
-function startRewardTimer() {
-    // نضمن عدم وجود مؤقت سابق
-    if (listeningTimer) clearInterval(listeningTimer);
-    
-    listeningTimer = setInterval(() => {
-        if (!currentAudio.paused) {
-            currentSessionSeconds++;
+    const btn = document.getElementById('pdf-finish-btn');
+    if(btn) {
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+        btn.classList.add('fade-in-up');
+        
+        btn.onclick = async () => {
+            if(pdfState.isRewardClaimed) return;
+            pdfState.isRewardClaimed = true;
             
-            // إذا وصل 60 ثانية (دقيقة كاملة)
-            if (currentSessionSeconds >= 60) {
-                grantAudioReward();
-                currentSessionSeconds = 0; // تصفير للدقيقة التالية
+            btn.innerHTML = `⏳ جاري الحفظ...`;
+            
+            try {
+                if(window.effectiveUserId) {
+                    // استيراد أدوات فايربيس ديناميكياً لضمان العمل
+                    const { doc, updateDoc, increment } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");
+                    
+                    // تحديث محلي
+                    window.userProfile.highScore = (window.userProfile.highScore || 0) + 10;
+                    window.updateProfileUI(); // تحديث الواجهة
+                    
+                    // تحديث السيرفر
+                    await updateDoc(doc(window.db, "users", window.effectiveUserId), { 
+                        highScore: increment(10),
+                        "stats.totalCorrect": increment(10)
+                    });
+
+                    if(window.playSound) window.playSound('win');
+                    if(window.toast) window.toast("🎉 أحسنت! +10 نقاط", "success");
+                    
+                    setTimeout(() => {
+                        document.getElementById('pdf-viewer-modal').classList.add('hidden');
+                        document.getElementById('pdf-viewer-modal').style.display = 'none';
+                    }, 1500);
+                } else {
+                    window.toast("سجل الدخول أولاً", "warning");
+                }
+            } catch(e) {
+                console.error(e);
+                btn.innerHTML = "خطأ";
+                pdfState.isRewardClaimed = false;
             }
-        }
-    }, 1000);
+        };
+    }
 }
 
-function stopRewardTimer() {
-    if (listeningTimer) clearInterval(listeningTimer);
-}
+// 5. ربط الأزرار (مرة واحدة)
+const setupPdfControls = () => {
+    const btnPrev = document.getElementById('pdf-prev-btn');
+    const btnNext = document.getElementById('pdf-next-btn');
+    const btnClose = document.getElementById('close-pdf-btn');
 
-// دالة منح الجائزة وتحديث قاعدة البيانات (مصححة لتحديث لوحة الشرف)
-async function grantAudioReward() {
-    // 1. إظهار الإشعار المرئي (+1)
-    const badge = document.getElementById('audio-reward-badge');
-    if(badge) {
-        badge.innerHTML = '+1 <span class="material-symbols-rounded text-xs">check_circle</span>';
-        badge.classList.remove('hidden');
-        badge.classList.add('animate-bounce');
-        setTimeout(() => {
-            badge.classList.add('hidden');
-        }, 3000);
+    if(btnPrev) btnPrev.onclick = onPrevPdfPage;
+    if(btnNext) btnNext.onclick = onNextPdfPage;
+    if(btnClose) btnClose.onclick = () => {
+        document.getElementById('pdf-viewer-modal').classList.add('hidden');
+        document.getElementById('pdf-viewer-modal').style.display = 'none';
+        pdfState.doc = null;
+    };
+};
+setupPdfControls();
+
+// ==========================================
+// 🔗 ربط النظام بالواجهة (Integration Logic)
+// ==========================================
+
+// متغيرات لتخزين المعرفات الحالية
+let resolvedAudioId = null;
+let resolvedPdfId = null;
+
+/**
+ * دالة تجهيز نافذة الاختيار (تُستدعى عند اختيار موضوع من القائمة)
+ * تم إصلاح منطق الإغلاق ليتوافق مع نظام الـ Modal
+ */
+function prepareLearnButtons(selectedTopic) {
+    if (!selectedTopic) return;
+
+    // استخدام أداة البحث الذكي
+    resolvedAudioId = findContentId(selectedTopic, audioLibrary);
+    resolvedPdfId = findContentId(selectedTopic, pdfLibrary);
+
+    console.log(`🔎 نتائج البحث لـ "${selectedTopic}": صوت=[${resolvedAudioId}], كتاب=[${resolvedPdfId}]`);
+
+    const btnListen = document.getElementById('btn-mode-listen');
+    const btnRead = document.getElementById('btn-mode-read');
+    const modal = document.getElementById('learn-mode-modal'); // التأكد من استخدام نفس الـ ID
+
+    // إعداد زر الاستماع
+    if (resolvedAudioId) {
+        btnListen.classList.remove('mode-disabled', 'opacity-50', 'cursor-not-allowed');
+        btnListen.onclick = () => {
+            modal.classList.remove('active'); // إغلاق النافذة بإزالة كلاس active
+            audioPlayer.playTrack(resolvedAudioId, selectedTopic);
+        };
+    } else {
+        btnListen.classList.add('mode-disabled', 'opacity-50', 'cursor-not-allowed');
+        btnListen.onclick = () => {
+             if(window.toast) window.toast("لا يوجد ملف صوتي لهذا الموضوع حالياً", "info");
+        };
     }
 
-    // 2. تحديث الإحصائيات (الكلي، الأسبوعي، الشهري)
+    // إعداد زر القراءة
+    if (resolvedPdfId) {
+        btnRead.classList.remove('mode-disabled', 'opacity-50', 'cursor-not-allowed');
+        btnRead.onclick = () => {
+            modal.classList.remove('active'); // إغلاق النافذة بإزالة كلاس active
+            pdfViewer.loadDocument(resolvedPdfId, selectedTopic);
+        };
+    } else {
+        btnRead.classList.add('mode-disabled', 'opacity-50', 'cursor-not-allowed');
+        btnRead.onclick = () => {
+             if(window.toast) window.toast("لا يوجد ملف PDF لهذا الموضوع حالياً", "info");
+        };
+    }
+}
+
+/**
+ * 2. دالة استلام المكافأة (Firebase Logic)
+ * تُستدعى عند ضغط الزر الذهبي في نهاية الكتاب
+ */
+async function handlePdfReward() {
+    const btn = document.getElementById('pdf-finish-btn');
+    if (!btn || btn.disabled) return;
+
+    // حماية من التكرار
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري التحقق...`;
+
     try {
-        if (effectiveUserId && db) {
-            const userRef = doc(db, "users", effectiveUserId);
+        const auth = getAuth(); // تأكد من استدعاء دوال Firebase الصحيحة حسب ملفك
+        const user = auth.currentUser;
 
-            // أ. حساب المفاتيح الزمنية الحالية (لضمان أننا في الشهر/الأسبوع الصحيح)
-            const currentWeekKey = getCurrentWeekKey();
-            const currentMonthKey = getCurrentMonthKey();
-
-            // ب. تجهيز البيانات الأسبوعية الجديدة
-            let newWeekly = userProfile.weeklyStats || { key: currentWeekKey, correct: 0 };
-            // إذا بدأ أسبوع جديد، نصفر العداد
-            if (newWeekly.key !== currentWeekKey) newWeekly = { key: currentWeekKey, correct: 0 };
-            newWeekly.correct += 1;
-
-            // ج. تجهيز البيانات الشهرية الجديدة (المسؤولة عن اللوحة)
-            let newMonthly = userProfile.monthlyStats || { key: currentMonthKey, correct: 0 };
-            // إذا بدأ شهر جديد، نصفر العداد
-            if (newMonthly.key !== currentMonthKey) newMonthly = { key: currentMonthKey, correct: 0 };
-            newMonthly.correct += 1;
-
-            // د. إرسال التحديثات للسيرفر
-            await updateDoc(userRef, {
-                "stats.totalCorrect": increment(1), // المجموع الكلي
-                "weeklyStats": newWeekly,           // للأسبوع
-                "monthlyStats": newMonthly          // للوحة الشرف الشهرية
-            });
-            
-            // هـ. تحديث الملف الشخصي المحلي فوراً (لتعكس التغيير بدون تحديث الصفحة)
-            if (userProfile) {
-                if (userProfile.stats) userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + 1;
-                userProfile.weeklyStats = newWeekly;
-                userProfile.monthlyStats = newMonthly;
-            }
-            
-            toast("تم احتساب اجابة صحيحة", "success");
-            
-            if(typeof playSound === 'function') playSound('streak');
-        }
-    } catch (error) {
-        console.error("Error updating stats:", error);
-    }
-}
-
-// ✅ المكان الصحيح: في النطاق العام للملف (Global Scope)
-
-// ربط زر "تعلم" الجديد
-const learnBtn = document.getElementById('ai-learn-btn');
-if (learnBtn) {
-    learnBtn.addEventListener('click', () => {
-        // 1. قراءة الموضوع من الحقل المخفي
-        const topicSelect = document.getElementById('topic-select');
-        const selectedTopic = topicSelect.value; 
-
-        // التحقق من الاختيار
-        if (!selectedTopic || selectedTopic === "") {
-            if(typeof toast === 'function') toast("يرجى تحديد القسم والموضوع", "error");
+        if (!user) {
+            if(window.toast) window.toast("يجب تسجيل الدخول لاستلام النقاط", "warning");
+            btn.disabled = false;
+            btn.innerHTML = "استلام المكافأة";
             return;
         }
 
-        // 2. البحث في المكتبة الصوتية
-        const audioId = audioLibrary[selectedTopic];
+        // إضافة النقاط في Firestore
+        const db = getFirestore();
+        const userRef = doc(db, "users", user.uid);
 
-        if (audioId) {
-            // تشغيل الصوت
-            window.openAudioPlayer(selectedTopic, audioId);
-        } else {
-            // عدم توفر الملف
-            if(typeof toast === 'function') {
-                toast("جاري تجهيز المادة الصوتية لهذا القسم قريباً 🎙️", "info");
-            }
-        }
-    });
+        await updateDoc(userRef, {
+            highScore: increment(10), // زيادة 10 نقاط
+            "stats.totalReadings": increment(1)
+        });
+
+        // تأثير النجاح
+        if(window.playSound) window.playSound('win');
+        if(window.toast) window.toast("🎉 أحسنت! تمت إضافة 10 نقاط لرصيدك", "success");
+
+        // إغلاق النافذة بعد ثانية ونصف
+        setTimeout(() => {
+            pdfViewer.close();
+            btn.disabled = false;
+            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">check_circle</span>`;
+        }, 1500);
+
+    } catch (error) {
+        console.error("Reward Error:", error);
+        if(window.toast) window.toast("حدث خطأ في الاتصال", "error");
+        btn.disabled = false;
+        btn.innerHTML = "حاول مرة أخرى";
+    }
 }
+
+// 3. التفعيل النهائي عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // ربط زر المكافأة بالدالة الجديدة
+    const rewardBtn = document.getElementById('pdf-finish-btn');
+    if(rewardBtn) {
+        rewardBtn.onclick = handlePdfReward;
+    }
+
+    // 🚨 ملاحظة مهمة:
+    // ابحث في كودك القديم عن المكان الذي يتم فيه فتح نافذة "اختر وضع التعلم"
+    // (غالباً عند الضغط على زر "ابدأ" بعد اختيار الموضوع من القائمة)
+    // وأضف هذا السطر داخله:
+    // prepareLearnButtons(currentSelectValue);
+    
+    // مثال لربط سريع (إذا كان لديك زر اسمه start-learn-btn):
+    const startBtn = document.getElementById('start-learn-btn'); // عدّل الـ ID حسب ملف الـ HTML
+    if(startBtn) {
+        startBtn.addEventListener('click', () => {
+            // افترضنا أن لديك متغير يحمل القيمة المختارة اسمه currentLearnTopic
+            // أو قم بجلب القيمة من القائمة المنسدلة مباشرة
+            const dropdown = document.getElementById('topic-select'); // عدّل الـ ID
+            const topic = dropdown ? dropdown.value : "";
+            
+            if(topic) {
+                prepareLearnButtons(topic);
+                // ثم افتح النافذة
+                document.getElementById('learn-mode-modal').classList.remove('hidden');
+            } else {
+                if(window.toast) window.toast("الرجاء اختيار موضوع أولاً", "warning");
+            }
+        });
+    }
+});
