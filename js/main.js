@@ -234,9 +234,9 @@ class SmartAudioPlayer {
 
 // تهيئة المشغل (Singleton)
 const audioPlayer = new SmartAudioPlayer();
-
 // ==========================================
-// 📚 كلاس قارئ الكتب المتطور (نسخة Fullscreen + Zoom)
+// 📚 كلاس قارئ الكتب المتطور (Pro Version)
+// 🥇 حدود ذكية | 🥈 نقر مزدوج | 🥉 سحب محسن | ⭐ تحميل مسبق
 // ==========================================
 
 class SmartPdfViewer {
@@ -247,9 +247,8 @@ class SmartPdfViewer {
         this.pageNumPending = null;
         this.currentPdfId = null;
         
-        // متغيرات التشغيل التلقائي
-        this.autoScrollInterval = null;
-        this.isAutoScrolling = false;
+        // التخزين المؤقت للصفحة التالية (Preload)
+        this.nextPagePromise = null;
 
         // متغيرات اللمس والتكبير
         this.scale = 1;
@@ -260,16 +259,24 @@ class SmartPdfViewer {
         this.lastPosY = 0;
         this.isDragging = false;
         this.startDist = 0;
-        this.touchStartX = 0; // للسحب (تقليب الصفحات)
+        
+        // متغيرات السحب (Swipe) والنقر المزدوج
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.lastTapTime = 0; // للنقر المزدوج
 
         this.canvas = document.getElementById('the-canvas');
-        this.zoomContainer = document.getElementById('zoom-container'); // الحاوية الجديدة
+        this.zoomContainer = document.getElementById('zoom-container');
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
         
-        // الانتقال السلس
+        // تحسين الانتقال السلس
         if (this.canvas) {
-            this.canvas.style.transition = "opacity 0.2s ease-out";
+            this.canvas.style.transition = "opacity 0.2s ease-out"; // إزالة transform من الانتقال لتجنب التقطيع أثناء السحب
             this.canvas.style.opacity = "0";
+        }
+        if (this.zoomContainer) {
+            this.zoomContainer.style.transformOrigin = "center center"; // التكبير من المنتصف
+            this.zoomContainer.style.willChange = "transform";
         }
 
         this.elements = {
@@ -287,7 +294,7 @@ class SmartPdfViewer {
         };
 
         this._bindEvents();
-        this._bindGestures(); // ربط إيماءات التكبير
+        this._bindGestures();
     }
 
     async loadDocument(id, title) {
@@ -295,11 +302,11 @@ class SmartPdfViewer {
         this.currentPdfId = id;
         this.pageNum = 1;
         this.stopAutoScroll();
-        this.resetZoom(); // إعادة تعيين التكبير
+        this.resetZoom();
 
         if (this.elements.modal) {
             this.elements.modal.classList.remove('hidden');
-            this.elements.modal.classList.add('active'); // لا تستخدم display flex هنا لأننا نستخدم fixed
+            this.elements.modal.classList.add('active');
         }
         
         if(this.elements.loading) this.elements.loading.classList.remove('hidden');
@@ -327,51 +334,76 @@ class SmartPdfViewer {
     async renderPage(num) {
         this.pageRendering = true;
         
-        // تأثير الاختفاء السلس
+        // ومضة اختفاء سريعة
         if (this.canvas) this.canvas.style.opacity = "0";
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 80));
 
         try {
-            const page = await this.pdfDoc.getPage(num);
+            // ⭐ 4) استخدام الصفحة المحملة مسبقاً إن وجدت
+            let page;
+            if (this.nextPagePromise && this.nextPageNum === num) {
+                page = await this.nextPagePromise;
+            } else {
+                page = await this.pdfDoc.getPage(num);
+            }
             
-            // حساب الأبعاد لملء الشاشة مع الحفاظ على النسبة
+            // ... داخل دالة renderPage ...
+
+            // 1. نحصل على أبعاد الحاوية المخصصة للورقة فقط (وليس الشاشة كاملة)
             const container = document.getElementById('pdf-canvas-container');
+            
+            // نستخدم clientWidth للحصول على العرض الداخلي (بدون الحواف)
             const containerWidth = container ? container.clientWidth : window.innerWidth;
             const containerHeight = container ? container.clientHeight : window.innerHeight;
             
             const viewportRaw = page.getViewport({ scale: 1 });
             
-            // معادلة ذكية لتناسب الشاشة (Contain)
+            // 2. حساب نسبة التكبير المناسبة
             const scaleX = containerWidth / viewportRaw.width;
             const scaleY = containerHeight / viewportRaw.height;
-            // نختار المقياس الأصغر لضمان ظهور الصفحة بالكامل
-            let fitScale = Math.min(scaleX, scaleY) * 0.95; 
+            
+            let fitScale = Math.min(scaleX, scaleY);
+ 
 
             const outputScale = window.devicePixelRatio || 1;
             const viewport = page.getViewport({ scale: fitScale });
+
+            // ... تكملة الكود (canvas.width = ...) كما هو ...
+
 
             this.canvas.width = Math.floor(viewport.width * outputScale);
             this.canvas.height = Math.floor(viewport.height * outputScale);
             this.canvas.style.width = Math.floor(viewport.width) + "px";
             this.canvas.style.height = Math.floor(viewport.height) + "px";
 
+            // حفظ الأبعاد الأصلية للحاوية لاستخدامها في حساب الحدود لاحقاً
+            this.baseWidth = viewport.width;
+            this.baseHeight = viewport.height;
+            this.containerWidth = containerWidth;
+            this.containerHeight = containerHeight;
+
             const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
 
             await page.render({ canvasContext: this.ctx, transform, viewport }).promise;
             
-            // ظهور
             if (this.canvas) this.canvas.style.opacity = "1";
             
-            // إعادة تعيين التكبير عند قلب الصفحة
             this.resetZoom();
-
             this.pageRendering = false;
+
+            // ⭐ 4) البدء بتحميل الصفحة التالية في الخلفية
+            if (num < this.pdfDoc.numPages) {
+                this.nextPageNum = num + 1;
+                this.nextPagePromise = this.pdfDoc.getPage(this.nextPageNum);
+            }
+
             if (this.pageNumPending !== null) {
                 this.renderPage(this.pageNumPending);
                 this.pageNumPending = null;
             }
         } catch (err) {
             this.pageRendering = false;
+            console.error(err);
         }
         this._updateUI();
     }
@@ -396,31 +428,54 @@ class SmartPdfViewer {
         this.queueRenderPage(this.pageNum);
     }
 
-    // --- منطق التكبير واللمس (Gestures) ---
+    // --- 🎮 التحكم بالإيماءات (Gestures) ---
     _bindGestures() {
         const container = document.getElementById('pdf-canvas-container');
         if (!container) return;
 
-        // منع الحركات الافتراضية للمتصفح
         container.addEventListener('touchstart', (e) => this._handleTouchStart(e), { passive: false });
         container.addEventListener('touchmove', (e) => this._handleTouchMove(e), { passive: false });
-        container.addEventListener('touchend', (e) => this._handleTouchEnd(e));
+        container.addEventListener('touchend', (e) => this._handleTouchEnd(e), { passive: false });
     }
 
     _handleTouchStart(e) {
+        // 🥈 2) اكتشاف النقر المزدوج (Double Tap)
+        if (e.touches.length === 1) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - this.lastTapTime;
+            if (tapLength < 300 && tapLength > 0) {
+                e.preventDefault(); // منع التكبير الافتراضي للمتصفح
+                this._handleDoubleTap();
+                return;
+            }
+            this.lastTapTime = currentTime;
+        }
+
         if (e.touches.length === 2) {
-            // بداية التكبير (إصبعين)
+            // بداية التكبير (Pinch)
             e.preventDefault();
             this.startDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
         } else if (e.touches.length === 1) {
-            // بداية السحب أو التحريك (إصبع واحد)
+            // بداية السحب (Pan/Swipe)
             this.isDragging = true;
             this.lastPosX = e.touches[0].pageX;
             this.lastPosY = e.touches[0].pageY;
-            this.touchStartX = e.touches[0].pageX; // لحفظ مكان بداية السحب لتقليب الصفحة
+            this.touchStartX = e.touches[0].pageX;
+            this.touchStartY = e.touches[0].pageY;
+        }
+    }
+
+    _handleDoubleTap() {
+        if (this.scale > 1) {
+            this.resetZoom(); // العودة للحجم الطبيعي
+        } else {
+            this.scale = 2.5; // تكبير ذكي
+            this.posX = 0;
+            this.posY = 0;
+            this._updateTransform();
         }
     }
 
@@ -433,18 +488,15 @@ class SmartPdfViewer {
                 e.touches[0].pageY - e.touches[1].pageY
             );
             
-            // حساب نسبة التكبير الجديدة
             const delta = dist / this.startDist;
             let newScale = this.lastScale * delta;
-
-            // حدود التكبير (بين 1 و 4)
-            newScale = Math.min(Math.max(1, newScale), 4);
+            newScale = Math.min(Math.max(1, newScale), 4); // حدود التكبير
             
             this.scale = newScale;
             this._updateTransform();
 
         } else if (e.touches.length === 1 && this.scale > 1 && this.isDragging) {
-            // منطق التحريك (Pan) - يعمل فقط إذا كانت الصورة مكبرة
+            // منطق التحريك (Pan) داخل الصورة المكبرة
             e.preventDefault();
             const currentX = e.touches[0].pageX;
             const currentY = e.touches[0].pageY;
@@ -454,6 +506,9 @@ class SmartPdfViewer {
 
             this.posX += deltaX;
             this.posY += deltaY;
+
+            // 🥇 1) تطبيق الحدود الذكية (منع الخروج للفراغ الأسود)
+            this._clampOffset();
 
             this.lastPosX = currentX;
             this.lastPosY = currentY;
@@ -466,31 +521,65 @@ class SmartPdfViewer {
             this.lastScale = this.scale;
         }
         
-        // منطق تقليب الصفحة (Swipe) - يعمل فقط إذا لم يكن هناك تكبير (Scale = 1)
+        // 🥉 3) منطق السحب المحسن (Swipe)
+        // يعمل فقط إذا كان الحجم طبيعي (Scale = 1)
         if (this.scale === 1 && e.changedTouches.length === 1) {
             const touchEndX = e.changedTouches[0].pageX;
-            const diff = this.touchStartX - touchEndX;
+            const touchEndY = e.changedTouches[0].pageY;
             
-            if (Math.abs(diff) > 50) { // مسافة السحب
+            const diffX = this.touchStartX - touchEndX;
+            const diffY = this.touchStartY - touchEndY;
+
+            // الشرط: حركة أفقية قوية + حركة عمودية ضعيفة (لمنع التقليب أثناء التمرير العمودي)
+            if (Math.abs(diffX) > 50 && Math.abs(diffY) < 30) {
                 this.stopAutoScroll();
-                if (diff > 0) this.nextPage();
+                if (diffX > 0) this.nextPage();
                 else this.prevPage();
             }
         }
         
         this.isDragging = false;
         
-        // إعادة التموضع إذا خرج عن الحدود (Snap back logic could go here)
-        if (this.scale === 1) {
-            this.posX = 0;
-            this.posY = 0;
+        // إعادة التمركز إذا صغرت الصورة عن الحد الطبيعي
+        if (this.scale < 1.1) {
+            this.resetZoom();
+        } else {
+            // تأكيد الحدود مرة أخيرة عند رفع الإصبع
+            this._clampOffset();
             this._updateTransform();
         }
     }
 
+    // 🥇 دالة حساب الحدود الذكية (The Guard)
+    _clampOffset() {
+        // حساب العرض الحالي للصورة
+        const currentWidth = this.baseWidth * this.scale;
+        const currentHeight = this.baseHeight * this.scale;
+
+        // حساب الفائض (كم خرجت الصورة عن الشاشة)
+        // إذا كانت الصورة أكبر من الشاشة، نسمح بالحركة بمقدار الفائض فقط
+        // إذا كانت أصغر، نجبر الموقع على 0 (المنتصف)
+        
+        let maxOffsetX = 0;
+        let maxOffsetY = 0;
+
+        if (currentWidth > this.containerWidth) {
+            maxOffsetX = (currentWidth - this.containerWidth) / 2;
+        }
+        
+        if (currentHeight > this.containerHeight) {
+            maxOffsetY = (currentHeight - this.containerHeight) / 2;
+        }
+
+        // تقييد الحركة داخل هذا المجال
+        this.posX = Math.min(Math.max(this.posX, -maxOffsetX), maxOffsetX);
+        this.posY = Math.min(Math.max(this.posY, -maxOffsetY), maxOffsetY);
+    }
+
     _updateTransform() {
         if (this.zoomContainer) {
-            this.zoomContainer.style.transform = `translate(${this.posX}px, ${this.posY}px) scale(${this.scale})`;
+            // نستخدم translate3d للأداء الأفضل
+            this.zoomContainer.style.transform = `translate3d(${this.posX}px, ${this.posY}px, 0) scale(${this.scale})`;
         }
     }
 
@@ -502,7 +591,7 @@ class SmartPdfViewer {
         this._updateTransform();
     }
 
-    // --- الوظائف الأساسية الأخرى (مثل السابقة) ---
+    // --- الوظائف الأساسية الأخرى ---
     toggleAutoScroll() {
         if (this.isAutoScrolling) {
             this.stopAutoScroll();
@@ -585,7 +674,6 @@ class SmartPdfViewer {
         if(this.elements.autoBtn) this.elements.autoBtn.onclick = () => this.toggleAutoScroll();
     }
 }
-
 
 // تهيئة القارئ
 const pdfViewer = new SmartPdfViewer();
@@ -5356,51 +5444,61 @@ setupPdfControls();
 // متغيرات لتخزين المعرفات الحالية
 let resolvedAudioId = null;
 let resolvedPdfId = null;
-
 /**
- * دالة تجهيز نافذة الاختيار (تُستدعى عند اختيار موضوع من القائمة)
- * تم إصلاح منطق الإغلاق ليتوافق مع نظام الـ Modal
+ * دالة تجهيز أزرار التعلم (نظام الفحص اللحظي عند النقر)
  */
 function prepareLearnButtons(selectedTopic) {
-    if (!selectedTopic) return;
-
-    // استخدام أداة البحث الذكي
-    resolvedAudioId = findContentId(selectedTopic, audioLibrary);
-    resolvedPdfId = findContentId(selectedTopic, pdfLibrary);
-
-    console.log(`🔎 نتائج البحث لـ "${selectedTopic}": صوت=[${resolvedAudioId}], كتاب=[${resolvedPdfId}]`);
-
     const btnListen = document.getElementById('btn-mode-listen');
     const btnRead = document.getElementById('btn-mode-read');
-    const modal = document.getElementById('learn-mode-modal'); // التأكد من استخدام نفس الـ ID
+    const modal = document.getElementById('learn-mode-modal');
 
-    // إعداد زر الاستماع
-    if (resolvedAudioId) {
-        btnListen.classList.remove('mode-disabled', 'opacity-50', 'cursor-not-allowed');
-        btnListen.onclick = () => {
-            modal.classList.remove('active'); // إغلاق النافذة بإزالة كلاس active
-            audioPlayer.playTrack(resolvedAudioId, selectedTopic);
-        };
-    } else {
-        btnListen.classList.add('mode-disabled', 'opacity-50', 'cursor-not-allowed');
-        btnListen.onclick = () => {
-             if(window.toast) window.toast("لا يوجد ملف صوتي لهذا الموضوع حالياً", "info");
-        };
-    }
+    // 1. إعادة تعيين الأزرار لتكون نشطة وجاهزة للنقر دائماً
+    // (نزيل أي تأثيرات "باهتة" سابقة لكي يبدو الزر متاحاً)
+    btnListen.classList.remove('opacity-50', 'grayscale', 'cursor-not-allowed', 'pointer-events-none');
+    btnRead.classList.remove('opacity-50', 'grayscale', 'cursor-not-allowed', 'pointer-events-none');
 
-    // إعداد زر القراءة
-    if (resolvedPdfId) {
-        btnRead.classList.remove('mode-disabled', 'opacity-50', 'cursor-not-allowed');
-        btnRead.onclick = () => {
-            modal.classList.remove('active'); // إغلاق النافذة بإزالة كلاس active
-            pdfViewer.loadDocument(resolvedPdfId, selectedTopic);
-        };
-    } else {
-        btnRead.classList.add('mode-disabled', 'opacity-50', 'cursor-not-allowed');
-        btnRead.onclick = () => {
-             if(window.toast) window.toast("لا يوجد ملف PDF لهذا الموضوع حالياً", "info");
-        };
-    }
+    // ============================================
+    // 🎧 زر الاستماع (فحص الرابط عند الضغط)
+    // ============================================
+    btnListen.onclick = () => {
+        // أ. محاولة جلب معرف الملف الآن
+        const audioId = findContentId(selectedTopic, audioLibrary);
+
+        // ب. التحقق: هل الملف موجود وحقيقي؟ (ليس فارغاً ولا null)
+        // نتحقق أيضاً أن النص ليس فارغاً بعد إزالة المسافات
+        const isValid = audioId && (typeof audioId === 'string' && audioId.trim() !== "");
+
+        if (isValid) {
+            // ✅ الملف موجود: افتح المشغل
+            modal.classList.remove('active');
+            audioPlayer.playTrack(audioId, selectedTopic);
+        } else {
+            // ❌ الملف غير موجود: اعرض الرسالة
+            if(window.toast) window.toast("الملف الصوتي غير متوفر سيتم تجهيزة قريبا", "info");
+            else alert("الملف الصوتي غير متوفر سيتم تجهيزة قريبا");
+        }
+    };
+
+    // ============================================
+    // 📖 زر القراءة (فحص الرابط عند الضغط)
+    // ============================================
+    btnRead.onclick = () => {
+        // أ. محاولة جلب معرف الملف الآن
+        const pdfId = findContentId(selectedTopic, pdfLibrary);
+
+        // ب. التحقق من وجود الملف
+        const isValid = pdfId && (typeof pdfId === 'string' && pdfId.trim() !== "");
+
+        if (isValid) {
+            // ✅ الملف موجود: افتح القارئ
+            modal.classList.remove('active');
+            pdfViewer.loadDocument(pdfId, selectedTopic);
+        } else {
+            // ❌ الملف غير موجود: اعرض الرسالة
+            if(window.toast) window.toast("ملف الكتاب غير متوفر سيتم تجهيزة قريبا", "info");
+            else alert("ملف الكتاب غير متوفر سيتم تجهيزة قريبا");
+        }
+    };
 }
 
 /**
@@ -5488,3 +5586,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+// ==========================================
+// ✅ إصلاح نهائي لزر التعلم (التحقق من الاختيار + توفر الملفات)
+// استبدل الكود السابق في نهاية الملف بهذا الكود
+// ==========================================
+(function() {
+    const fixLearnButton = () => {
+        const btn = document.getElementById('ai-learn-btn');
+        if (!btn) return;
+
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.onclick = (e) => {
+            e.preventDefault();
+            
+            const catSelect = document.getElementById('category-select');
+            const topicSelect = document.getElementById('topic-select');
+            
+            const catVal = catSelect ? catSelect.value : "";
+            const topicVal = topicSelect ? topicSelect.value : "";
+            
+            // 1. التحقق من أن المستخدم اختار موضوعاً
+            const isInvalid = (!catVal || catVal === "random" || catVal === "" || catVal === "اختر القسم الرئيسي");
+
+            if (isInvalid) {
+                try { toast("حدد القسم والموضوع اولا", "warning"); } catch(e) { alert("حدد القسم والموضوع اولا"); }
+                return;
+            }
+
+            const topic = topicVal || catVal;
+
+            // 2. التحقق من وجود ملفات لهذا الموضوع (الخطوة الثانية المطلوبة)
+            // نستخدم دالة findContentId الموجودة في الملف للتأكد
+            const hasAudio = findContentId(topic, audioLibrary);
+            const hasPdf = findContentId(topic, pdfLibrary);
+
+            if (!hasAudio && !hasPdf) {
+                // إذا لم يوجد صوت ولا كتاب
+                try { toast("سيتم ادراج الملفات قريبا", "info"); } catch(e) { alert("سيتم ادراج الملفات قريبا"); }
+                return; // توقف ولا تفتح النافذة
+            }
+
+            // إذا وجدنا ملفات، نجهز الأزرار ونفتح النافذة
+            if (typeof prepareLearnButtons === 'function') {
+                prepareLearnButtons(topic);
+            }
+
+            const modal = document.getElementById('learn-mode-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('active'), 10);
+            }
+        };
+
+        console.log("✅ زر التعلم: تم تفعيل التحقق من الملفات");
+    };
+
+    if (document.readyState === 'complete') {
+        fixLearnButton();
+    } else {
+        window.addEventListener('load', fixLearnButton);
+    }
+})();
