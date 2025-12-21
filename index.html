@@ -989,66 +989,71 @@
  
  
  
-<div id="pdf-viewer-modal" class="modal-overlay fixed inset-0 z-[100] hidden bg-black">
+<div id="pdf-viewer-modal" class="fixed inset-0 z-[100] hidden transition-opacity duration-300">
     
-    <div class="modal-box bg-slate-950 w-full h-full max-w-none max-h-none m-0 rounded-none flex flex-col relative overflow-hidden">
-        
-        <div class="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-20 flex justify-between items-start pointer-events-none">
-            <div class="pointer-events-auto bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <h3 id="pdf-topic-title" class="text-lg font-bold text-amber-500 font-heading shadow-black drop-shadow-md">عنوان الدرس</h3>
+    <div class="absolute inset-0 bg-slate-900/95 backdrop-blur-md">
+        <div class="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+    </div>
+
+    <div class="relative w-full h-full flex flex-col justify-between z-10 overflow-hidden">
+
+        <div class="flex justify-between items-start p-6 pointer-events-none">
+            <div class="pointer-events-auto bg-white/5 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl shadow-lg transform transition hover:scale-105">
+                <h3 id="pdf-topic-title" class="text-2xl text-amber-400 font-['Amiri'] font-bold drop-shadow-md">
+                    عنوان الملف
+                </h3>
             </div>
             
-            <button id="close-pdf-btn" class="pointer-events-auto close-modal w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-red-900/50 transition">
-                <span class="material-symbols-rounded">close</span>
+            <button id="close-pdf-btn" class="pointer-events-auto group w-12 h-12 rounded-full bg-white/5 border border-white/10 text-slate-300 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-300 shadow-lg">
+                <span class="material-symbols-rounded text-2xl group-hover:rotate-90 transition-transform">close</span>
             </button>
         </div>
 
-        <div id="pdf-canvas-container" class="flex-1 w-full h-full flex items-center justify-center bg-black overflow-hidden relative touch-none">
+        <div id="pdf-canvas-container" class="flex-1 w-full flex items-center justify-center relative overflow-hidden touch-none">
             
-            <div id="pdf-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-30">
-                <div class="relative w-20 h-20">
-                    <div class="absolute inset-0 rounded-full border-4 border-slate-700"></div>
-                    <div class="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
-                </div>
-                <span class="mt-4 text-amber-500 font-heading animate-pulse">جاري تحميل الصفحة...</span>
+            <div id="pdf-loading" class="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+                <span class="material-symbols-rounded text-amber-500 text-5xl animate-bounce mb-4">menu_book</span>
+                <span class="text-slate-300 font-['Amiri'] text-lg animate-pulse">جاري جلب الصفحات...</span>
             </div>
             
-            <div id="zoom-container" class="transition-transform duration-75 ease-out origin-center will-change-transform">
-                <canvas id="the-canvas" class="shadow-[0_0_50px_rgba(0,0,0,0.5)]"></canvas>
+            <div id="zoom-container" class="transition-transform duration-100 ease-out origin-center will-change-transform flex items-center justify-center">
+                <canvas id="the-canvas" class="shadow-[0_0_50px_-12px_rgba(0,0,0,0.8)] rounded-md bg-white"></canvas>
             </div>
         </div>
 
-        <div class="absolute bottom-0 left-0 w-full z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pb-6 pt-10 px-4 flex flex-col gap-4 pointer-events-none">
+        <div class="p-6 flex flex-col items-center gap-4 pointer-events-none">
             
-            <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden pointer-events-auto">
-                <div id="pdf-progress-bar" class="h-full bg-amber-500 w-0 shadow-[0_0_10px_#f59e0b] transition-all duration-300"></div>
-            </div>
-
-            <div class="flex justify-between items-center w-full pointer-events-auto">
+            <div class="pointer-events-auto bg-slate-800/80 backdrop-blur-xl border border-white/10 rounded-full px-6 py-3 shadow-2xl flex items-center gap-6 transform translate-y-0 hover:-translate-y-1 transition-transform duration-300">
                 
-                <span class="text-white/80 font-mono text-xs bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10">
-                    <span id="page-num">0</span> / <span id="page-count">0</span>
-                </span>
+                <button id="pdf-btn-prev-bottom" class="w-10 h-10 rounded-full bg-white/5 text-slate-300 flex items-center justify-center hover:bg-amber-500 hover:text-slate-900 transition-colors">
+                    <span class="material-symbols-rounded text-2xl">chevron_right</span>
+                </button>
 
-                <div class="flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-                    <button id="pdf-btn-prev-bottom" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center hover:bg-amber-500 hover:text-black transition">
-                        <span class="material-symbols-rounded">chevron_right</span>
-                    </button>
-                    
-                    <button id="pdf-btn-auto-toggle" class="w-14 h-14 rounded-full bg-slate-800 border border-slate-600 text-slate-300 flex items-center justify-center shadow-lg transition group">
-                        <span class="material-symbols-rounded text-3xl group-hover:scale-110 transition-transform" id="pdf-auto-icon">play_arrow</span>
-                    </button>
+<button id="pdf-btn-auto-toggle" class="w-10 h-10 rounded-full bg-white/5 text-slate-300 flex items-center justify-center hover:bg-amber-500 hover:text-slate-900 transition-colors">
+    <span class="material-symbols-rounded text-2xl" id="pdf-auto-icon">play_arrow</span>
+</button>
 
-                    <button id="pdf-btn-next-bottom" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center hover:bg-amber-500 hover:text-black transition">
-                        <span class="material-symbols-rounded">chevron_left</span>
-                    </button>
-                </div>
 
-                <button id="pdf-finish-btn" class="btn-gold-action !w-auto !px-5 !py-2 text-xs opacity-0 pointer-events-none transform translate-y-4 transition-all duration-500 shadow-lg">
-                    <span>إنهاء</span>
+                <button id="pdf-btn-next-bottom" class="w-10 h-10 rounded-full bg-white/5 text-slate-300 flex items-center justify-center hover:bg-amber-500 hover:text-slate-900 transition-colors">
+                    <span class="material-symbols-rounded text-2xl">chevron_left</span>
                 </button>
             </div>
+
+            <div class="flex items-center gap-4 w-full max-w-md pointer-events-auto opacity-80 hover:opacity-100 transition-opacity">
+                <span class="text-amber-400 font-['Amiri'] font-bold text-lg min-w-[3ch] text-center" id="page-num">0</span>
+                
+                <div class="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="pdf-progress-bar" class="h-full bg-amber-500 w-0 transition-all duration-300 shadow-[0_0_10px_#f59e0b]"></div>
+                </div>
+                
+                <span class="text-slate-400 font-['Amiri'] text-lg min-w-[3ch] text-center" id="page-count">0</span>
+            </div>
+
+             <button id="pdf-finish-btn" class="pointer-events-auto mt-2 btn-gold-action !px-8 !py-2 !rounded-xl text-sm font-bold opacity-0 translate-y-4 transition-all duration-500 shadow-lg border border-amber-300/20">
+                استلام الجائزة
+            </button>
         </div>
+
     </div>
 </div>
 
