@@ -7,64 +7,79 @@ import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
 import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
 
 // ==========================================
-// 🛠️ أدوات الربط الذكي (Helper Functions)
+// 🛠️ أدوات الربط الذكي (نظام المطابقة بالتجريد - Abstract Match)
 // ==========================================
 
 /**
- * دالة لتنظيف النصوص العربية من الزوائد لضمان المطابقة
- * تزيل: (ع)، (ص)، الهمزات، التشكيل، المسافات الزائدة
+ * 1. دالة تنظيف وتجريد النصوص
+ * الهدف: تحويل النص إلى "هيكل عظمي" نقي للمقارنة
  */
 function normalizeTextForMatch(text) {
     if (!text) return "";
+    
     return text
-        .replace(/[^\u0621-\u064A\s]/g, "") // إبقاء الحروف العربية والمسافات فقط (حذف الأقواس والأرقام والرموز)
-        .replace(/(آ|إ|أ)/g, "ا")           // توحيد الألف
-        .replace(/ة/g, "ه")                // توحيد التاء المربوطة والهاء
-        .replace(/ى/g, "ي")                // توحيد الياء والألف المقصورة
-        .replace(/\s+/g, " ")              // إزالة المسافات المكررة
-        .trim();                           // إزالة الفراغات من البداية والنهاية
+        // 1. حذف أي نص بين قوسين نهائياً (يزيل (ص)، (ع)، (عليه السلام)...)
+        // هذا يحل مشكلة اختلاف كتابة الألقاب
+        .replace(/\([^\)]*\)/g, "") 
+        
+        // 2. توحيد الحروف العربية المتشابهة
+        .replace(/(آ|إ|أ)/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/ؤ/g, "و")
+        .replace(/ئ/g, "ي")
+        
+        // 3. حذف التشكيل (الفتحة، الضمة، إلخ)
+        .replace(/[\u064B-\u065F]/g, "")
+        
+        // 4. 🔥 الإجراء الأهم: حذف كل شيء ليس حرفاً عربياً (مسافات، أرقام، رموز)
+        .replace(/[^\u0621-\u064A]/g, ""); 
 }
 
 /**
- * دالة البحث عن المعرف (ID) في المكتبة
- * @param {string} selectedTopic - الموضوع الذي اختاره المستخدم
- * @param {object} library - مكتبة البيانات (audioLibrary أو pdfLibrary)
+ * 2. دالة البحث عن المعرف (ID)
+ * تقارن الهيكل المجرد لاختيار المستخدم مع الهيكل المجرد للمكتبة
  */
 function findContentId(selectedTopic, library) {
-    // 1. المحاولة السريعة: تطابق تام
+    if (!selectedTopic || !library) return null;
+
+    // أ) دعم البحث الرقمي المباشر (للمستقبل أو إذا كانت القيم أرقاماً)
+    if (!isNaN(selectedTopic) && parseInt(selectedTopic) > 0) {
+        return parseInt(selectedTopic);
+    }
+
+    // ب) المحاولة السريعة (تطابق تام للنص كما هو)
     if (library[selectedTopic]) return library[selectedTopic];
 
-    // 2. البحث الذكي (Fuzzy Match)
-    const cleanSelection = normalizeTextForMatch(selectedTopic);
-    
-    // كلمات حشو نتجاهلها لزيادة دقة البحث
-    const ignoreWords = ["سيرة", "قصص", "قصة", "في", "عن", "حياة"];
+    // ج) البحث العميق (تطابق الهيكل المجرد)
+    // مثال: المستخدم اختار "سيرة النبي محمد (ص)" -> الهيكل: "سيرهالنبيمحمد"
+    const userSkeleton = normalizeTextForMatch(selectedTopic);
 
-    // تنظيف إضافي لإزالة كلمات الحشو من اختيار المستخدم
-    let coreSelection = cleanSelection;
-    ignoreWords.forEach(word => {
-        coreSelection = coreSelection.replace(word, "").trim();
-    });
-
-    // الدوران على كل مفاتيح المكتبة للمقارنة
+    // الدوران على كل مفاتيح المكتبة
     for (const [key, id] of Object.entries(library)) {
-        const cleanKey = normalizeTextForMatch(key);
+        // مثال: المكتبة تحتوي "سيرة النبي محمد" -> الهيكل: "سيرهالنبيمحمد"
+        const librarySkeleton = normalizeTextForMatch(key);
         
-        // التحقق: هل المفتاح في المكتبة يحتوي على الكلمات الجوهرية لاختيار المستخدم؟
-        // مثال: "سيرة الامام الحسين" (مكتبة) تحتوي على "الامام الحسين" (مستخدم)
-        if (cleanKey.includes(coreSelection) || coreSelection.includes(cleanKey)) {
-            console.log(`✅ تم العثور على تطابق ذكي: [${selectedTopic}] matches [${key}]`);
+        // مقارنة الهيكل بالهيكل (تطابق تام بعد التجريد)
+        if (librarySkeleton === userSkeleton) {
+            console.log(`✅ تم التطابق (هيكل): [${selectedTopic}] == [${key}]`);
             return id;
+        }
+
+        // د) شبكة أمان: الاحتواء (للحالات الصعبة جداً)
+        // إذا كان الهيكل أطول من 3 حروف، نتحقق إذا كان أحدهما جزءاً من الآخر
+        if (librarySkeleton.length > 3 && userSkeleton.length > 3) {
+            if (librarySkeleton.includes(userSkeleton) || userSkeleton.includes(librarySkeleton)) {
+                console.log(`✅ تم التطابق (احتواء): [${selectedTopic}] <-> [${key}]`);
+                return id;
+            }
         }
     }
 
-    console.warn(`❌ لم يتم العثور على محتوى لـ: ${selectedTopic}`);
+    // فشل البحث
+    console.warn(`❌ لم يتم العثور على محتوى. الهيكل المطلوب: [${userSkeleton}]`);
     return null;
 }
-// ==========================================
-// 🎵 كلاس المشغل الصوتي المتقدم (SmartAudioPlayer)
-// ==========================================
-
 // ==========================================
 // 🎵 كلاس المشغل الصوتي المتقدم (SmartAudioPlayer) - نسخة مصححة
 // ==========================================
@@ -153,6 +168,7 @@ class SmartAudioPlayer {
     }
 
     _bindAudioEvents() {
+        // 1. تحديث شريط التقدم والوقت
         this.audio.addEventListener('timeupdate', () => {
             if (isNaN(this.audio.duration)) return;
             const percent = (this.audio.currentTime / this.audio.duration) * 100;
@@ -165,15 +181,40 @@ class SmartAudioPlayer {
                 this.elements.duration.textContent = this._formatTime(this.audio.duration);
         });
 
+        // 2. عند انتهاء المقطع
         this.audio.addEventListener('ended', () => {
             this.isPlaying = false;
             this._updatePlayIcon();
             if(window.toast) window.toast("انتهى المقطع الصوتي", "success");
         });
         
+        // 3. عند تحميل البيانات الأولية (لمعرفة المدة)
         this.audio.addEventListener('loadedmetadata', () => {
              if(this.elements.duration)
                 this.elements.duration.textContent = this._formatTime(this.audio.duration);
+        });
+
+        // 🔥 4. (الجديد) معالجة أخطاء التحميل (مثل 404)
+        this.audio.addEventListener('error', (e) => {
+            console.error("❌ Audio Error:", this.audio.error);
+            
+            let msg = "حدث خطأ أثناء تشغيل الملف الصوتي";
+            const errCode = this.audio.error ? this.audio.error.code : 0;
+
+            // كود 4 يعني عادةً أن المصدر غير مدعوم أو غير موجود (404)
+            if (errCode === 4) { 
+                 msg = "عذراً، الملف الصوتي غير موجود على السيرفر (404)";
+            } else if (errCode === 3) { // MEDIA_ERR_DECODE
+                 msg = "ملف الصوت تالف أو تنسيقه غير مدعوم";
+            } else if (errCode === 2) { // MEDIA_ERR_NETWORK
+                 msg = "فشل التحميل بسبب مشكلة في الشبكة";
+            }
+
+            // إغلاق المشغل فوراً لإخفاء النافذة المعلقة
+            this.close();
+
+            // عرض رسالة الخطأ للمستخدم
+            if(window.toast) window.toast(msg, "error");
         });
     }
 
@@ -298,15 +339,23 @@ class SmartPdfViewer {
     }
 
     async loadDocument(id, title) {
-        if (!id) return;
+        // 1. التحقق الصارم من المعرف قبل البدء
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            console.warn("⚠️ محاولة فتح كتاب بمعرف غير صالح:", id);
+            if(window.toast) window.toast("عذراً، ملف الكتاب غير متوفر حالياً لهذا الموضوع", "error");
+            return;
+        }
+
         this.currentPdfId = id;
         this.pageNum = 1;
         this.stopAutoScroll();
         this.resetZoom();
 
+        // إظهار النافذة
         if (this.elements.modal) {
             this.elements.modal.classList.remove('hidden');
             this.elements.modal.classList.add('active');
+            this.elements.modal.style.display = 'flex'; // تأكيد الظهور
         }
         
         if(this.elements.loading) this.elements.loading.classList.remove('hidden');
@@ -315,8 +364,13 @@ class SmartPdfViewer {
         this._toggleFinishButton(false);
 
         try {
+            // تجهيز الرابط
             const url = `${PDF_BASE_URL}${id}.pdf`;
+            console.log(`📄 جاري تحميل الكتاب: ${url}`);
+
+            // استخدام try/catch للتعامل مع أخطاء الشبكة (404)
             const loadingTask = pdfjsLib.getDocument(url);
+            
             this.pdfDoc = await loadingTask.promise;
             
             if (this.elements.pageCount) this.elements.pageCount.textContent = this.pdfDoc.numPages;
@@ -326,8 +380,21 @@ class SmartPdfViewer {
             if(this.elements.loading) this.elements.loading.classList.add('hidden');
 
         } catch (error) {
-            console.error('Error:', error);
-            if(window.toast) window.toast("خطأ في تحميل الملف", "error");
+            console.error('❌ فشل تحميل ملف PDF:', error);
+            
+            // إغلاق النافذة تلقائياً عند الخطأ
+            this.close();
+
+            // رسالة واضحة للمستخدم
+            let msg = "حدث خطأ أثناء تحميل الكتاب";
+            if (error.name === 'MissingPDFException' || error.status === 404) {
+                msg = "ملف الكتاب غير موجود على السيرفر (404)";
+            } else if (error.name === 'InvalidPDFException') {
+                msg = "ملف الكتاب تالف أو غير صالح";
+            }
+            
+            if(window.toast) window.toast(msg, "error");
+            else alert(msg);
         }
     }
 
@@ -634,14 +701,20 @@ class SmartPdfViewer {
         }
     }
 
-    close() {
+        close() {
         this.stopAutoScroll();
+        
         if (this.elements.modal) {
-            this.elements.modal.classList.remove('active');
+            this.elements.modal.classList.remove('active');            
             this.elements.modal.classList.add('hidden');
+            this.elements.modal.style.display = 'none';
         }
         this.pdfDoc = null;
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
     }
+
 
     _updateUI() {
         if (this.elements.pageNum) this.elements.pageNum.textContent = this.pageNum;
@@ -666,11 +739,21 @@ class SmartPdfViewer {
         }
     }
 
-    _bindEvents() {
+        _bindEvents() {
+        // 1. ربط زر الإغلاق العلوي (X)
         const btnClose = document.getElementById('close-pdf-btn');
-        if(btnClose) btnClose.onclick = () => this.close();
+        if (btnClose) {
+            btnClose.onclick = (e) => {
+                e.preventDefault(); // منع أي سلوك افتراضي
+                this.close();
+            };
+        } else {
+            console.warn("⚠️ زر إغلاق الكتاب (close-pdf-btn) غير موجود في HTML");
+        }
         if(this.elements.bottomPrev) this.elements.bottomPrev.onclick = () => { this.stopAutoScroll(); this.prevPage(); };
         if(this.elements.bottomNext) this.elements.bottomNext.onclick = () => { this.stopAutoScroll(); this.nextPage(); };
+        
+        // 4. زر التشغيل التلقائي
         if(this.elements.autoBtn) this.elements.autoBtn.onclick = () => this.toggleAutoScroll();
     }
 }
@@ -4724,31 +4807,6 @@ if(muteToggleBtn) {
     };
 }
 
-// --- التحكم بمستوى الصوت (للمقدمة والمسابقة معاً) ---
-document.addEventListener('DOMContentLoaded', () => {
-    const volSlider = document.getElementById('bg-music-volume');
-    const intro = document.getElementById('audio-intro');
-    const quizAudio = document.getElementById('audio-quiz');
-
-    if(volSlider) {
-        // دالة مساعدة لتطبيق الصوت على الملفين
-        const setVolume = (val) => {
-            const decimalVol = val / 100; // تحويل 20 إلى 0.2
-            if(intro) intro.volume = decimalVol;
-            if(quizAudio) quizAudio.volume = decimalVol;
-        };
-
-        // 1. تطبيق القيمة الافتراضية فوراً عند التشغيل
-        // (يأخذ القيمة المكتوبة في index.html وهي value="20")
-        setVolume(volSlider.value);
-
-        // 2. تحديث الصوت عند تحريك الشريط
-        volSlider.oninput = (e) => {
-            setVolume(e.target.value);
-        };
-    }
-});
-
 /* =========================================
    Visual Magic: Golden Ripple Effect (إعادة تفعيل)
    ========================================= */
@@ -5210,320 +5268,164 @@ window.claimSingleReward = claimSingleReward;
 window.claimGrandPrize = claimGrandPrize;
 window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً
 
+
+
 // ==========================================
-// 📖 نظام قارئ PDF (النظام المحسن والمحمي)
+// 🎓 نظام التعلم الذكي (Clean Code Implementation)
 // ==========================================
 
-// تجميع المتغيرات في كائن واحد لتجنب أخطاء التعريف
-const pdfState = {
-    doc: null,
-    pageNum: 1,
-    pageRendering: false,
-    pageNumPending: null,
-    scale: 1.5,
-    isRewardClaimed: false
-};
+function checkContentAvailability(topicName) {
+    // 1. إذا كان الموضوع غير محدد أو عام، نرفض فوراً
+    if (!topicName || topicName === "عام" || topicName === "random") return null;
 
-// 1. الدالة الرئيسية لفتح الملف
-window.openPdfViewer = function(topic, pdfId) {
-    if (typeof window.pdfjsLib === 'undefined') {
-        alert("جاري تحميل المكتبة... يرجى الانتظار دقيقة.");
+    const audioId = findContentId(topicName, audioLibrary);
+    const pdfId = findContentId(topicName, pdfLibrary);
+
+    // ✅ التصحيح: التحقق من وجود قيمة (سواء كانت رقماً أو نصاً)
+    const hasAudio = (audioId !== null && audioId !== undefined && audioId !== "");
+    const hasPdf = (pdfId !== null && pdfId !== undefined && pdfId !== "");
+
+    if (hasAudio || hasPdf) {
+        return { 
+            audioId: hasAudio ? audioId : null, 
+            pdfId: hasPdf ? pdfId : null 
+        };
+    }
+    return null;
+}
+
+/**
+ * 2. معالج النقر على زر "ابدأ التعلم" (نسخة مصححة)
+ */
+function handleLearnClick(e) {
+    e.preventDefault();
+    
+    // أ. جلب القيم من القوائم
+    const categorySelect = document.getElementById('category-select');
+    const topicSelect = document.getElementById('topic-select');
+    
+    const category = categorySelect ? categorySelect.value : "";
+    const topicVal = topicSelect ? topicSelect.value : "";
+    
+    // ✅ التصحيح: إذا اختار قسماً ولم يختر موضوعاً، نعتبره خطأ
+    // (إلا إذا كان القسم يحتوي على موضوع واحد فقط وهذا نادر، لذا نطلب التحديد)
+    if (!category || category === 'random' || !topicVal) {
+        if(window.toast) window.toast("⚠️ يرجى اختيار موضوع محدد للتعلم (وليس القسم فقط)", "error");
         return;
     }
 
-    const modal = document.getElementById('pdf-viewer-modal');
-    const titleEl = document.getElementById('pdf-topic-title');
-    const loadingEl = document.getElementById('pdf-loading');
-    const canvas = document.getElementById('the-canvas');
+    const finalTopic = topicVal; // نعتمد الموضوع الفرعي حصراً
 
-    // إعداد الواجهة
-    titleEl.textContent = topic;
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    
-    loadingEl.classList.remove('hidden');
-    canvas.classList.add('opacity-0');
+    // ج. التحقق من توفر المحتوى
+    const content = checkContentAvailability(finalTopic);
 
-    // تصفير الحالة
-    pdfState.pageNum = 1;
-    pdfState.isRewardClaimed = false;
-    pdfState.doc = null;
-    
-    // إخفاء زر المكافأة
-    const finishBtn = document.getElementById('pdf-finish-btn');
-    if(finishBtn) {
-        finishBtn.style.opacity = '0';
-        finishBtn.style.pointerEvents = 'none';
-        finishBtn.classList.remove('fade-in-up');
-        finishBtn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">check_circle</span>`;
-    }
-
-    // جلب الملف
-    const url = `${PDF_BASE_URL}${pdfId}.pdf`;
-
-    setTimeout(() => {
-        window.pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
-            pdfState.doc = pdfDoc_;
-            document.getElementById('page-count').textContent = pdfState.doc.numPages;
-            
-            renderPdfPage(pdfState.pageNum);
-            
-            loadingEl.classList.add('hidden');
-            canvas.classList.remove('opacity-0');
-        }).catch((error) => {
-            console.error('PDF Error:', error);
-            loadingEl.innerHTML = `<div class="text-red-500 font-bold p-4">لم يتم العثور على الملف.<br>تأكد من الاتصال بالإنترنت.</div>`;
-        });
-    }, 100);
-};
-
-// 2. دالة رسم الصفحة
-function renderPdfPage(num) {
-    pdfState.pageRendering = true;
-    
-    pdfState.doc.getPage(num).then((page) => {
-        const canvas = document.getElementById('the-canvas');
-        const container = document.getElementById('pdf-canvas-container');
+    if (content) {
+        // فحص وجود النافذة في HTML
+        const modal = document.getElementById('learn-mode-modal');
+        if (!modal) {
+            console.error("❌ خطأ: نافذة التعلم (ID: learn-mode-modal) غير موجودة في HTML");
+            return;
+        }
         
-        if (!canvas || !container) return;
-
-        const viewportRaw = page.getViewport({scale: 1});
-        const containerWidth = container.clientWidth || window.innerWidth;
-        const desiredScale = (containerWidth * 0.95) / viewportRaw.width;
-        
-        pdfState.scale = desiredScale > 2.0 ? 2.0 : desiredScale;
-        
-        const viewport = page.getViewport({scale: pdfState.scale});
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        const ctx = canvas.getContext('2d');
-        const renderContext = {
-            canvasContext: ctx,
-            viewport: viewport
-        };
-        
-        const renderTask = page.render(renderContext);
-
-        renderTask.promise.then(() => {
-            pdfState.pageRendering = false;
-            
-            if (pdfState.pageNumPending !== null) {
-                renderPdfPage(pdfState.pageNumPending);
-                pdfState.pageNumPending = null;
-            }
-            
-            document.getElementById('page-num').textContent = num;
-            updatePdfProgressBar();
-            
-            // فحص المكافأة عند الوصول للصفحة الأخيرة
-            if (pdfState.pageNum === pdfState.doc.numPages) {
-                setTimeout(showPdfRewardButton, 1000);
-            }
-        });
-    });
-}
-
-// 3. دوال التنقل
-function queueRenderPdfPage(num) {
-    if (pdfState.pageRendering) {
-        pdfState.pageNumPending = num;
+        openLearnModal(finalTopic, content.audioId, content.pdfId);
     } else {
-        renderPdfPage(num);
+        if(window.toast) window.toast(`عذراً، محتوى "التعلم" لهذا الموضوع قيد التجهيز ⏳`, "info");
     }
 }
 
-function onPrevPdfPage() {
-    if (pdfState.pageNum <= 1) return;
-    pdfState.pageNum--;
-    queueRenderPdfPage(pdfState.pageNum);
-}
-
-function onNextPdfPage() {
-    if (pdfState.pageNum >= pdfState.doc.numPages) return;
-    pdfState.pageNum++;
-    queueRenderPdfPage(pdfState.pageNum);
-}
-
-function updatePdfProgressBar() {
-    if(pdfState.doc) {
-        const percent = (pdfState.pageNum / pdfState.doc.numPages) * 100;
-        const bar = document.getElementById('pdf-progress-bar');
-        if(bar) bar.style.width = `${percent}%`;
-    }
-}
-
-// 4. المكافأة
-function showPdfRewardButton() {
-    if(pdfState.isRewardClaimed) return;
-    
-    const btn = document.getElementById('pdf-finish-btn');
-    if(btn) {
-        btn.style.opacity = '1';
-        btn.style.pointerEvents = 'auto';
-        btn.classList.add('fade-in-up');
-        
-        btn.onclick = async () => {
-            if(pdfState.isRewardClaimed) return;
-            pdfState.isRewardClaimed = true;
-            
-            btn.innerHTML = `⏳ جاري الحفظ...`;
-            
-            try {
-                if(window.effectiveUserId) {
-                    // استيراد أدوات فايربيس ديناميكياً لضمان العمل
-                    const { doc, updateDoc, increment } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");
-                    
-                    // تحديث محلي
-                    window.userProfile.highScore = (window.userProfile.highScore || 0) + 10;
-                    window.updateProfileUI(); // تحديث الواجهة
-                    
-                    // تحديث السيرفر
-                    await updateDoc(doc(window.db, "users", window.effectiveUserId), { 
-                        highScore: increment(10),
-                        "stats.totalCorrect": increment(10)
-                    });
-
-                    if(window.playSound) window.playSound('win');
-                    if(window.toast) window.toast("🎉 أحسنت! +10 نقاط", "success");
-                    
-                    setTimeout(() => {
-                        document.getElementById('pdf-viewer-modal').classList.add('hidden');
-                        document.getElementById('pdf-viewer-modal').style.display = 'none';
-                    }, 1500);
-                } else {
-                    window.toast("سجل الدخول أولاً", "warning");
-                }
-            } catch(e) {
-                console.error(e);
-                btn.innerHTML = "خطأ";
-                pdfState.isRewardClaimed = false;
-            }
-        };
-    }
-}
-
-// 5. ربط الأزرار (مرة واحدة)
-const setupPdfControls = () => {
-    const btnPrev = document.getElementById('pdf-prev-btn');
-    const btnNext = document.getElementById('pdf-next-btn');
-    const btnClose = document.getElementById('close-pdf-btn');
-
-    if(btnPrev) btnPrev.onclick = onPrevPdfPage;
-    if(btnNext) btnNext.onclick = onNextPdfPage;
-    if(btnClose) btnClose.onclick = () => {
-        document.getElementById('pdf-viewer-modal').classList.add('hidden');
-        document.getElementById('pdf-viewer-modal').style.display = 'none';
-        pdfState.doc = null;
-    };
-};
-setupPdfControls();
-
-// ==========================================
-// 🔗 ربط النظام بالواجهة (Integration Logic)
-// ==========================================
-
-// متغيرات لتخزين المعرفات الحالية
-let resolvedAudioId = null;
-let resolvedPdfId = null;
 /**
- * دالة تجهيز أزرار التعلم (نظام الفحص اللحظي عند النقر)
+ * 3. فتح نافذة خيارات التعلم (محدثة)
  */
-function prepareLearnButtons(selectedTopic) {
+function openLearnModal(topic, audioId, pdfId) {
+    const modal = document.getElementById('learn-mode-modal');
+    const titleEl = document.getElementById('learn-topic-title');
     const btnListen = document.getElementById('btn-mode-listen');
     const btnRead = document.getElementById('btn-mode-read');
-    const modal = document.getElementById('learn-mode-modal');
 
-    // 1. إعادة تعيين الأزرار لتكون نشطة وجاهزة للنقر دائماً
-    // (نزيل أي تأثيرات "باهتة" سابقة لكي يبدو الزر متاحاً)
-    btnListen.classList.remove('opacity-50', 'grayscale', 'cursor-not-allowed', 'pointer-events-none');
-    btnRead.classList.remove('opacity-50', 'grayscale', 'cursor-not-allowed', 'pointer-events-none');
+    if (!modal) return;
 
-    // ============================================
-    // 🎧 زر الاستماع (فحص الرابط عند الضغط)
-    // ============================================
-    btnListen.onclick = () => {
-        // أ. محاولة جلب معرف الملف الآن
-        const audioId = findContentId(selectedTopic, audioLibrary);
+    // تحديث العنوان
+    if (titleEl) titleEl.textContent = topic;
 
-        // ب. التحقق: هل الملف موجود وحقيقي؟ (ليس فارغاً ولا null)
-        // نتحقق أيضاً أن النص ليس فارغاً بعد إزالة المسافات
-        const isValid = (audioId !== null && audioId !== undefined);
-
-        if (isValid) {
-            // ✅ الملف موجود: افتح المشغل
-            modal.classList.remove('active');
-            audioPlayer.playTrack(audioId, selectedTopic);
+    // إعداد زر الاستماع
+    if (btnListen) {
+        // ✅ التصحيح: التحقق المرن (يقبل الصفر والأرقام والنصوص)
+        if (audioId !== null && audioId !== undefined) {
+            btnListen.onclick = () => {
+                modal.classList.add('hidden'); 
+                modal.classList.remove('active'); // إزالة الكلاس النشط
+                modal.style.display = 'none'; 
+                // تحويل الـ ID إلى نص عند تمريره للمشغل لضمان توافق الرابط
+                audioPlayer.playTrack(String(audioId), topic); 
+            };
+            btnListen.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnListen.disabled = false;
         } else {
-            // ❌ الملف غير موجود: اعرض الرسالة
-            if(window.toast) window.toast("الملف الصوتي غير متوفر سيتم تجهيزة قريبا", "info");
-            else alert("الملف الصوتي غير متوفر سيتم تجهيزة قريبا");
+            btnListen.onclick = null;
+            btnListen.classList.add('opacity-50', 'cursor-not-allowed');
+            btnListen.disabled = true;
         }
-    };
+    }
 
-    // ============================================
-    // 📖 زر القراءة (فحص الرابط عند الضغط)
-    // ============================================
-    btnRead.onclick = () => {
-        // أ. محاولة جلب معرف الملف الآن
-        const pdfId = findContentId(selectedTopic, pdfLibrary);
-
-        // ب. التحقق من وجود الملف
-        // ✅ التعديل الصحيح للكتاب أيضاً
-const isValid = (pdfId !== null && pdfId !== undefined);
-
-
-        if (isValid) {
-            // ✅ الملف موجود: افتح القارئ
-            modal.classList.remove('active');
-            pdfViewer.loadDocument(pdfId, selectedTopic);
+    // إعداد زر القراءة
+    if (btnRead) {
+        if (pdfId !== null && pdfId !== undefined) {
+            btnRead.onclick = () => {
+                modal.classList.add('hidden'); 
+                modal.classList.remove('active');
+                modal.style.display = 'none'; 
+                pdfViewer.loadDocument(String(pdfId), topic); 
+            };
+            btnRead.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnRead.disabled = false;
         } else {
-            // ❌ الملف غير موجود: اعرض الرسالة
-            if(window.toast) window.toast("ملف الكتاب غير متوفر سيتم تجهيزة قريبا", "info");
-            else alert("ملف الكتاب غير متوفر سيتم تجهيزة قريبا");
+            btnRead.onclick = null;
+            btnRead.classList.add('opacity-50', 'cursor-not-allowed');
+            btnRead.disabled = true;
         }
-    };
+    }
+
+    // 🔥 عرض النافذة بالقوة
+    modal.classList.remove('hidden');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
 }
 
+
 /**
- * 2. دالة استلام المكافأة (Firebase Logic)
- * تُستدعى عند ضغط الزر الذهبي في نهاية الكتاب
+ * 4. دالة استلام مكافأة الكتاب (Firebase Logic)
  */
 async function handlePdfReward() {
     const btn = document.getElementById('pdf-finish-btn');
     if (!btn || btn.disabled) return;
 
-    // حماية من التكرار
     btn.disabled = true;
     btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري التحقق...`;
 
     try {
-        const auth = getAuth(); // تأكد من استدعاء دوال Firebase الصحيحة حسب ملفك
-        const user = auth.currentUser;
-
-        if (!user) {
+        if (!effectiveUserId) {
             if(window.toast) window.toast("يجب تسجيل الدخول لاستلام النقاط", "warning");
             btn.disabled = false;
             btn.innerHTML = "استلام المكافأة";
             return;
         }
 
-        // إضافة النقاط في Firestore
-        const db = getFirestore();
-        const userRef = doc(db, "users", user.uid);
-
-        await updateDoc(userRef, {
-            highScore: increment(10), // زيادة 10 نقاط
+        // إضافة النقاط
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            highScore: increment(10),
             "stats.totalReadings": increment(1)
         });
 
-        // تأثير النجاح
+        // تحديث الرصيد محلياً وتحديث الواجهة
+        userProfile.highScore = (userProfile.highScore || 0) + 10;
+        updateProfileUI();
+
         if(window.playSound) window.playSound('win');
         if(window.toast) window.toast("🎉 أحسنت! تمت إضافة 10 نقاط لرصيدك", "success");
 
-        // إغلاق النافذة بعد ثانية ونصف
+        // إغلاق النافذة
         setTimeout(() => {
-            pdfViewer.close();
+            if(pdfViewer) pdfViewer.close();
             btn.disabled = false;
             btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">check_circle</span>`;
         }, 1500);
@@ -5536,172 +5438,36 @@ async function handlePdfReward() {
     }
 }
 
-// 3. التفعيل النهائي عند تحميل الصفحة
+// ==========================================
+// 🚀 التشغيل الرئيسي (Main Initialization)
+// هذا الكود يعمل مرة واحدة فقط عند جاهزية الصفحة
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // ربط زر المكافأة بالدالة الجديدة
+    console.log("🚀 جاري تهيئة نظام التعلم الذكي...");
+
+    // 1. ربط زر التعلم (AI Learn Button)
+    const learnBtn = document.getElementById('ai-learn-btn');
+    if (learnBtn) {
+        // إزالة أي مستمعين سابقين عبر استبدال العنصر (اختياري للنظافة القصوى)
+        const newBtn = learnBtn.cloneNode(true);
+        learnBtn.parentNode.replaceChild(newBtn, learnBtn);
+        
+        // ربط الحدث الجديد
+        newBtn.addEventListener('click', handleLearnClick);
+        console.log("✅ زر التعلم جاهز.");
+    }
+
+    // 2. ربط زر مكافأة الكتاب
     const rewardBtn = document.getElementById('pdf-finish-btn');
-    if(rewardBtn) {
+    if (rewardBtn) {
         rewardBtn.onclick = handlePdfReward;
     }
 
-    // 🚨 ملاحظة مهمة:
-    // ابحث في كودك القديم عن المكان الذي يتم فيه فتح نافذة "اختر وضع التعلم"
-    // (غالباً عند الضغط على زر "ابدأ" بعد اختيار الموضوع من القائمة)
-    // وأضف هذا السطر داخله:
-    // prepareLearnButtons(currentSelectValue);
-    
-    // مثال لربط سريع (إذا كان لديك زر اسمه start-learn-btn):
-    const startBtn = document.getElementById('start-learn-btn'); // عدّل الـ ID حسب ملف الـ HTML
-    if(startBtn) {
-        startBtn.addEventListener('click', () => {
-            // افترضنا أن لديك متغير يحمل القيمة المختارة اسمه currentLearnTopic
-            // أو قم بجلب القيمة من القائمة المنسدلة مباشرة
-            const dropdown = document.getElementById('topic-select'); // عدّل الـ ID
-            const topic = dropdown ? dropdown.value : "";
-            
-            if(topic) {
-                prepareLearnButtons(topic);
-                // ثم افتح النافذة
-                document.getElementById('learn-mode-modal').classList.remove('hidden');
-            } else {
-                if(window.toast) window.toast("الرجاء اختيار موضوع أولاً", "warning");
-            }
-        });
-    }
-});
-// ==========================================
-// ✅ إصلاح نهائي لزر التعلم (التحقق من الاختيار + توفر الملفات)
-// استبدل الكود السابق في نهاية الملف بهذا الكود
-// ==========================================
-(function() {
-    const fixLearnButton = () => {
-        const btn = document.getElementById('ai-learn-btn');
-        if (!btn) return;
-
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-
-        newBtn.onclick = (e) => {
-            e.preventDefault();
-            
-            const catSelect = document.getElementById('category-select');
-            const topicSelect = document.getElementById('topic-select');
-            
-            const catVal = catSelect ? catSelect.value : "";
-            const topicVal = topicSelect ? topicSelect.value : "";
-            
-            // 1. التحقق من أن المستخدم اختار موضوعاً
-            const isInvalid = (!catVal || catVal === "random" || catVal === "" || catVal === "اختر القسم الرئيسي");
-
-            if (isInvalid) {
-                try { toast("حدد القسم والموضوع اولا", "warning"); } catch(e) { alert("حدد القسم والموضوع اولا"); }
-                return;
-            }
-
-            const topic = topicVal || catVal;
-
-            // 2. التحقق من وجود ملفات لهذا الموضوع (الخطوة الثانية المطلوبة)
-            // نستخدم دالة findContentId الموجودة في الملف للتأكد
-            const hasAudio = findContentId(topic, audioLibrary);
-            const hasPdf = findContentId(topic, pdfLibrary);
-
-            if (!hasAudio && !hasPdf) {
-                // إذا لم يوجد صوت ولا كتاب
-                try { toast("سيتم ادراج الملفات قريبا", "info"); } catch(e) { alert("سيتم ادراج الملفات قريبا"); }
-                return; // توقف ولا تفتح النافذة
-            }
-
-            // إذا وجدنا ملفات، نجهز الأزرار ونفتح النافذة
-            if (typeof prepareLearnButtons === 'function') {
-                prepareLearnButtons(topic);
-            }
-
-            const modal = document.getElementById('learn-mode-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                setTimeout(() => modal.classList.add('active'), 10);
-            }
+    // 3. ربط أزرار إغلاق النوافذ الجديدة (إن وجدت)
+    const closeLearnModalBtn = document.getElementById('close-learn-modal');
+    if(closeLearnModalBtn) {
+        closeLearnModalBtn.onclick = () => {
+            document.getElementById('learn-mode-modal').classList.add('hidden');
         };
-
-        console.log("✅ زر التعلم: تم تفعيل التحقق من الملفات");
-    };
-
-    if (document.readyState === 'complete') {
-        fixLearnButton();
-    } else {
-        window.addEventListener('load', fixLearnButton);
     }
-})();
-
-
-// ==========================================
-// ✅ الحل الجذري والنهائي لزر التعلم (نسخة موحدة)
-// ==========================================
-window.addEventListener('load', function() {
-    const btn = document.getElementById('ai-learn-btn');
-    if (!btn) return;
-
-    // 1. استنساخ الزر لمسح أي أحداث قديمة عالقة (Reset)
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-
-    // 2. إضافة الحدث الجديد
-    newBtn.onclick = (e) => {
-        e.preventDefault();
-        
-        // جلب الاختيارات من القائمة
-        const catSelect = document.getElementById('category-select');
-        const topicSelect = document.getElementById('topic-select');
-        
-        const catVal = catSelect ? catSelect.value : "";
-        const topicVal = topicSelect ? topicSelect.value : "";
-        
-        // التحقق من أن المستخدم اختار موضوعاً
-        if (!catVal || catVal === "random" || catVal === "" || catVal === "اختر القسم الرئيسي") {
-             if(window.toast) window.toast("الرجاء اختيار القسم والموضوع أولاً ⚠️", "warning");
-             return;
-        }
-
-        const topic = topicVal || catVal;
-
-        // 3. البحث عن المعرفات في المكتبات
-        const audioId = findContentId(topic, audioLibrary); 
-        const pdfId = findContentId(topic, pdfLibrary);
-
-        // 4. دالة التحقق الصارم (Strict Check)
-        // تعتبر النص الفارغ "" والصفر 0 كأنهما "غير موجود"
-        const isRealContent = (id) => {
-            if (id === null || id === undefined) return false;
-            if (typeof id === 'string' && id.trim() === '') return false;
-            if (id === 0) return false;
-            return true;
-        };
-
-        const hasAudio = isRealContent(audioId);
-        const hasPdf = isRealContent(pdfId);
-
-        // 5. الشرط: إذا لم يوجد محتوى حقيقي في الاثنين
-        if (!hasAudio && !hasPdf) {
-            if(window.toast) {
-                window.toast("عذراً، المحتوى غير متوفر لهذا العنوان حالياً. سيتم إضافته قريباً! ⏳", "info");
-            } else {
-                alert("عذراً، المحتوى غير متوفر لهذا العنوان حالياً. سيتم إضافته قريباً!");
-            }
-            return; // ⛔ توقف هنا - لا تفتح النافذة
-        }
-
-        // 6. إذا وجدنا محتوى، نجهز الأزرار الداخلية ونفتح النافذة
-        if (typeof prepareLearnButtons === 'function') {
-            prepareLearnButtons(topic);
-        }
-
-        const modal = document.getElementById('learn-mode-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.add('active'), 10);
-        }
-    };
-    
-    console.log("✅ تم تفعيل زر التعلم بنظام التحقق الصارم (Single Block)");
 });
