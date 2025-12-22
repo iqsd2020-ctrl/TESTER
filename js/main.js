@@ -411,7 +411,7 @@ class SmartPdfViewer {
 
             let msg = "حدث خطأ أثناء تحميل الكتاب";
             if (error.name === 'MissingPDFException' || error.status === 404) {
-                msg = "ملف الكتاب غير موجود على السيرفر (404)";
+                msg = "الملف قيد التجهيز سيتم رفعه قريبا";
             } else if (error.name === 'InvalidPDFException') {
                 msg = "ملف الكتاب تالف أو غير صالح";
             }
@@ -1745,7 +1745,7 @@ bind('ai-generate-btn', 'click', async () => {
     
     // تغيير النص حسب حالة الاتصال
     if (navigator.onLine) {
-        btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التجهيز والتحميل...`;
+        btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> تجهيز...`;
     } else {
         btn.innerHTML = `<span class="material-symbols-rounded animate-spin">wifi_off</span> جاري البحث محلياً...`;
     }
