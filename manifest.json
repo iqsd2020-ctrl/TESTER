@@ -1,6 +1,6 @@
 {
-  "name": TEst",
-  "short_name": "من",
+  "name": "test",
+  "short_name": "test",
   "id": "/",
   "start_url": ".",
   "display": "fullscreen",
