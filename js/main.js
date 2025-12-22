@@ -107,13 +107,16 @@ class SmartAudioPlayer {
         this._bindControlEvents();
     }
 
-      playTrack(id, title) {
+    playTrack(id, title) {
         if (!id) {
             if(window.toast) window.toast("لا يوجد ملف صوتي لهذا العنوان", "error");
             return;
         }
 
         this.currentId = id;
+        this.accumulatedTime = 0; 
+        this.lastTime = 0; 
+        
         const src = `${AUDIO_BASE_URL}${id}.mp3`;
         
         console.log(`🎵 جاري تحميل الصوت: ${src}`);
@@ -123,10 +126,9 @@ class SmartAudioPlayer {
         
         if(this.elements.title) this.elements.title.textContent = title;
         
-        // ✅ التعديل: إضافة active لتصبح النافذة مرئية
         if(this.elements.modal) {
             this.elements.modal.classList.remove('hidden');
-            this.elements.modal.classList.add('active'); // <-- هذا السطر كان مفقوداً
+            this.elements.modal.classList.add('active'); 
             this.elements.modal.style.display = 'flex';
         }
 
@@ -168,9 +170,55 @@ class SmartAudioPlayer {
     }
 
     _bindAudioEvents() {
-        // 1. تحديث شريط التقدم والوقت
         this.audio.addEventListener('timeupdate', () => {
             if (isNaN(this.audio.duration)) return;
+
+            const currentTime = this.audio.currentTime;
+            
+            if (this.lastTime !== undefined) {
+                const diff = currentTime - this.lastTime;
+                if (diff > 0 && diff < 1.5) {
+                    this.accumulatedTime = (this.accumulatedTime || 0) + diff;
+                }
+            }
+            this.lastTime = currentTime;
+
+            if (this.accumulatedTime >= 60) {
+                this.accumulatedTime -= 60;
+                
+                if (effectiveUserId) {
+                    const pointsToAdd = 10;
+                    
+                    const wKey = getCurrentWeekKey();
+                    let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
+                    if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
+                    wStats.correct += pointsToAdd;
+
+                    const mKey = getCurrentMonthKey();
+                    let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
+                    if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
+                    mStats.correct += pointsToAdd;
+
+                    updateDoc(doc(db, "users", effectiveUserId), {
+                        highScore: increment(pointsToAdd),
+                        "stats.totalListenTime": increment(60),
+                        "stats.totalCorrect": increment(pointsToAdd),
+                        weeklyStats: wStats,
+                        monthlyStats: mStats
+                    }).catch(console.error);
+
+                    userProfile.highScore = (userProfile.highScore || 0) + pointsToAdd;
+                    userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + pointsToAdd;
+                    userProfile.weeklyStats = wStats;
+                    userProfile.monthlyStats = mStats;
+
+                    if (typeof updateProfileUI === 'function') updateProfileUI();
+                    
+                    if(window.toast) window.toast(`✨ أحسنت! كسبت ${pointsToAdd} نقاط (استماع دقيقة)`, "success");
+                    if(window.playSound) window.playSound('monetization_on');
+                }
+            }
+
             const percent = (this.audio.currentTime / this.audio.duration) * 100;
             if(this.elements.progressFill) this.elements.progressFill.style.width = `${percent}%`;
             
@@ -181,40 +229,21 @@ class SmartAudioPlayer {
                 this.elements.duration.textContent = this._formatTime(this.audio.duration);
         });
 
-        // 2. عند انتهاء المقطع
         this.audio.addEventListener('ended', () => {
             this.isPlaying = false;
             this._updatePlayIcon();
             if(window.toast) window.toast("انتهى المقطع الصوتي", "success");
         });
         
-        // 3. عند تحميل البيانات الأولية (لمعرفة المدة)
         this.audio.addEventListener('loadedmetadata', () => {
              if(this.elements.duration)
                 this.elements.duration.textContent = this._formatTime(this.audio.duration);
         });
 
-        // 🔥 4. (الجديد) معالجة أخطاء التحميل (مثل 404)
         this.audio.addEventListener('error', (e) => {
             console.error("❌ Audio Error:", this.audio.error);
-            
-            let msg = "حدث خطأ أثناء تشغيل الملف الصوتي";
-            const errCode = this.audio.error ? this.audio.error.code : 0;
-
-            // كود 4 يعني عادةً أن المصدر غير مدعوم أو غير موجود (404)
-            if (errCode === 4) { 
-                 msg = "عذراً، الملف الصوتي غير موجود على السيرفر (404)";
-            } else if (errCode === 3) { // MEDIA_ERR_DECODE
-                 msg = "ملف الصوت تالف أو تنسيقه غير مدعوم";
-            } else if (errCode === 2) { // MEDIA_ERR_NETWORK
-                 msg = "فشل التحميل بسبب مشكلة في الشبكة";
-            }
-
-            // إغلاق المشغل فوراً لإخفاء النافذة المعلقة
             this.close();
-
-            // عرض رسالة الخطأ للمستخدم
-            if(window.toast) window.toast(msg, "error");
+            if(window.toast) window.toast("تعذر تشغيل الملف الصوتي", "error");
         });
     }
 
@@ -339,10 +368,9 @@ class SmartPdfViewer {
     }
 
     async loadDocument(id, title) {
-        // 1. التحقق الصارم من المعرف قبل البدء
         if (!id || typeof id !== 'string' || id.trim() === '') {
             console.warn("⚠️ محاولة فتح كتاب بمعرف غير صالح:", id);
-            if(window.toast) window.toast("عذراً، ملف الكتاب غير متوفر حالياً لهذا الموضوع", "error");
+            toast("عذراً، ملف الكتاب غير متوفر حالياً لهذا الموضوع", "error");
             return;
         }
 
@@ -351,11 +379,10 @@ class SmartPdfViewer {
         this.stopAutoScroll();
         this.resetZoom();
 
-        // إظهار النافذة
         if (this.elements.modal) {
             this.elements.modal.classList.remove('hidden');
             this.elements.modal.classList.add('active');
-            this.elements.modal.style.display = 'flex'; // تأكيد الظهور
+            this.elements.modal.style.display = 'flex';
         }
         
         if(this.elements.loading) this.elements.loading.classList.remove('hidden');
@@ -364,11 +391,9 @@ class SmartPdfViewer {
         this._toggleFinishButton(false);
 
         try {
-            // تجهيز الرابط
             const url = `${PDF_BASE_URL}${id}.pdf`;
             console.log(`📄 جاري تحميل الكتاب: ${url}`);
 
-            // استخدام try/catch للتعامل مع أخطاء الشبكة (404)
             const loadingTask = pdfjsLib.getDocument(url);
             
             this.pdfDoc = await loadingTask.promise;
@@ -382,10 +407,8 @@ class SmartPdfViewer {
         } catch (error) {
             console.error('❌ فشل تحميل ملف PDF:', error);
             
-            // إغلاق النافذة تلقائياً عند الخطأ
             this.close();
 
-            // رسالة واضحة للمستخدم
             let msg = "حدث خطأ أثناء تحميل الكتاب";
             if (error.name === 'MissingPDFException' || error.status === 404) {
                 msg = "ملف الكتاب غير موجود على السيرفر (404)";
@@ -393,8 +416,7 @@ class SmartPdfViewer {
                 msg = "ملف الكتاب تالف أو غير صالح";
             }
             
-            if(window.toast) window.toast(msg, "error");
-            else alert(msg);
+            toast(msg, "error");
         }
     }
 
@@ -5294,33 +5316,25 @@ function checkContentAvailability(topicName) {
     return null;
 }
 
-/**
- * 2. معالج النقر على زر "ابدأ التعلم" (نسخة مصححة)
- */
 function handleLearnClick(e) {
     e.preventDefault();
     
-    // أ. جلب القيم من القوائم
     const categorySelect = document.getElementById('category-select');
     const topicSelect = document.getElementById('topic-select');
     
     const category = categorySelect ? categorySelect.value : "";
     const topicVal = topicSelect ? topicSelect.value : "";
     
-    // ✅ التصحيح: إذا اختار قسماً ولم يختر موضوعاً، نعتبره خطأ
-    // (إلا إذا كان القسم يحتوي على موضوع واحد فقط وهذا نادر، لذا نطلب التحديد)
     if (!category || category === 'random' || !topicVal) {
-        if(window.toast) window.toast("⚠️ يرجى اختيار موضوع محدد للتعلم (وليس القسم فقط)", "error");
+        toast("اختر القسم والموضوع اولا", "error");
         return;
     }
 
-    const finalTopic = topicVal; // نعتمد الموضوع الفرعي حصراً
+    const finalTopic = topicVal; 
 
-    // ج. التحقق من توفر المحتوى
     const content = checkContentAvailability(finalTopic);
 
     if (content) {
-        // فحص وجود النافذة في HTML
         const modal = document.getElementById('learn-mode-modal');
         if (!modal) {
             console.error("❌ خطأ: نافذة التعلم (ID: learn-mode-modal) غير موجودة في HTML");
@@ -5329,7 +5343,7 @@ function handleLearnClick(e) {
         
         openLearnModal(finalTopic, content.audioId, content.pdfId);
     } else {
-        if(window.toast) window.toast(`عذراً، محتوى "التعلم" لهذا الموضوع قيد التجهيز ⏳`, "info");
+        toast(`عذراً، محتوى "التعلم" لهذا الموضوع قيد التجهيز ⏳`, "info");
     }
 }
 
@@ -5391,43 +5405,57 @@ function openLearnModal(topic, audioId, pdfId) {
     modal.style.display = 'flex';
 }
 
-
-/**
- * 4. دالة استلام مكافأة الكتاب (Firebase Logic)
- */
 async function handlePdfReward() {
     const btn = document.getElementById('pdf-finish-btn');
     if (!btn || btn.disabled) return;
 
     btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري التحقق...`;
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري الاحتساب...`;
 
     try {
         if (!effectiveUserId) {
-            if(window.toast) window.toast("يجب تسجيل الدخول لاستلام النقاط", "warning");
+            if(window.toast) window.toast("يجب تسجيل الدخول لاحتساب النقاط", "warning");
             btn.disabled = false;
             btn.innerHTML = "استلام المكافأة";
             return;
         }
 
-        // إضافة النقاط
+        const pointsToAdd = 5;
+
+        const wKey = getCurrentWeekKey();
+        let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
+        if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
+        wStats.correct += pointsToAdd;
+
+        const mKey = getCurrentMonthKey();
+        let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
+        if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
+        mStats.correct += pointsToAdd;
+
         await updateDoc(doc(db, "users", effectiveUserId), {
-            highScore: increment(10),
-            "stats.totalReadings": increment(1)
+            highScore: increment(pointsToAdd),
+            "stats.totalReadings": increment(1),
+            "stats.totalCorrect": increment(pointsToAdd),
+            weeklyStats: wStats,
+            monthlyStats: mStats
         });
 
-        // تحديث الرصيد محلياً وتحديث الواجهة
-        userProfile.highScore = (userProfile.highScore || 0) + 10;
-        updateProfileUI();
+        userProfile.highScore = (userProfile.highScore || 0) + pointsToAdd;
+        userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + pointsToAdd;
+        userProfile.weeklyStats = wStats;
+        userProfile.monthlyStats = mStats;
+
+        if (typeof updateProfileUI === 'function') updateProfileUI();
 
         if(window.playSound) window.playSound('win');
-        if(window.toast) window.toast("🎉 أحسنت! تمت إضافة 10 نقاط لرصيدك", "success");
+        if(window.toast) window.toast(`🎉 ممتاز! أضيفت ${pointsToAdd} نقاط لرصيدك`, "success");
 
-        // إغلاق النافذة
+        btn.innerHTML = `<span>تم الاستلام</span><span class="material-symbols-rounded">check_circle</span>`;
+        
         setTimeout(() => {
             if(pdfViewer) pdfViewer.close();
-            btn.disabled = false;
-            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">check_circle</span>`;
+            btn.disabled = false; 
+            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">card_giftcard</span>`;
         }, 1500);
 
     } catch (error) {
