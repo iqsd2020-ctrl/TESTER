@@ -1073,16 +1073,18 @@ function renderQuestList() {
     });
 
     // التحكم في ظهور الجائزة الكبرى (كما هو سابقاً)
+        // التحكم في ظهور الجائزة الكبرى (كما هو سابقاً)
     const grandPrizeArea = document.getElementById('grand-prize-area');
     if (grandPrizeArea) {
         if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) {
-            grandPrizeArea.classList.remove('quest-hidden');
+            grandPrizeArea.classList.remove('hidden'); // ✅ تصحيح: إزالة كلاس الإخفاء الفعلي
             const gpBtn = document.getElementById('claim-grand-prize-btn');
             if(gpBtn) gpBtn.onclick = window.claimGrandPrize;
         } else {
-            grandPrizeArea.classList.add('quest-hidden');
+            grandPrizeArea.classList.add('hidden'); // ✅ تصحيح
         }
     }
+
 }
 
 // --- تفعيل الأزرار (Event Listeners) ---
@@ -1160,34 +1162,67 @@ async function claimGrandPrize() {
         return;
     }
 
-    // 2. محتويات الجائزة الكبرى
-    const BONUS_SCORE = 1000;
-    const BONUS_LIVES = 3;
-    const BONUS_HINT = 1;
+    // 2. محتويات الجائزة (تم التعديل حسب طلبك)
+    const BONUS_CORRECT = 100; // إضافة 100 إجابة صحيحة
+    const BONUS_LIVES = 3;     // جوائز إضافية (قلوب)
+    const BONUS_HINT = 5;      // جوائز إضافية (تلميح)
 
-    // 3. التحديث المحلي
+    // 3. تجهيز الإحصائيات الأسبوعية والشهرية (لضمان ظهور الزيادة في المتصدرين)
+    const wKey = getCurrentWeekKey();
+    let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
+    if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
+    wStats.correct += BONUS_CORRECT;
+
+    const mKey = getCurrentMonthKey();
+    let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
+    if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
+    mStats.correct += BONUS_CORRECT;
+
+    // 4. التحديث المحلي
     userProfile.dailyQuests.grandPrizeClaimed = true;
-    userProfile.highScore += BONUS_SCORE;
+    
+    // تحديث عدادات الإجابات الصحيحة محلياً
+    userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + BONUS_CORRECT;
+    userProfile.weeklyStats = wStats;
+    userProfile.monthlyStats = mStats;
+
+    // تحديث المخزون
     userProfile.inventory.lives += BONUS_LIVES;
     userProfile.inventory.helpers.hint += BONUS_HINT;
 
-    // 4. الحفظ في السيرفر
+    // 5. الحفظ في السيرفر
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             "dailyQuests.grandPrizeClaimed": true,
-            highScore: userProfile.highScore,
+            
+            // إضافة 100 للعدد الكلي للإجابات الصحيحة
+            "stats.totalCorrect": increment(BONUS_CORRECT),
+            
+            // تحديث إحصائيات الأسبوع والشهر (للمتصدرين)
+            weeklyStats: wStats,
+            monthlyStats: mStats,
+
+            // تحديث المخزون
             "inventory.lives": userProfile.inventory.lives,
             "inventory.helpers.hint": userProfile.inventory.helpers.hint
         });
 
-        // 5. الاحتفال
+        // 6. الاحتفال
         launchConfetti(); // قصاصات ورقية
         playSound('applause'); // تصفيق
         
-        // عرض نافذة الجائزة (نستخدم نافذة المكافآت الموجودة)
-        // أو رسالة Toast مفصلة
-        toast(`🎁 مبروك! حصلت على ${BONUS_SCORE} نقطة و ${BONUS_LIVES} قلوب وتلميح!`, "success");
-        addLocalNotification('إنجاز يومي 🌟', 'تم استلام الجائزة الكبرى للمهام اليومية', 'military_tech');
+        // 6. الاحتفال ورسالة التفاصيل الكاملة
+        launchConfetti(); // قصاصات ورقية
+        playSound('applause'); // تصفيق
+        
+        // نص الرسالة المفصل
+        const rewardDetails = `تم إضافة: ${BONUS_CORRECT} إجابة صحيحة، ${BONUS_LIVES} قلوب، و ${BONUS_HINT} تلميح لرصيدك!`;
+
+        // عرض رسالة منبثقة بالتفاصيل
+        toast(` ${rewardDetails}`, "success");
+        
+        // حفظ إشعار محلي بالتفاصيل
+        addLocalNotification('إنجاز يومي مكتمل ', rewardDetails, 'military_tech');
 
         renderQuestList();
         updateProfileUI();
@@ -1195,7 +1230,9 @@ async function claimGrandPrize() {
     } catch (e) {
         console.error("Grand Prize Error", e);
         toast("خطأ في استلام الجائزة", "error");
+        // تراجع في حال الخطأ
         userProfile.dailyQuests.grandPrizeClaimed = false;
+        userProfile.stats.totalCorrect -= BONUS_CORRECT;
     }
 }
 
@@ -5086,3 +5123,132 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toast=function(msg,type='info'){const tpl=document.getElementById('toast-template');if(!tpl){const f=document.createElement('div');f.className='fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded z-50';f.textContent=msg;document.body.appendChild(f);setTimeout(()=>f.remove(),3000);return}const clone=tpl.content.cloneNode(true);const el=clone.querySelector('.toast-box');const icon=clone.querySelector('.toast-icon');const iBox=clone.querySelector('.toast-icon-box');clone.querySelector('.toast-msg').textContent=msg;if(type==='success'){el.classList.add('bg-green-900/90','border-green-500/30');iBox.classList.add('bg-green-500/20');icon.classList.add('text-green-400');icon.textContent='check_circle'}else if(type==='error'){el.classList.add('bg-red-900/90','border-red-500/30');iBox.classList.add('bg-red-500/20');icon.classList.add('text-red-400');icon.textContent='warning'}else if(type==='gold'){el.classList.add('bg-amber-900/90','border-amber-500/30');iBox.classList.add('bg-amber-500/20');icon.classList.add('text-amber-400');icon.textContent='military_tech'}else{el.classList.add('bg-slate-800/90','border-slate-600/30');icon.textContent='info'}document.body.appendChild(el);requestAnimationFrame(()=>{el.classList.remove('translate-y-[-150%]','opacity-0');el.classList.add('translate-y-0','opacity-100')});setTimeout(()=>{el.classList.remove('translate-y-0','opacity-100');el.classList.add('translate-y-[-150%]','opacity-0');setTimeout(()=>el.remove(),500)},3000)};
 function renderPdfLibrary(){const c=document.getElementById('pdf-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('book-item-template');pdfLibrary.forEach(b=>{const clone=tpl.content.cloneNode(true);const root=clone.querySelector('.book-card');const img=clone.querySelector('.book-img');const title=clone.querySelector('.book-title');img.src=b.cover;title.textContent=b.title;root.onclick=()=>{if(window.openPdfViewer)window.openPdfViewer(b.url,b.title);else window.open(b.url,'_blank')};c.appendChild(clone)})}
 function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
+
+// =========================================================================
+// 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (يعمل في القائمة واللعب)
+// =========================================================================
+
+window.CHEAT_MANAGER = {
+    clicks: 0,
+    timer: null,
+    
+    // دالة مساعدة لربط المستمع بأي عنصر
+    attachListener: function(elementId) {
+        const btn = document.getElementById(elementId);
+        if (!btn) return;
+
+        btn.addEventListener('click', (e) => {
+            // منع أي تفاعل افتراضي إذا لزم الأمر (مثل فتح القوائم)
+            // e.stopPropagation(); 
+            
+            this.clicks++;
+            
+            if (this.timer) clearTimeout(this.timer);
+            this.timer = setTimeout(() => { this.clicks = 0; }, 1000); 
+
+            // الشرط: 7 نقرات متتالية
+            if (this.clicks === 7) { 
+                this.showPanel();
+                this.clicks = 0;
+            }
+        });
+    },
+
+    // 1. كود التهيئة: يراقب زر الإشعارات (للقائمة) وعداد النقاط (للعبة)
+    init: function() {
+        // الربط بزر الإشعارات (يعمل في الشاشة الرئيسية)
+        this.attachListener('notif-btn');
+
+        // الربط بعداد النقاط في شاشة اللعب (يعمل أثناء اللعب)
+        this.attachListener('live-score-text');
+    },
+
+    // 2. إظهار اللوحة
+    showPanel: function() {
+        if (document.getElementById('dev-cheat-panel')) return;
+
+        const div = document.createElement('div');
+        div.id = 'dev-cheat-panel';
+        div.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.95); border: 2px solid #ef4444; border-radius: 15px;
+            padding: 20px; z-index: 10000; width: 300px; text-align: center;
+            box-shadow: 0 0 50px rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px);
+        `;
+        
+        div.innerHTML = `
+            <h3 class="text-red-500 font-bold text-xl mb-4">😈 لوحة الأسرار</h3>
+            <div class="flex flex-col gap-2">
+                <button onclick="window.CHEAT_MANAGER.revealAnswer()" class="p-2 bg-slate-800 border border-slate-600 rounded text-amber-400 hover:bg-slate-700 transition">👁️ كشف الإجابة</button>
+                <button onclick="window.CHEAT_MANAGER.resetMarathon()" class="p-2 bg-slate-800 border border-slate-600 rounded text-blue-400 hover:bg-slate-700 transition">⏱️ تصفير الماراثون</button>
+                <button onclick="window.CHEAT_MANAGER.resetDailyQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-green-400 hover:bg-slate-700 transition">📅 تصفير المهام اليومية</button>
+                <button onclick="window.CHEAT_MANAGER.completeAllQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-purple-400 hover:bg-slate-700 transition">✅ إكمال كل المهام</button>
+                <button onclick="document.getElementById('dev-cheat-panel').remove()" class="mt-4 text-sm text-slate-500 hover:text-white border-t border-slate-700 pt-2 w-full">إغلاق</button>
+            </div>
+        `;
+        document.body.appendChild(div);
+        if (typeof playSound === 'function') playSound('win');
+    },
+
+    // --- الوظائف ---
+
+    revealAnswer: function() {
+        // التحقق من أننا داخل اللعبة
+        if (typeof quizState === 'undefined' || !quizState.active) {
+            toast("يجب أن تكون داخل سؤال لتكشف الإجابة!", "error");
+            return;
+        }
+        const q = quizState.questions[quizState.idx];
+        const btns = document.querySelectorAll('.option-btn');
+        
+        if (btns[q.correctAnswer]) {
+            const btn = btns[q.correctAnswer];
+            btn.style.border = "2px solid #ef4444";
+            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
+            btn.classList.add('animate-pulse');
+            
+            // إغلاق اللوحة تلقائياً لتتمكن من رؤية الإجابة بوضوح
+            const panel = document.getElementById('dev-cheat-panel');
+            if(panel) panel.remove();
+            
+            toast("👁️ تم كشف الإجابة", "success");
+        }
+    },
+
+    resetMarathon: async function() {
+        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
+        try {
+            await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
+            if(typeof userProfile !== 'undefined') userProfile.lastMarathonDate = null;
+            if(typeof checkMarathonStatus === 'function') checkMarathonStatus();
+            toast("🔓 تم تصفير وقت الماراثون!", "success");
+        } catch(e) { console.error(e); toast("فشل التصفير", "error"); }
+    },
+
+    resetDailyQuests: async function() {
+        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
+        try {
+            const oldDate = "2000-01-01";
+            if(typeof userProfile !== 'undefined') userProfile.dailyQuests.date = oldDate; 
+            await updateDoc(doc(db, "users", effectiveUserId), { "dailyQuests.date": oldDate });
+            if(typeof initDailyQuests === 'function') initDailyQuests();
+            if(typeof renderQuestList === 'function') renderQuestList();
+            if(typeof updateProfileUI === 'function') updateProfileUI();
+            toast("📅 تم تصفير المهام", "success");
+        } catch(e) { console.error(e); toast("فشل تصفير المهام", "error"); }
+    },
+
+    completeAllQuests: async function() {
+        if (typeof effectiveUserId === 'undefined' || !effectiveUserId || !userProfile.dailyQuests) return;
+        try {
+            userProfile.dailyQuests.tasks.forEach(t => { t.current = t.target; });
+            await updateDoc(doc(db, "users", effectiveUserId), { "dailyQuests.tasks": userProfile.dailyQuests.tasks });
+            if(typeof renderQuestList === 'function') renderQuestList();
+            if(typeof updateProfileUI === 'function') updateProfileUI();
+            toast("✅ تم إكمال المهام!", "success");
+        } catch(e) { console.error(e); toast("فشل الإكمال", "error"); }
+    }
+};
+
+// تشغيل النظام
+document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
