@@ -1162,7 +1162,7 @@ async function claimGrandPrize() {
         return;
     }
 
-    // 2. محتويات الجائزة (تم التعديل حسب طلبك)
+    // 2. جائزة اكمال المهام اليومية
     const BONUS_CORRECT = 100; // إضافة 100 إجابة صحيحة
     const BONUS_LIVES = 3;     // جوائز إضافية (قلوب)
     const BONUS_HINT = 5;      // جوائز إضافية (تلميح)
@@ -1222,7 +1222,7 @@ async function claimGrandPrize() {
         toast(` ${rewardDetails}`, "success");
         
         // حفظ إشعار محلي بالتفاصيل
-        addLocalNotification('إنجاز يومي مكتمل ', rewardDetails, 'military_tech');
+        addLocalNotification('مكافئة اكمال المهام اليومية✨ ', rewardDetails, 'military_tech');
 
         renderQuestList();
         updateProfileUI();
