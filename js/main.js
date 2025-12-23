@@ -1007,65 +1007,78 @@ function renderQuestList() {
     const listContainer = document.getElementById('quest-list-container');
     if (!listContainer) return;
 
-    // تفريغ القائمة
     listContainer.innerHTML = '';
 
     // التحقق من وجود بيانات
     if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
 
+    const template = document.getElementById('quest-item-template');
     let allCompleted = true;
 
     userProfile.dailyQuests.tasks.forEach(task => {
         const isCompleted = task.current >= task.target;
         if (!isCompleted) allCompleted = false;
 
-        // حساب نسبة التقدم للشريط
-        const progressPercent = Math.min(100, (task.current / task.target) * 100);
-
-        // تحديد حالة الزر (نشط، غير نشط، أو تم الاستلام)
-        let actionBtnHTML = '';
+        // 1. استنساخ القالب
+        const clone = template.content.cloneNode(true);
         
-        if (task.claimed) {
-            // حالة 1: تم استلام الجائزة
-            actionBtnHTML = `
-                <button class="quest-claim-btn" style="background: #334155; cursor: default;" disabled>
-                    <span class="material-symbols-rounded" style="font-size:14px; vertical-align:middle;">check</span> تم الاستلام
-                </button>
-            `;
-        } else if (isCompleted) {
-            // حالة 2: المهمة اكتملت والجائزة جاهزة للاستلام
-            // لاحظ استخدام window.claimSingleReward هنا ضمنياً عبر onclick
-            actionBtnHTML = `
-                <button onclick="claimSingleReward(${task.id})" class="quest-claim-btn animate-bounce">
-                    استلام 100 نقطة
-                </button>
-            `;
-        } else {
-            // حالة 3: المهمة قيد التنفيذ
-            actionBtnHTML = `<span class="quest-progress-text">${task.current} / ${task.target}</span>`;
-        }
+        // 2. مسك العناصر
+        const descEl = clone.querySelector('.quest-desc');
+        const progressTextEl = clone.querySelector('.quest-progress-text');
+        const progressBar = clone.querySelector('.quest-progress-bar');
+        const actionContainer = clone.querySelector('.quest-action');
+        const iconEl = clone.querySelector('.quest-icon');
 
-        const taskHTML = `
-            <div class="quest-item">
-                <div class="quest-item-header">
-                    <span>${task.desc}</span>
-                    ${actionBtnHTML}
-                </div>
-                <div class="quest-progress-bg">
-                    <div class="quest-progress-fill" style="width: ${progressPercent}%"></div>
-                </div>
-            </div>
-        `;
-        listContainer.innerHTML += taskHTML;
+        // 3. تعبئة البيانات
+        descEl.textContent = task.desc;
+        progressTextEl.textContent = `${task.current} / ${task.target}`;
+        
+        // حساب النسبة المئوية للشريط
+        const percent = Math.min(100, (task.current / task.target) * 100);
+        progressBar.style.width = `${percent}%`;
+
+        // 4. تخصيص الأيقونة حسب نوع المهمة (اختياري لجمالية أكثر)
+        if(task.id === 1) iconEl.textContent = 'mosque'; // المعصومين
+        else if(task.id === 2) iconEl.textContent = 'lightbulb'; // المساعدات
+        else if(task.id === 3) iconEl.textContent = 'local_fire_department'; // الماراثون
+        else if(task.id === 4) iconEl.textContent = 'history_edu'; // المهدوية
+        else if(task.id === 5) iconEl.textContent = 'shopping_bag'; // المتجر
+
+        // 5. منطق الزر والحالة
+        if (task.claimed) {
+            // حالة: تم الاستلام
+            actionContainer.innerHTML = `
+                <span class="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
+                    <span class="material-symbols-rounded text-sm">check_circle</span> مكتمل
+                </span>`;
+            progressBar.className = "h-full bg-green-600 w-0"; // لون أخضر للمكتمل
+        } else if (isCompleted) {
+            // حالة: جاهز للاستلام (زر تفاعلي)
+            const btn = document.createElement('button');
+            btn.className = "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-900 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg animate-bounce flex items-center gap-1 transition-transform active:scale-95";
+            btn.innerHTML = `<span>استلام</span> <span class="material-symbols-rounded text-sm">redeem</span>`;
+            btn.onclick = () => claimSingleReward(task.id);
+            actionContainer.appendChild(btn);
+        } else {
+            // حالة: قيد التنفيذ
+            actionContainer.innerHTML = `<span class="text-[10px] text-slate-500 font-bold">قيد التقدم</span>`;
+            // جعل الشريط رمادياً أو باهتاً حتى يكتمل
+            progressBar.className = "h-full bg-slate-600 w-0"; 
+        }
+        
+        // تطبيق العرض بعد تعيين الكلاسات لضمان عمل الأنيميشن
+        requestAnimationFrame(() => { progressBar.style.width = `${percent}%`; });
+
+        listContainer.appendChild(clone);
     });
 
-    // التحكم في ظهور الجائزة الكبرى
+    // التحكم في ظهور الجائزة الكبرى (كما هو سابقاً)
     const grandPrizeArea = document.getElementById('grand-prize-area');
     if (grandPrizeArea) {
         if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) {
             grandPrizeArea.classList.remove('quest-hidden');
-            // تفعيل زر الجائزة الكبرى
-            document.getElementById('claim-grand-prize-btn').onclick = window.claimGrandPrize;
+            const gpBtn = document.getElementById('claim-grand-prize-btn');
+            if(gpBtn) gpBtn.onclick = window.claimGrandPrize;
         } else {
             grandPrizeArea.classList.add('quest-hidden');
         }
@@ -1553,74 +1566,7 @@ function initDropdowns() {
    
 }
 
-function renderSelectionItem(text, value, container) {
-    const div = document.createElement('div');
-    div.className = 'selection-item !flex-col !items-stretch !gap-1 !py-2'; 
-    
-    let progressHTML = '';
-    
-    if (currentSelectionMode === 'category' || currentSelectionMode === 'topic') {
-        let current = 0;
-        let max = 0;
-        
-        if (currentSelectionMode === 'topic') {
-            current = (userProfile.stats && userProfile.stats.topicCorrect && userProfile.stats.topicCorrect[text]) || 0;
-            // استخدام العدد الحقيقي من قاعدة البيانات
-            max = (dbTopicCounts && dbTopicCounts[text]) || 0;
-        } else if (currentSelectionMode === 'category' && value !== 'random') {
-            const subTopics = topicsData[text] || [];
-            let realCategoryTotal = 0;
-
-            subTopics.forEach(sub => {
-                // تجميع الأعداد الحقيقية للمواضيع الفرعية
-                const subCount = (dbTopicCounts && dbTopicCounts[sub]) || 0;
-                realCategoryTotal += subCount;
-
-                current += (userProfile.stats && userProfile.stats.topicCorrect && userProfile.stats.topicCorrect[sub]) || 0;
-            });
-            max = realCategoryTotal;
-        }
-
-        const percent = max > 0 ? Math.min(100, Math.floor((current / max) * 100)) : 0;
-        
-        let barColor = 'bg-amber-500';
-        if (percent >= 100) barColor = 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]'; 
-        else if (percent < 30) barColor = 'bg-slate-600';
-
-        const currentAr = formatNumberAr(current);
-        const maxAr = formatNumberAr(max);
-
-        if (value !== 'random' && max > 0) {
-            progressHTML = `
-                <div class="w-full mt-0.5 px-0.5">
-                    <div class="flex justify-between text-[9px] text-slate-400 mb-0.5 font-mono leading-none">
-                        <span class="opacity-70">المعرفة</span>
-                        <span class="${percent >= 100 ? 'text-green-400 font-bold' : 'text-amber-500'}" dir="ltr">${maxAr} / ${currentAr}</span>
-                    </div>
-                    <div class="h-1 w-full bg-slate-900/60 rounded-full overflow-hidden border border-slate-700/30">
-                        <div class="h-full ${barColor} transition-all duration-1000 relative" style="width: ${percent}%">
-                            ${percent >= 100 ? '<div class="absolute inset-0 bg-white/30 animate-pulse"></div>' : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    div.innerHTML = `
-        <div class="flex justify-between w-full items-center">
-            <div class="flex items-center gap-2">
-                <span class="text-base leading-tight">${text}</span>
-                ${progressHTML && progressHTML.includes('text-green-400') ? '<span class="material-symbols-rounded text-green-400 text-[10px]" title="مختوم">verified</span>' : ''}
-            </div>
-            <span class="material-symbols-rounded text-slate-500 text-sm">chevron_left</span> 
-        </div>
-        ${progressHTML}
-    `;
-    
-    div.onclick = () => handleSelection(text, value);
-    container.appendChild(div);
-}
+function renderSelectionItem(text,value,container){const tpl=document.getElementById('selection-item-template');const clone=tpl.content.cloneNode(true);const div=clone.querySelector('.selection-item');const txtEl=clone.querySelector('.item-text');const verIcon=clone.querySelector('.verified-icon');const progSec=clone.querySelector('.progress-section');const progTxt=clone.querySelector('.progress-text');const progBar=clone.querySelector('.progress-bar');const shine=clone.querySelector('.shine-effect');txtEl.textContent=text;div.onclick=()=>handleSelection(text,value);if(currentSelectionMode==='category'||currentSelectionMode==='topic'){let current=0,max=0;if(currentSelectionMode==='topic'){current=(userProfile.stats&&userProfile.stats.topicCorrect&&userProfile.stats.topicCorrect[text])||0;max=(dbTopicCounts&&dbTopicCounts[text])||0}else if(currentSelectionMode==='category'&&value!=='random'){const sub=topicsData[text]||[];let realTotal=0;sub.forEach(s=>{realTotal+=((dbTopicCounts&&dbTopicCounts[s])||0);current+=((userProfile.stats&&userProfile.stats.topicCorrect&&userProfile.stats.topicCorrect[s])||0)});max=realTotal}if(value!=='random'&&max>0){progSec.classList.remove('hidden');const pct=Math.min(100,Math.floor((current/max)*100));progTxt.textContent=`${formatNumberAr(max)} / ${formatNumberAr(current)}`;progBar.style.width=`${pct}%`;if(pct>=100){progBar.classList.remove('bg-amber-500');progBar.classList.add('bg-green-500','shadow-[0_0_5px_rgba(34,197,94,0.5)]');progTxt.classList.remove('text-amber-500');progTxt.classList.add('text-green-400','font-bold');verIcon.classList.remove('hidden');shine.classList.remove('hidden')}else if(pct<30){progBar.classList.remove('bg-amber-500');progBar.classList.add('bg-slate-600')}}}container.appendChild(clone)}
 
 function handleSelection(text, value) {
     const modal = document.getElementById('selection-modal');
@@ -2176,43 +2122,32 @@ function renderQuestion() {
         box.style.gap = '0';
         box.classList.add('space-y-1');
     }
+    // 1. جلب القالب من HTML
+    const template = document.getElementById('option-template');
+
     q.options.forEach((o, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        
-        // --- تعديل الشكل لوضع الماراثون (حجم أصغر) ---
+        const clone = template.content.cloneNode(true);
+        const btn = clone.querySelector('button');
+        const charEl = btn.querySelector('.option-char');
+        const textEl = btn.querySelector('.option-text');
+        charEl.textContent = formatNumberAr(i + 1);
+        textEl.textContent = o;
         if (quizState.mode === 'marathon') {
-            // 1. تقليل الارتفاع ليصبح أصغر (135px بدلاً من 160px)
+            // نلغي تنسيق القائمة ونحول الزر لنمط عمودي مضغوط
+            btn.classList.remove('flex', 'items-center', 'gap-4', 'text-right', 'p-3');
+            btn.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'text-center', 'p-2');
             btn.style.setProperty('height', '135px', 'important');      
             btn.style.setProperty('min-height', '135px', 'important');
-            btn.style.setProperty('max-height', '135px', 'important');
-            
-            // 2. كسر قفل الترتيب (فوق بعض)
-            btn.style.setProperty('flex-direction', 'column', 'important');
-            btn.style.setProperty('justify-content', 'center', 'important');
-            btn.style.setProperty('align-items', 'center', 'important');
-            
-            // 3. تقليل المسافة الفاصلة قليلاً لتوفير المساحة
-            btn.style.setProperty('gap', '8px', 'important'); 
-
-            // 4. تنسيقات النص
-            btn.style.textAlign = 'center';
-            btn.style.whiteSpace = 'normal'; 
-            btn.style.padding = '8px'; // تقليل الحشوة قليلاً
-            btn.style.lineHeight = '1.3';
-            btn.style.margin = '0';
-            
-            // تصغير الخط قليلاً جداً ليتناسب مع الحجم الجديد
-            btn.style.setProperty('font-size', '1.1em', 'important');
+            charEl.classList.remove('w-10', 'h-10');
+            charEl.classList.add('w-8', 'h-8', 'mb-2', 'text-sm'); // تصغير الرقم
+            textEl.classList.add('text-sm'); // تصغير الخط
         }
-
-        btn.innerHTML = `<span class="option-number">${formatNumberAr(i+1)}</span> ${o}`;
         btn.onclick = () => selectAnswer(i, btn);
-btn.classList.add('grid-pop');
-btn.style.animationDelay = `${i * 0.1}s`; 
-
-        box.appendChild(btn);
+        btn.classList.add('grid-pop');
+        btn.style.animationDelay = `${i * 0.1}s`; 
+        box.appendChild(clone);
     });
+    
     getEl('feedback-text').textContent = '';
     quizState.startTime = Date.now(); 
     startTimer();
@@ -2721,33 +2656,7 @@ async function endQuiz() {
 }
 
 
-function renderReviewArea() {
-    const box = getEl('review-items-container'); 
-    box.innerHTML = '';
-    show('review-area'); 
-    getEl('review-area').querySelector('h3').textContent = "مراجعة بعض أسئلة الجولة";
-    quizState.history.forEach((h, i) => {
-        const div = document.createElement('div');
-        const cardClass = h.isCorrect ? "bg-green-900/20 border-green-800" : "bg-red-900/20 border-red-800";
-        div.className = `text-sm p-3 rounded-lg border mb-3 ${cardClass}`;
-        const statusIcon = h.isCorrect 
-            ? '<span class="material-symbols-rounded text-green-400 align-middle">check_circle</span>' 
-            : '<span class="material-symbols-rounded text-red-500 align-middle">cancel</span>';
-        // التعديل: تعريب رقم السؤال (i+1)
-        div.innerHTML = `<p class="text-white font-bold mb-1">${statusIcon} ${formatNumberAr(i+1)}. ${h.q}</p>`;
-        h.options.forEach((o, idx) => {
-            let clr = "text-slate-400"; 
-            if (idx === h.correct) clr = "text-green-400 font-bold";
-            if (idx === h.user) {
-                if (h.isCorrect) clr = "text-green-300 font-bold underline"; 
-                else clr = "text-red-400 line-through"; 
-            }
-            div.innerHTML += `<span class="block ${clr} mr-2">- ${o}</span>`;
-        });
-        if (!h.isCorrect) div.innerHTML += `<p class="text-sm text-green-400 mt-2 pt-1 border-t border-red-800/50">الصحيح كان: ${h.options[h.correct]}</p>`;
-        box.appendChild(div);
-    });
-}
+function renderReviewArea(){const box=getEl('review-items-container');box.innerHTML='';show('review-area');getEl('review-area').querySelector('h3').textContent="مراجعة بعض أسئلة الجولة";const tpl=document.getElementById('review-card-template');quizState.history.forEach((h,i)=>{const clone=tpl.content.cloneNode(true);const div=clone.querySelector('.review-item');const qEl=clone.querySelector('.rev-q');const optsBox=clone.querySelector('.rev-opts');const ansEl=clone.querySelector('.rev-ans');div.classList.add(h.isCorrect?'bg-green-900/20':'bg-red-900/20',h.isCorrect?'border-green-800':'border-red-800');qEl.innerHTML=`<span class="material-symbols-rounded ${h.isCorrect?'text-green-400':'text-red-500'} align-middle text-lg">${h.isCorrect?'check_circle':'cancel'}</span> ${formatNumberAr(i+1)}. ${h.q}`;h.options.forEach((o,idx)=>{const sp=document.createElement('span');let cls='block mr-2 text-slate-400';if(idx===h.correct)cls='block mr-2 text-green-400 font-bold';if(idx===h.user)cls=h.isCorrect?'block mr-2 text-green-300 font-bold underline':'block mr-2 text-red-400 line-through';sp.className=cls;sp.textContent=`- ${o}`;optsBox.appendChild(sp)});if(!h.isCorrect){ansEl.textContent=`الصحيح كان: ${h.options[h.correct]}`;ansEl.classList.remove('hidden')}box.appendChild(clone)})}
 
 
 function updateHelpersUI() {
@@ -2941,100 +2850,7 @@ window.addEventListener('popstate', () => {
 bind('nav-home', 'click', () => { toggleMenu(false); navToHome(); });
 
 
-bind('nav-badges', 'click', () => {
-    openModal('badges-modal');
-    const container = getEl('badges-list');
-    
-    container.className = 'badges-list-container'; 
-    container.innerHTML = '';
-
-    const sortedBadges = sortBadgesSmartly();
-
-    sortedBadges.forEach(b => {
-        const progressData = getBadgeProgress(b);
-        const targetLvl = progressData.activeLevel;
-        
-        let iconColorClass = 'text-slate-600 opacity-50';
-        let glowClass = ''; 
-        let tierText = '';
-        let barColor = '#ef4444'; 
-
-        if (progressData.tier === 'bronze' || (progressData.percent > 0 && progressData.tier === 'locked')) {
-            iconColorClass = 'text-red-500 drop-shadow-sm';
-            tierText = 'مستوى برونزي';
-            barColor = '#ef4444';
-        } else if (progressData.tier === 'silver') {
-            iconColorClass = 'text-slate-100 drop-shadow-md'; 
-            glowClass = 'shadow-[0_0_10px_rgba(255,255,255,0.3)]';
-            tierText = 'مستوى فضي';
-            barColor = '#f8fafc';
-        } else if (progressData.tier === 'gold') {
-            iconColorClass = 'text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]';
-            tierText = 'مستوى ذهبي 👑';
-            barColor = '#fbbf24';
-        } else if (progressData.tier === 'diamond') {
-            iconColorClass = 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse';
-            tierText = 'مستوى ماسي 💎';
-            barColor = '#22d3ee';
-        } else if (progressData.tier === 'legendary') {
-            iconColorClass = 'text-red-600 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse-slow';
-            tierText = 'مستوى أسطوري 🔥';
-            barColor = '#ef4444';
-        }
-
-        let miniRewardHtml = '';
-        if (targetLvl.rewards && !progressData.isMaxed) {
-             let rewardsList = [];
-             if(targetLvl.rewards.score) rewardsList.push(`<span class="text-amber-400">${formatNumberAr(targetLvl.rewards.score)} <span class="material-symbols-rounded text-[9px]">monetization_on</span></span>`);
-             if(targetLvl.rewards.lives) rewardsList.push(`<span class="text-red-500">+${targetLvl.rewards.lives} <span class="material-symbols-rounded text-[9px]">favorite</span></span>`);
-             if(targetLvl.rewards.hint) rewardsList.push(`<span class="text-yellow-400">+${targetLvl.rewards.hint} <span class="material-symbols-rounded text-[9px]">lightbulb</span></span>`);
-             
-             miniRewardHtml = `<div class="flex gap-2 text-[9px] font-bold bg-black/20 px-2 py-0.5 rounded-full">${rewardsList.join('<span class="text-slate-600">|</span>')}</div>`;
-        } else if (progressData.isMaxed) {
-            miniRewardHtml = '<span class="text-[9px] text-green-400 font-bold">تم الختم</span>';
-        }
-
-        let cardClass = progressData.percent > 0 ? 'active-target' : 'locked';
-        if (progressData.isMaxed) cardClass = 'unlocked';
-        if (progressData.tier === 'diamond') cardClass += ' diamond';
-        if (progressData.tier === 'legendary') cardClass += ' legendary';
-
-        const div = document.createElement('div');
-        div.className = `badge-card ${cardClass} ${progressData.tier === 'gold' ? 'border-amber-500/50' : ''}`;
-        
-        div.innerHTML = `
-            <div class="flex flex-col items-center justify-center gap-1 ml-3 shrink-0" style="min-width: 60px;">
-                <div class="badge-icon-box ${iconColorClass} ${glowClass}">
-                    <img src="${b.image}" alt="${b.name}">
-                </div>
-            </div>
-
-            <div class="badge-info flex flex-col justify-center h-full w-full">
-                <div class="flex justify-between items-center mb-1">
-                    <div class="flex flex-col">
-                        <h4 class="font-bold text-white text-sm leading-tight">${b.name}</h4>
-                        <span class="text-[10px] ${iconColorClass} font-bold opacity-90">${tierText || 'غير مكتسب'}</span>
-                    </div>
-                    
-                    <div class="flex flex-col items-end gap-1">
-                        <div class="bg-slate-900/50 px-2 py-0.5 rounded text-[10px] border border-white/5 shrink-0">
-                            <span class="text-amber-400 font-bold" dir="ltr">${formatNumberAr(progressData.current)} / ${formatNumberAr(progressData.max)}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <p class="text-[10px] text-slate-400 mb-2 leading-tight opacity-80 pl-1">${b.desc}</p>
-                <div class="flex justify-between items-center mb-1">${miniRewardHtml || '<span></span>'}</div>
-                
-                <div class="badge-progress-track" style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
-                    <div class="badge-progress-fill" style="width: ${progressData.percent}%; background: ${barColor}; transition: width 1s;"></div>
-                </div>
-            </div>
-        `;
-
-        container.appendChild(div);
-    });
-});
+bind('nav-badges','click',()=>{openModal('badges-modal');const container=getEl('badges-list');container.className='badges-list-container';container.innerHTML='';const tpl=document.getElementById('badge-card-template');const sorted=sortBadgesSmartly();sorted.forEach(b=>{const p=getBadgeProgress(b);const clone=tpl.content.cloneNode(true);const card=clone.querySelector('.badge-card');const iconBox=clone.querySelector('.badge-icon-box');const img=clone.querySelector('.badge-img');const name=clone.querySelector('.badge-name');const tier=clone.querySelector('.badge-tier');const desc=clone.querySelector('.badge-desc');const progTxt=clone.querySelector('.badge-progress-text');const rewards=clone.querySelector('.badge-rewards');const bar=clone.querySelector('.badge-bar');let iconCls='text-slate-600 opacity-50',glow='',tTxt='',bCol='#ef4444';if(p.tier==='bronze'||(p.percent>0&&p.tier==='locked')){iconCls='text-red-500 drop-shadow-sm';tTxt='مستوى برونزي';bCol='#ef4444'}else if(p.tier==='silver'){iconCls='text-slate-100 drop-shadow-md';glow='shadow-[0_0_10px_rgba(255,255,255,0.3)]';tTxt='مستوى فضي';bCol='#f8fafc'}else if(p.tier==='gold'){iconCls='text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]';tTxt='مستوى ذهبي 👑';bCol='#fbbf24';card.classList.add('border-amber-500/50')}else if(p.tier==='diamond'){iconCls='text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse';tTxt='مستوى ماسي 💎';bCol='#22d3ee'}else if(p.tier==='legendary'){iconCls='text-red-600 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse-slow';tTxt='مستوى أسطوري 🔥';bCol='#ef4444'}let rewHtml='';if(p.activeLevel.rewards&&!p.isMaxed){let rList=[];if(p.activeLevel.rewards.score)rList.push(`<span class="text-amber-400">${formatNumberAr(p.activeLevel.rewards.score)} <span class="material-symbols-rounded text-[9px]">monetization_on</span></span>`);if(p.activeLevel.rewards.lives)rList.push(`<span class="text-red-500">+${p.activeLevel.rewards.lives} <span class="material-symbols-rounded text-[9px]">favorite</span></span>`);if(p.activeLevel.rewards.hint)rList.push(`<span class="text-yellow-400">+${p.activeLevel.rewards.hint} <span class="material-symbols-rounded text-[9px]">lightbulb</span></span>`);rewHtml=`<div class="flex gap-2 text-[9px] font-bold bg-black/20 px-2 py-0.5 rounded-full">${rList.join('<span class="text-slate-600">|</span>')}</div>`}else if(p.isMaxed){rewHtml='<span class="text-[9px] text-green-400 font-bold">تم الختم</span>'}img.src=b.image;name.textContent=b.name;tier.textContent=tTxt||'غير مكتسب';tier.className+=` ${iconCls}`;desc.textContent=b.desc;progTxt.textContent=`${formatNumberAr(p.current)} / ${formatNumberAr(p.max)}`;rewards.innerHTML=rewHtml;bar.style.width=`${p.percent}%`;bar.style.background=bCol;if(glow)iconBox.classList.add(glow);iconBox.className+=` ${iconCls}`;let cCls=p.percent>0?'active-target':'locked';if(p.isMaxed)cCls='unlocked';if(p.tier==='diamond')cCls+=' diamond';if(p.tier==='legendary')cCls+=' legendary';card.classList.add(...cCls.split(' '));container.appendChild(clone)})});
 
 // إلغاء المتغير القديم وتثبيت الوضع على الشهري
 let currentLeaderboardMode = 'monthly';
@@ -3094,251 +2910,97 @@ async function loadLeaderboard() {
 
 function renderLeaderboardList(docs, container, statusUpdates) {
     container.innerHTML = '';
+    
+    // 1. جلب القالب
+    const template = document.getElementById('leaderboard-row-template');
     let r = 1;
     
     docs.forEach(doc => {
         const data = doc.data();
         const userId = doc.id;
-        
         const correctCount = (data.monthlyStats && data.monthlyStats.correct) ? data.monthlyStats.correct : 0;
+
+        // 2. استنساخ القالب
+        const clone = template.content.cloneNode(true);
+        const row = clone.querySelector('.leaderboard-row');
         
-        let borderClass = 'border-slate-700'; 
-        let medalIcon = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
+        // ماسكات العناصر
+        const rankEl = clone.querySelector('.rank-icon');
+        const avatarBox = clone.querySelector('.player-avatar-container');
+        const nameEl = clone.querySelector('.player-name');
+        const scoreEl = clone.querySelector('.player-score');
+        const statusDot = clone.querySelector('.status-dot');
+        const statusText = clone.querySelector('.status-text');
+
+        // 3. تعبئة البيانات الأساسية
+        nameEl.textContent = data.username;
+        scoreEl.textContent = formatNumberAr(correctCount);
+
+        // ضبط حجم الخط للأسماء الطويلة
+        const nameLen = (data.username || "").length;
+        if (nameLen > 25) nameEl.classList.add('text-[10px]', 'leading-tight'); 
+        else if (nameLen > 18) nameEl.classList.add('text-xs'); 
+        else nameEl.classList.add('text-lg');
+
+        // 4. منطق الترتيب (الألوان والميداليات) - نستخدم كلاسات CSS بدلاً من كتابة الستايل يدوياً
+        // الوضع الافتراضي (عادي)
+        let borderClass = 'border-slate-700';
         let bgClass = 'bg-slate-800';
-        
+        let medalHtml = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
+
         if (r <= 3) {
+            // المميزون (الـ Top 3)
             borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
             bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
+            
+            if (r === 1) medalHtml = '<span class="material-symbols-rounded text-amber-400">emoji_events</span>'; 
+            else if (r === 2) medalHtml = '<span class="material-symbols-rounded text-slate-300">military_tech</span>';
+            else if (r === 3) medalHtml = '<span class="material-symbols-rounded text-orange-700">military_tech</span>';
         }
-        if (r === 1) medalIcon = '<span class="material-symbols-rounded text-amber-400 text-2xl drop-shadow-md">emoji_events</span>'; 
-        else if (r === 2) medalIcon = '<span class="material-symbols-rounded text-slate-300 text-2xl drop-shadow-md">military_tech</span>';
-        else if (r === 3) medalIcon = '<span class="material-symbols-rounded text-orange-700 text-2xl drop-shadow-md">military_tech</span>';
 
+        // تطبيق الكلاسات المحسوبة
+        row.className = `leaderboard-row flex justify-between items-center p-3 mb-3 rounded-xl border-2 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700 relative ${bgClass} ${borderClass}`;
+        rankEl.innerHTML = medalHtml;
+
+        // 5. الأفاتار (نستخدم الدالة المساعدة الموجودة مسبقاً لحقن HTML الصورة)
         const pFrame = data.equippedFrame || 'default';
-        const avatarHtml = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
-        
-        // --- منطق الحالة (تم التعديل لاستخدام Tailwind مباشرة) ---
-        let statusLine = '';
+        avatarBox.innerHTML = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
+
+        // 6. منطق الحالة (Online/Offline)
         const userStatus = statusUpdates[userId];
         const isOnline = userStatus && userStatus.state === 'online';
         
         if (isOnline) {
-            // ✅ متصل: نقطة خضراء (استخدام كلاسات Tailwind مباشرة لضمان الظهور)
-            statusLine = `
-                <div class="flex items-center gap-1.5 mt-1">
-                    <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse inline-block"></span>
-                    <span class="text-[10px] text-green-400 font-bold leading-none pt-0.5">نشط الآن</span>
-                </div>`;
+            statusDot.className = "status-dot w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse inline-block";
+            statusText.className = "status-text text-[9px] text-green-400 font-bold leading-none pt-0.5";
+            statusText.textContent = "نشط الآن";
         } else if (userStatus && userStatus.last_changed) {
-            // ⚪ غير متصل: نقطة رمادية
-            const lastSeenTimestamp = userStatus.last_changed;
-            const timeDiff = Date.now() - lastSeenTimestamp;
-            let timeAgo;
+            // حساب الوقت منذ آخر ظهور
+            const timeDiff = Date.now() - userStatus.last_changed;
+            let timeAgo = "منذ لحظات";
+            if (timeDiff > 86400000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 86400000))} يوم`;
+            else if (timeDiff > 3600000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 3600000))} ساعة`;
+            else if (timeDiff > 60000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 60000))} دقيقة`;
 
-            if (timeDiff < 60000) { 
-                timeAgo = `منذ لحظات`;
-            } else if (timeDiff < 3600000) { 
-                const minutes = Math.floor(timeDiff / 60000);
-                timeAgo = `منذ ${formatNumberAr(minutes)} دقيقة`;
-            } else if (timeDiff < 86400000) { 
-                const hours = Math.floor(timeDiff / 3600000);
-                timeAgo = `منذ ${formatNumberAr(hours)} ساعة`;
-            } else {
-                const days = Math.floor(timeDiff / 86400000);
-                timeAgo = `منذ ${formatNumberAr(days)} يوم`;
-            }
-            
-            statusLine = `
-                <div class="flex items-center gap-1.5 mt-1">
-                    <span class="w-2 h-2 rounded-full bg-slate-500 opacity-50 inline-block"></span>
-                    <span class="text-[9px] text-slate-500 opacity-80 leading-none pt-0.5">${timeAgo}</span>
-                </div>`;
+            statusDot.className = "status-dot w-2 h-2 rounded-full bg-slate-500 opacity-50 inline-block";
+            statusText.className = "status-text text-[9px] text-slate-500 opacity-80 leading-none pt-0.5";
+            statusText.textContent = timeAgo;
         } else {
-            // ⚫ لا توجد بيانات
-            statusLine = `
-                <div class="flex items-center gap-1.5 mt-1">
-                    <span class="w-2 h-2 rounded-full bg-slate-600 opacity-30 inline-block"></span>
-                    <span class="text-[9px] text-slate-600 opacity-50 leading-none pt-0.5">غير متاح</span>
-                </div>`;
+            statusDot.className = "status-dot w-2 h-2 rounded-full bg-slate-600 opacity-30 inline-block";
+            statusText.className = "status-text text-[9px] text-slate-600 opacity-50 leading-none pt-0.5";
+            statusText.textContent = "غير متاح";
         }
 
-        let fontSizeClass = 'text-lg';
-        const nameLen = (data.username || "").length;
-        if (nameLen > 25) fontSizeClass = 'text-[10px] leading-tight'; 
-        else if (nameLen > 18) fontSizeClass = 'text-xs'; 
-        else if (nameLen > 12) fontSizeClass = 'text-sm'; 
-
-        const row = document.createElement('div');
-        row.className = `flex justify-between items-center p-3 ${bgClass} rounded-xl border-2 ${borderClass} mb-3 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700 relative`;
-        
-        row.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="flex items-center justify-center min-w-[40px] shrink-0">${medalIcon}</div>
-                <div class="flex items-center justify-center shrink-0 relative z-10">
-                    <div class="relative">
-                        ${avatarHtml}
-                    </div>
-                </div>
-                <div class="flex flex-col overflow-hidden w-full justify-center">
-                    <span class="text-white ${fontSizeClass} font-bold group-hover:text-amber-400 transition whitespace-nowrap overflow-hidden text-ellipsis" style="font-family: 'Amiri', serif;">${data.username}</span>
-                    ${statusLine}
-                </div>
-            </div>
-            <div class="text-center pl-2 shrink-0 min-w-[60px]">
-                <span class="text-green-400 font-mono font-bold text-lg block leading-none text-shadow">${formatNumberAr(correctCount)}</span>
-                <span class="material-symbols-rounded text-[10px] text-slate-500">check_circle</span>
-            </div>`;
-        
+        // 7. ربط الحدث والإضافة
         row.onclick = () => showPlayerProfile(data);
-        container.appendChild(row);
+        container.appendChild(clone);
         r++;
     });
 }
 
-function showPlayerProfile(data) {
-    // 1. تعبئة البيانات الأساسية (الاسم والنقاط)
-    getEl('popup-player-name').textContent = data.username;
-    getEl('popup-player-score').textContent = `${formatNumberAr(data.highScore)} نقطة`;
-    
-    // 2. عرض الصورة الشخصية (الأفاتار)
-    if (data.customAvatar) {
-        getEl('popup-player-img').src = data.customAvatar;
-        show('popup-player-img');
-        hide('popup-player-icon');
-    } else {
-        hide('popup-player-img');
-        show('popup-player-icon');
-    }
+function showPlayerProfile(data){getEl('popup-player-name').textContent=data.username;getEl('popup-player-score').textContent=`${formatNumberAr(data.highScore)} نقطة`;if(data.customAvatar){getEl('popup-player-img').src=data.customAvatar;show('popup-player-img');hide('popup-player-icon')}else{hide('popup-player-img');show('popup-player-icon')}const bContainer=getEl('popup-player-badges');bContainer.innerHTML='';bContainer.className='grid grid-cols-3 gap-4 justify-items-center max-h-60 overflow-y-auto p-4 scrollbar-thin';let descBox=document.getElementById('profile-badge-desc-box');if(!descBox){descBox=document.createElement('div');descBox.id='profile-badge-desc-box';descBox.className='mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 text-center min-h-[4rem] flex items-center justify-center w-full';bContainer.parentNode.appendChild(descBox)}descBox.innerHTML='<p class="text-xs text-slate-500 animate-pulse">اضغط على أي وسام لمعرفة قصته</p>';if(data.badges&&data.badges.length>0){const bestBadges={};data.badges.forEach(bid=>{if(bid==='beginner')return;const[baseId,lvlPart]=bid.split('_lvl');const level=parseInt(lvlPart)||1;if(!bestBadges[baseId]||level>bestBadges[baseId].level){bestBadges[baseId]={id:bid,baseId:baseId,level:level}}});const finalBadges=Object.values(bestBadges);if(finalBadges.length===0){bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لم يحصل هذا اللاعب على أوسمة خاصة بعد.</span>'}else{const tpl=document.getElementById('mini-badge-template');finalBadges.forEach(item=>{const bObj=badgesMap[item.baseId];if(bObj){let tierName='برونزي',glowStyle='',tierColorHex='#b45309';if(item.level===2){tierName='فضي';glowStyle='box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';tierColorHex='#cbd5e1'}else if(item.level===3){tierName='ذهبي';glowStyle='box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: #fbbf24;';tierColorHex='#fbbf24'}else if(item.level===4){tierName='ماسي';glowStyle='box-shadow: 0 0 15px rgba(34, 211, 238, 0.8); border-color: #22d3ee;';tierColorHex='#22d3ee'}else if(item.level===5){tierName='أسطوري';glowStyle='box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';tierColorHex='#ef4444'}else{glowStyle='box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;'}const clone=tpl.content.cloneNode(true);const ring=clone.querySelector('.badge-ring');const img=clone.querySelector('.badge-img');const name=clone.querySelector('.badge-name');const tier=clone.querySelector('.badge-tier');const root=clone.querySelector('.mini-badge');img.src=bObj.image;name.textContent=bObj.name;tier.textContent=`(${tierName})`;tier.style.color=tierColorHex;ring.style.cssText=glowStyle;root.onclick=()=>{const allRings=bContainer.querySelectorAll('.badge-ring');allRings.forEach(r=>r.style.transform='scale(1)');ring.style.transform='scale(1.15)';descBox.innerHTML=`<div class="fade-in"><strong class="text-amber-400 text-xs block mb-1 border-b border-amber-500/20 pb-1 mx-auto w-fit">${bObj.name}</strong><p class="text-xs text-slate-200 leading-relaxed"><span class="text-green-400 font-bold">"${bObj.desc}"</span></p></div>`;playSound('click')};bContainer.appendChild(clone)}})}}else{bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لا توجد أوسمة مكتسبة.</span>'}openModal('player-profile-modal')}
 
-    // 3. تجهيز حاوية الأوسمة
-    const bContainer = getEl('popup-player-badges');
-    bContainer.innerHTML = '';
-    bContainer.className = 'grid grid-cols-3 gap-4 justify-items-center max-h-60 overflow-y-auto p-4 scrollbar-thin';
-
-    // 4. صندوق الوصف (لإظهار قصة الوسام عند الضغط عليه)
-    let descBox = document.getElementById('profile-badge-desc-box');
-    if (!descBox) {
-        descBox = document.createElement('div');
-        descBox.id = 'profile-badge-desc-box';
-        descBox.className = 'mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 text-center min-h-[4rem] flex items-center justify-center w-full';
-        bContainer.parentNode.appendChild(descBox);
-    }
-    descBox.innerHTML = '<p class="text-xs text-slate-500 animate-pulse">اضغط على أي وسام لمعرفة قصته</p>';
-
-    // 5. منطق فلترة وعرض الأوسمة
-    if (data.badges && data.badges.length > 0) {
-        const bestBadges = {};
-
-        // أ. تجميع الأوسمة واختيار الأعلى رتبة فقط
-        data.badges.forEach(bid => {
-            if (bid === 'beginner') return; // تجاهل وسام البداية
-            
-            const [baseId, lvlPart] = bid.split('_lvl');
-            const level = parseInt(lvlPart) || 1; 
-            
-            if (!bestBadges[baseId] || level > bestBadges[baseId].level) {
-                bestBadges[baseId] = { id: bid, baseId: baseId, level: level };
-            }
-        });
-
-        const finalBadges = Object.values(bestBadges);
-
-        if (finalBadges.length === 0) {
-            bContainer.innerHTML = '<span class="col-span-3 text-xs text-slate-500 py-6">لم يحصل هذا اللاعب على أوسمة خاصة بعد.</span>';
-        } else {
-            finalBadges.forEach(item => {
-                const bObj = badgesMap[item.baseId];
-                if(bObj) {
-                    // تحديد الستايل (اللون والتوهج) حسب المستوى
-                    let tierName = 'برونزي';
-                    let glowStyle = 'box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;';
-                    let tierColorHex = '#b45309';
-
-                    if(item.level === 2) {
-                        tierName = 'فضي';
-                        glowStyle = 'box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';
-                        tierColorHex = '#cbd5e1';
-                    } else if(item.level === 3) {
-                        tierName = 'ذهبي';
-                        glowStyle = 'box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: #fbbf24;';
-                        tierColorHex = '#fbbf24';
-                    } else if(item.level === 4) {
-                        tierName = 'ماسي';
-                        glowStyle = 'box-shadow: 0 0 15px rgba(34, 211, 238, 0.8); border-color: #22d3ee;';
-                        tierColorHex = '#22d3ee';
-                    } else if(item.level === 5) {
-                        tierName = 'أسطوري';
-                        glowStyle = 'box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';
-                        tierColorHex = '#ef4444';
-                    }
-
-                    // إنشاء عنصر الوسام
-                    const badgeDiv = document.createElement('div');
-                    badgeDiv.className = 'flex flex-col items-center gap-2 group cursor-pointer w-full';
-                    
-                    badgeDiv.innerHTML = `
-                        <div class="relative w-14 h-14 rounded-full border-2 bg-black transition transform group-hover:scale-110 duration-300" style="${glowStyle}">
-                            <img src="${bObj.image}" class="w-full h-full object-cover rounded-full p-0.5">
-                        </div>
-                        <div class="text-center">
-                            <span class="block text-[10px] text-white font-bold leading-tight">${bObj.name}</span>
-                            <span class="block text-[9px] font-mono mt-0.5" style="color: ${tierColorHex}; opacity: 0.9">(${tierName})</span>
-                        </div>
-                    `;
-
-                    // إضافة حدث النقر لعرض الوصف
-                    badgeDiv.onclick = () => {
-                         // إعادة تكبير الأيقونات الأخرى لحجمها الطبيعي
-                         const allRings = bContainer.querySelectorAll('.relative.w-14');
-                         allRings.forEach(r => r.style.transform = 'scale(1)');
-                         
-                         // تكبير الأيقونة المختارة
-                         badgeDiv.querySelector('.relative.w-14').style.transform = 'scale(1.15)';
-
-                         // عرض الوصف
-                         descBox.innerHTML = `
-                            <div class="fade-in">
-                                <strong class="text-amber-400 text-xs block mb-1 border-b border-amber-500/20 pb-1 mx-auto w-fit">${bObj.name}</strong>
-                                <p class="text-xs text-slate-200 leading-relaxed">
-                                    <span class="text-green-400 font-bold">"${bObj.desc}"</span>
-                                </p>
-                            </div>
-                         `;
-                         playSound('click');
-                    };
-
-                    bContainer.appendChild(badgeDiv);
-                }
-            });
-        }
-    } else { 
-        bContainer.innerHTML = '<span class="col-span-3 text-xs text-slate-500 py-6">لا توجد أوسمة مكتسبة.</span>'; 
-    }
-
-    openModal('player-profile-modal');
-}
-
-bind('nav-favs', 'click', () => { 
-    openModal('fav-modal'); 
-    const l = getEl('fav-list'); 
-    l.innerHTML = ''; 
-    if(!userProfile.favorites || userProfile.favorites.length === 0) { l.innerHTML = '<p class="text-center text-slate-500">لا توجد مفضلة</p>'; return; } 
-    userProfile.favorites.forEach((f, i) => { 
-        const d = document.createElement('div'); 
-        d.className = "p-3 bg-slate-800 rounded border border-slate-600 mb-2 flex justify-between items-center gap-2"; 
-        d.innerHTML = `<div><p class="text-amber-400 text-sm font-bold mb-1">${f.question}</p><p class="text-xs text-slate-400">الإجابة: ${f.options[f.correctAnswer]}</p></div>`; 
-        const b = document.createElement('button'); 
-        b.className = "text-red-400 hover:text-red-300 p-2 transition"; 
-        b.innerHTML = '<span class="material-symbols-rounded">delete</span>'; 
-        b.onclick = async () => { 
-            userProfile.favorites.splice(i, 1); 
-            getEl('nav-favs').click(); 
-            try { await updateDoc(doc(db,"users",effectiveUserId),{favorites:userProfile.favorites}); toast("تم الحذف"); } catch(e) { toast("خطأ في المزامنة", "error"); } 
-        }; 
-        d.appendChild(b); 
-        l.appendChild(d); 
-    }); 
-});
+bind('nav-favs','click',()=>{openModal('fav-modal');const l=getEl('fav-list');l.innerHTML='';if(!userProfile.favorites||userProfile.favorites.length===0){l.innerHTML='<div class="flex flex-col items-center justify-center py-10 opacity-50"><span class="material-symbols-rounded text-4xl mb-2">favorite_border</span><p class="text-xs">لا توجد أسئلة مفضلة</p></div>';return}const tpl=document.getElementById('fav-item-template');userProfile.favorites.forEach((f,i)=>{const clone=tpl.content.cloneNode(true);clone.querySelector('.fav-q').textContent=f.question;clone.querySelector('.fav-a').textContent=`الإجابة: ${f.options[f.correctAnswer]}`;const btn=clone.querySelector('.fav-del-btn');btn.onclick=async()=>{userProfile.favorites.splice(i,1);try{await updateDoc(doc(db,"users",effectiveUserId),{favorites:userProfile.favorites});toast("تم الحذف");getEl('nav-favs').click()}catch(e){toast("خطأ","error")}};l.appendChild(clone)})});
 
 bind('nav-mistakes', 'click', () => { toggleMenu(false); getEl('review-mistakes-btn').click(); });
 bind('nav-settings', 'click', () => openModal('settings-modal'));
@@ -3679,44 +3341,7 @@ function initBagSystem() {
     shopContainer.appendChild(shopGrid);
 }
 
-// دالة مساعدة لإنشاء HTML البطاقة (CSS نقي)
-function createGameItemCard(fData, type) {
-    const btn = document.createElement('button');
-    // نضع ID مميز للزر لسهولة الوصول إليه عند التحديث
-    btn.id = `btn-${type}-${fData.id}`;
-    btn.className = 'game-item-card';
-    
-    // محتوى البطاقة
-    const previewHTML = getAvatarHTML(userProfile.customAvatar, fData.id, "w-10 h-10");
-    
-    let actionHTML = '';
-    if (type === 'shop') {
-        actionHTML = `<span class="game-item-price">${formatNumberAr(fData.price)}</span>`;
-    } else {
-        // في الحقيبة نضيف شارة التجهيز
-        actionHTML = `<div class="equip-badge"><span class="material-symbols-rounded" style="font-size:10px">check</span></div>`;
-    }
-
-    btn.innerHTML = `
-        ${previewHTML}
-        <span class="game-item-name">${fData.name}</span>
-        ${actionHTML}
-    `;
-
-    // ربط الأحداث
-    btn.onclick = () => {
-        if (type === 'inventory') {
-            equipFrame(fData.id);
-        } else {
-            // التحقق من الملكية يتم داخل دالة الشراء، لكن يمكننا منع الضغط بصرياً
-            if (!btn.classList.contains('owned')) {
-                window.buyShopItem('frame', fData.price, fData.id);
-            }
-        }
-    };
-
-    return btn;
-}
+function createGameItemCard(fData,type){const tpl=document.getElementById('game-item-template');const clone=tpl.content.cloneNode(true);const btn=clone.querySelector('button');const prev=clone.querySelector('.item-preview');const name=clone.querySelector('.item-name');const act=clone.querySelector('.item-action');btn.id=`btn-${type}-${fData.id}`;prev.innerHTML=getAvatarHTML(userProfile.customAvatar,fData.id,"w-full h-full");name.textContent=fData.name;if(type==='shop'){act.innerHTML=`<span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">${formatNumberAr(fData.price)} <span class="material-symbols-rounded text-[10px]">monetization_on</span></span>`}else{act.innerHTML='<div class="equip-badge hidden bg-green-500/20 p-1 rounded-full"><span class="material-symbols-rounded text-green-400 text-sm">check</span></div>'}btn.onclick=()=>{if(type==='inventory'){equipFrame(fData.id)}else{if(!btn.classList.contains('owned')){window.buyShopItem('frame',fData.price,fData.id)}}};return btn}
 
 
 // دالة التحديث (تعمل عند كل فتح للحقيبة أو شراء)
@@ -4246,50 +3871,9 @@ function addLocalNotification(title, body, icon='info') {
     updateNotifUI();
     playSound('click'); // صوت خفيف للتنبيه
 }
+// دالة الاشعارات
+function updateNotifUI(){const list=JSON.parse(localStorage.getItem(NOTIF_KEY)||'[]');const badge=document.getElementById('notif-badge');const container=document.getElementById('notif-list');const unread=list.filter(n=>!n.read).length;if(unread>0){badge.classList.remove('hidden');badge.classList.add('pulse-red')}else{badge.classList.add('hidden');badge.classList.remove('pulse-red')}container.innerHTML='';if(list.length===0){container.innerHTML='<p class="text-center text-slate-500 text-xs py-6">لا توجد إشعارات</p>';return}const tpl=document.getElementById('notif-template');list.forEach(n=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.notif-item');const icon=clone.querySelector('.notif-icon');clone.querySelector('.notif-title').textContent=n.title;clone.querySelector('.notif-body').textContent=n.body;clone.querySelector('.notif-date').textContent=`${n.date} - ${n.time}`;icon.textContent=n.icon;let c='text-slate-400';if(n.icon==='emoji_events')c='text-amber-400';else if(n.icon==='monetization_on')c='text-green-400';else if(n.icon==='lock_reset')c='text-red-400';icon.classList.add(c);if(n.read){item.classList.add('opacity-70','border-transparent')}else{item.classList.add('bg-slate-800/30','border-amber-500')}container.appendChild(clone)})}
 
-function updateNotifUI() {
-    const list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
-    const badge = document.getElementById('notif-badge');
-    const container = document.getElementById('notif-list');
-    
-    // 1. إدارة الوميض والشارة الحمراء
-    const unreadCount = list.filter(n => !n.read).length;
-    if (unreadCount > 0) {
-        badge.classList.remove('hidden');
-        badge.classList.add('pulse-red'); // تفعيل الوميض
-    } else {
-        badge.classList.add('hidden');
-        badge.classList.remove('pulse-red');
-    }
-
-    // 2. رسم القائمة
-    container.innerHTML = '';
-    if (list.length === 0) {
-        container.innerHTML = '<p class="text-center text-slate-500 text-xs py-6">لا توجد إشعارات</p>';
-        return;
-    }
-
-    list.forEach(n => {
-        const item = document.createElement('div');
-        item.className = `notif-item p-3 flex gap-3 ${n.read ? 'opacity-70' : 'bg-slate-800/30 border-l-2 border-amber-500'}`;
-        
-        // تحديد لون الأيقونة حسب نوعها
-        let iconColor = 'text-slate-400';
-        if(n.icon === 'emoji_events') iconColor = 'text-amber-400'; // وسام
-        if(n.icon === 'monetization_on') iconColor = 'text-green-400'; // نقاط/مكافأة
-        if(n.icon === 'lock_reset') iconColor = 'text-red-400'; // كلمة سر
-        
-        item.innerHTML = `
-            <div class="mt-1"><span class="material-symbols-rounded ${iconColor} text-lg">${n.icon}</span></div>
-            <div class="flex-1">
-                <p class="text-xs font-bold text-slate-200 mb-0.5">${n.title}</p>
-                <p class="text-[10px] text-slate-400 leading-relaxed">${n.body}</p>
-                <p class="text-[9px] text-slate-600 mt-1 text-left" dir="ltr">${n.date} - ${n.time}</p>
-            </div>
-        `;
-        container.appendChild(item);
-    });
-}
 
 // فتح/غلق القائمة
 bind('notif-btn', 'click', (e) => {
@@ -5499,3 +5083,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 });
+window.toast=function(msg,type='info'){const tpl=document.getElementById('toast-template');if(!tpl){const f=document.createElement('div');f.className='fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded z-50';f.textContent=msg;document.body.appendChild(f);setTimeout(()=>f.remove(),3000);return}const clone=tpl.content.cloneNode(true);const el=clone.querySelector('.toast-box');const icon=clone.querySelector('.toast-icon');const iBox=clone.querySelector('.toast-icon-box');clone.querySelector('.toast-msg').textContent=msg;if(type==='success'){el.classList.add('bg-green-900/90','border-green-500/30');iBox.classList.add('bg-green-500/20');icon.classList.add('text-green-400');icon.textContent='check_circle'}else if(type==='error'){el.classList.add('bg-red-900/90','border-red-500/30');iBox.classList.add('bg-red-500/20');icon.classList.add('text-red-400');icon.textContent='warning'}else if(type==='gold'){el.classList.add('bg-amber-900/90','border-amber-500/30');iBox.classList.add('bg-amber-500/20');icon.classList.add('text-amber-400');icon.textContent='military_tech'}else{el.classList.add('bg-slate-800/90','border-slate-600/30');icon.textContent='info'}document.body.appendChild(el);requestAnimationFrame(()=>{el.classList.remove('translate-y-[-150%]','opacity-0');el.classList.add('translate-y-0','opacity-100')});setTimeout(()=>{el.classList.remove('translate-y-0','opacity-100');el.classList.add('translate-y-[-150%]','opacity-0');setTimeout(()=>el.remove(),500)},3000)};
+function renderPdfLibrary(){const c=document.getElementById('pdf-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('book-item-template');pdfLibrary.forEach(b=>{const clone=tpl.content.cloneNode(true);const root=clone.querySelector('.book-card');const img=clone.querySelector('.book-img');const title=clone.querySelector('.book-title');img.src=b.cover;title.textContent=b.title;root.onclick=()=>{if(window.openPdfViewer)window.openPdfViewer(b.url,b.title);else window.open(b.url,'_blank')};c.appendChild(clone)})}
+function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
