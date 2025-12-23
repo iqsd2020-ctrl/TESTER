@@ -5123,30 +5123,33 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toast=function(msg,type='info'){const tpl=document.getElementById('toast-template');if(!tpl){const f=document.createElement('div');f.className='fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded z-50';f.textContent=msg;document.body.appendChild(f);setTimeout(()=>f.remove(),3000);return}const clone=tpl.content.cloneNode(true);const el=clone.querySelector('.toast-box');const icon=clone.querySelector('.toast-icon');const iBox=clone.querySelector('.toast-icon-box');clone.querySelector('.toast-msg').textContent=msg;if(type==='success'){el.classList.add('bg-green-900/90','border-green-500/30');iBox.classList.add('bg-green-500/20');icon.classList.add('text-green-400');icon.textContent='check_circle'}else if(type==='error'){el.classList.add('bg-red-900/90','border-red-500/30');iBox.classList.add('bg-red-500/20');icon.classList.add('text-red-400');icon.textContent='warning'}else if(type==='gold'){el.classList.add('bg-amber-900/90','border-amber-500/30');iBox.classList.add('bg-amber-500/20');icon.classList.add('text-amber-400');icon.textContent='military_tech'}else{el.classList.add('bg-slate-800/90','border-slate-600/30');icon.textContent='info'}document.body.appendChild(el);requestAnimationFrame(()=>{el.classList.remove('translate-y-[-150%]','opacity-0');el.classList.add('translate-y-0','opacity-100')});setTimeout(()=>{el.classList.remove('translate-y-0','opacity-100');el.classList.add('translate-y-[-150%]','opacity-0');setTimeout(()=>el.remove(),500)},3000)};
 function renderPdfLibrary(){const c=document.getElementById('pdf-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('book-item-template');pdfLibrary.forEach(b=>{const clone=tpl.content.cloneNode(true);const root=clone.querySelector('.book-card');const img=clone.querySelector('.book-img');const title=clone.querySelector('.book-title');img.src=b.cover;title.textContent=b.title;root.onclick=()=>{if(window.openPdfViewer)window.openPdfViewer(b.url,b.title);else window.open(b.url,'_blank')};c.appendChild(clone)})}
 function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
-
 // =========================================================================
-// 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (يعمل في القائمة واللعب)
+// 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (تحديث العدادات + أدوات المطور)
 // =========================================================================
 
 window.CHEAT_MANAGER = {
     clicks: 0,
     timer: null,
     
-    // دالة مساعدة لربط المستمع بأي عنصر
-    attachListener: function(elementId) {
-        const btn = document.getElementById(elementId);
-        if (!btn) return;
+    init: function() {
+        // 1. استهداف اسم التطبيق في الشاشة الرئيسية (للتفعيل بالنقر 7 مرات)
+        const appTitle = document.querySelector('#welcome-area h1');
+        if (appTitle) {
+            this.attachListenerToElement(appTitle);
+        }
 
-        btn.addEventListener('click', (e) => {
-            // منع أي تفاعل افتراضي إذا لزم الأمر (مثل فتح القوائم)
-            // e.stopPropagation(); 
-            
+        // 2. تفعيل الطرق الأخرى (اختياري)
+        this.attachListenerToElement(document.getElementById('notif-btn'));
+        this.attachListenerToElement(document.getElementById('live-score-text'));
+    },
+
+    attachListenerToElement: function(el) {
+        if (!el) return;
+        el.addEventListener('click', (e) => {
             this.clicks++;
-            
             if (this.timer) clearTimeout(this.timer);
             this.timer = setTimeout(() => { this.clicks = 0; }, 1000); 
 
-            // الشرط: 7 نقرات متتالية
             if (this.clicks === 7) { 
                 this.showPanel();
                 this.clicks = 0;
@@ -5154,16 +5157,6 @@ window.CHEAT_MANAGER = {
         });
     },
 
-    // 1. كود التهيئة: يراقب زر الإشعارات (للقائمة) وعداد النقاط (للعبة)
-    init: function() {
-        // الربط بزر الإشعارات (يعمل في الشاشة الرئيسية)
-        this.attachListener('notif-btn');
-
-        // الربط بعداد النقاط في شاشة اللعب (يعمل أثناء اللعب)
-        this.attachListener('live-score-text');
-    },
-
-    // 2. إظهار اللوحة
     showPanel: function() {
         if (document.getElementById('dev-cheat-panel')) return;
 
@@ -5171,18 +5164,20 @@ window.CHEAT_MANAGER = {
         div.id = 'dev-cheat-panel';
         div.style.cssText = `
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(15, 23, 42, 0.95); border: 2px solid #ef4444; border-radius: 15px;
-            padding: 20px; z-index: 10000; width: 300px; text-align: center;
+            background: rgba(15, 23, 42, 0.98); border: 2px solid #ef4444; border-radius: 15px;
+            padding: 20px; z-index: 10000; width: 320px; text-align: center;
             box-shadow: 0 0 50px rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px);
         `;
         
         div.innerHTML = `
-            <h3 class="text-red-500 font-bold text-xl mb-4">😈 لوحة الأسرار</h3>
+            <h3 class="text-red-500 font-bold text-xl mb-4">🛠️ أدوات المطور</h3>
             <div class="flex flex-col gap-2">
-                <button onclick="window.CHEAT_MANAGER.revealAnswer()" class="p-2 bg-slate-800 border border-slate-600 rounded text-amber-400 hover:bg-slate-700 transition">👁️ كشف الإجابة</button>
+                <button onclick="window.CHEAT_MANAGER.updateSystemCounts()" class="p-3 bg-slate-800 border border-amber-500 rounded text-amber-400 font-bold hover:bg-slate-700 transition">🔄 تحديث عدادات الأسئلة</button>
+                <div class="h-px bg-slate-700 my-1"></div>
+                <button onclick="window.CHEAT_MANAGER.revealAnswer()" class="p-2 bg-slate-800 border border-slate-600 rounded text-blue-300 hover:bg-slate-700 transition">👁️ كشف الإجابة</button>
                 <button onclick="window.CHEAT_MANAGER.resetMarathon()" class="p-2 bg-slate-800 border border-slate-600 rounded text-blue-400 hover:bg-slate-700 transition">⏱️ تصفير الماراثون</button>
-                <button onclick="window.CHEAT_MANAGER.resetDailyQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-green-400 hover:bg-slate-700 transition">📅 تصفير المهام اليومية</button>
-                <button onclick="window.CHEAT_MANAGER.completeAllQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-purple-400 hover:bg-slate-700 transition">✅ إكمال كل المهام</button>
+                <button onclick="window.CHEAT_MANAGER.resetDailyQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-green-400 hover:bg-slate-700 transition">📅 تصفير المهام</button>
+                <button onclick="window.CHEAT_MANAGER.completeAllQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-purple-400 hover:bg-slate-700 transition">✅ إكمال المهام</button>
                 <button onclick="document.getElementById('dev-cheat-panel').remove()" class="mt-4 text-sm text-slate-500 hover:text-white border-t border-slate-700 pt-2 w-full">إغلاق</button>
             </div>
         `;
@@ -5190,43 +5185,72 @@ window.CHEAT_MANAGER = {
         if (typeof playSound === 'function') playSound('win');
     },
 
-    // --- الوظائف ---
+    // --- الوظيفة الأساسية المطلوبة: حساب وتحديث العدادات ---
+    updateSystemCounts: async function() {
+        const btn = document.querySelector('#dev-cheat-panel button');
+        if(btn) btn.innerHTML = "⏳ جاري الحساب...";
+        
+        try {
+            console.log("جاري جلب الأسئلة لحساب العدد...");
+            const snapshot = await getDocs(collection(db, "questions"));
+            const counts = {};
+            let total = 0;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const topic = data.topic || "عام";
+                counts[topic] = (counts[topic] || 0) + 1;
+                total++;
+            });
+
+            // حفظ النتيجة في السيرفر ليقرأها التطبيق لاحقاً
+            await setDoc(doc(db, "system", "counts"), counts);
+            
+            // تحديث المتغير المحلي فوراً
+            dbTopicCounts = counts;
+
+            console.log("تم التحديث:", counts);
+            alert(`✅ تم تحديث العدادات بنجاح!\nإجمالي الأسئلة: ${total}`);
+            if(document.getElementById('dev-cheat-panel')) document.getElementById('dev-cheat-panel').remove();
+            
+            // تحديث الواجهة إذا كانت مفتوحة
+            if(typeof initDropdowns === 'function') initDropdowns();
+
+        } catch (e) {
+            console.error(e);
+            alert("❌ حدث خطأ أثناء التحديث: " + e.message);
+            if(btn) btn.innerHTML = "❌ فشل";
+        }
+    },
 
     revealAnswer: function() {
-        // التحقق من أننا داخل اللعبة
         if (typeof quizState === 'undefined' || !quizState.active) {
             toast("يجب أن تكون داخل سؤال لتكشف الإجابة!", "error");
             return;
         }
         const q = quizState.questions[quizState.idx];
         const btns = document.querySelectorAll('.option-btn');
-        
         if (btns[q.correctAnswer]) {
-            const btn = btns[q.correctAnswer];
-            btn.style.border = "2px solid #ef4444";
-            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
-            btn.classList.add('animate-pulse');
-            
-            // إغلاق اللوحة تلقائياً لتتمكن من رؤية الإجابة بوضوح
+            btns[q.correctAnswer].style.border = "2px solid #ef4444";
+            btns[q.correctAnswer].classList.add('animate-pulse');
+            toast("👁️ تم كشف الإجابة", "success");
             const panel = document.getElementById('dev-cheat-panel');
             if(panel) panel.remove();
-            
-            toast("👁️ تم كشف الإجابة", "success");
         }
     },
 
     resetMarathon: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
+        if (!effectiveUserId) return;
         try {
             await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
             if(typeof userProfile !== 'undefined') userProfile.lastMarathonDate = null;
             if(typeof checkMarathonStatus === 'function') checkMarathonStatus();
             toast("🔓 تم تصفير وقت الماراثون!", "success");
-        } catch(e) { console.error(e); toast("فشل التصفير", "error"); }
+        } catch(e) { console.error(e); }
     },
 
     resetDailyQuests: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
+        if (!effectiveUserId) return;
         try {
             const oldDate = "2000-01-01";
             if(typeof userProfile !== 'undefined') userProfile.dailyQuests.date = oldDate; 
@@ -5235,20 +5259,20 @@ window.CHEAT_MANAGER = {
             if(typeof renderQuestList === 'function') renderQuestList();
             if(typeof updateProfileUI === 'function') updateProfileUI();
             toast("📅 تم تصفير المهام", "success");
-        } catch(e) { console.error(e); toast("فشل تصفير المهام", "error"); }
+        } catch(e) { console.error(e); }
     },
 
     completeAllQuests: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId || !userProfile.dailyQuests) return;
+        if (!effectiveUserId || !userProfile.dailyQuests) return;
         try {
             userProfile.dailyQuests.tasks.forEach(t => { t.current = t.target; });
             await updateDoc(doc(db, "users", effectiveUserId), { "dailyQuests.tasks": userProfile.dailyQuests.tasks });
             if(typeof renderQuestList === 'function') renderQuestList();
             if(typeof updateProfileUI === 'function') updateProfileUI();
             toast("✅ تم إكمال المهام!", "success");
-        } catch(e) { console.error(e); toast("فشل الإكمال", "error"); }
+        } catch(e) { console.error(e); }
     }
 };
 
-// تشغيل النظام
+// تشغيل النظام عند التحميل
 document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
