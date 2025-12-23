@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ahlulbayt-quiz-offline-v5.0'; // قمنا بتحديث الإصدار لتجديد الكاش
+const CACHE_NAME = 'ahlulbayt-quiz-offline-v5.1'; // قمنا بتحديث الإصدار لتجديد الكاش
 const STATIC_ASSETS = [
     './',
     './index.html',
