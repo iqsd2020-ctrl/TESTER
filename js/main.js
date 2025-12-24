@@ -2264,6 +2264,9 @@ function showEnrichment(text) {
     modal.addEventListener('click', closeHandler);
 }
 
+// ==========================================
+// ✅ دالة اختيار الإجابة (التصميم المصحح للوضع الليلي)
+// ==========================================
 function selectAnswer(idx, btn) {
     if(!quizState.active || quizState.processingAnswer) return;
     quizState.processingAnswer = true; 
@@ -2274,10 +2277,15 @@ function selectAnswer(idx, btn) {
     const isCorrect = idx === q.correctAnswer;
     const btns = document.querySelectorAll('.option-btn');
     
-    btns.forEach(b => b.classList.add('pointer-events-none', 'opacity-60'));
+    // تقليل شفافية الخيارات الأخرى للتركيز على ما تم اختياره
+    btns.forEach(b => {
+        b.classList.add('pointer-events-none');
+        if(b !== btn) b.classList.add('opacity-50'); 
+    });
     
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
 
+    // --- منطق الماراثون ---
     if (quizState.mode === 'marathon') {
         if (!quizState.tempMarathonIds) quizState.tempMarathonIds = [];
         if (q.id) quizState.tempMarathonIds.push(q.id);
@@ -2285,26 +2293,19 @@ function selectAnswer(idx, btn) {
         if (quizState.tempMarathonIds.length >= 5) {
             const batchIds = [...quizState.tempMarathonIds];
             quizState.tempMarathonIds = []; 
-
             updateDoc(doc(db, "users", effectiveUserId), {
                 seenMarathonIds: arrayUnion(...batchIds)
             }).catch(e => console.error("Auto-save failed:", e));
-              
             if(!userProfile.seenMarathonIds) userProfile.seenMarathonIds = [];
             userProfile.seenMarathonIds = [...new Set([...userProfile.seenMarathonIds, ...batchIds])];
         }
     }
 
     if(isCorrect) {
+        // --- حالة الإجابة الصحيحة ---
         if (answerTime <= 5000) { quizState.fastAnswers++; }
-
-        if (quizState.mode === 'marathon') {
-            userProfile.stats.marathonCorrectTotal = (userProfile.stats.marathonCorrectTotal || 0) + 1;
-        }
-
-        if (quizState.contextTopic === "مراجعة الأخطاء") {
-            userProfile.stats.reviewedMistakesCount = (userProfile.stats.reviewedMistakesCount || 0) + 1;
-        }
+        if (quizState.mode === 'marathon') userProfile.stats.marathonCorrectTotal = (userProfile.stats.marathonCorrectTotal || 0) + 1;
+        if (quizState.contextTopic === "مراجعة الأخطاء") userProfile.stats.reviewedMistakesCount = (userProfile.stats.reviewedMistakesCount || 0) + 1;
 
         let basePoints = 1;
         let multiplier = 1;
@@ -2312,9 +2313,7 @@ function selectAnswer(idx, btn) {
 
         if (quizState.mode === 'marathon') {
             quizState.streak++;
-
             if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; }
-
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
             if(quizState.marathonCorrectStreak === 15) {
                 userProfile.inventory.lives++;
@@ -2322,14 +2321,11 @@ function selectAnswer(idx, btn) {
                 toast("🎉 إنجاز رائع! حصلت على قلب إضافي", "success");
                 quizState.lives++;
                 renderLives();
-
                 quizState.marathonCorrectStreak = 0;
             }
-
             if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 🪙"; }
             else if (quizState.streak >= 9) { multiplier = 3; multiplierText = "x3 ✨"; }
             else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2🔸"; }
-
             if(quizState.streak >= 5) playSound('streak'); else playSound('win');
         } else {
             quizState.streak = 0;
@@ -2338,48 +2334,37 @@ function selectAnswer(idx, btn) {
 
         let pointsAdded = Math.floor(basePoints * multiplier);
 
+        // ✅ [تعديل التصميم] للإجابة الصحيحة
         if(btn) {
-            btn.classList.remove('opacity-60');
-            btn.classList.add('btn-correct');
-            showFloatingFeedback(btn, `+${pointsAdded}`, 'text-amber-400');
+            // 1. الخلفية: خضراء داكنة (900) وشفافة قليلاً لتناسب الوضع الليلي
+            // 2. الحدود: خضراء مضيئة (500)
+            // 3. ظل: توهج خفيف
+            btn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+            
+            // تعديل دائرة الرقم (أ، ب، ج)
+            if(btn.firstElementChild) {
+                 btn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white shrink-0 transition-colors duration-300 font-bold';
+            }
+            
+            // تعديل النص ليكون أبيض واضح
+            if(btn.children[1]) {
+                 btn.children[1].className = 'text-white font-bold flex-1 relative z-10 transition-colors duration-300';
+            }
+
+            showFloatingFeedback(btn, `+${pointsAdded}`, 'text-emerald-400');
         }
 
         quizState.score += pointsAdded;
         quizState.correctCount++;
-        // --- 👇 بداية كود تتبع المهام اليومية (محدث للقائمة الجديدة) 👇 ---
         
-        // المهمة 3: أسئلة الماراثون (ID: 3)
-        if (quizState.mode === 'marathon') {
-            updateQuestProgress(3, 1);
-        }
-
-        // تعريف المتغير (تأكدنا من الاسم لتجنب الأخطاء)
+        // تحديث المهام
+        if (quizState.mode === 'marathon') updateQuestProgress(3, 1);
         const questTopic = q.topic || quizState.contextTopic;
-
-        // المهمة 1: أسئلة المعصومين (ID: 1)
-        if (questTopic && (questTopic.includes('المعصومين') || questTopic.includes('أهل البيت') || questTopic.includes('الإمام') || questTopic.includes('النبي'))) {
-             updateQuestProgress(1, 1);
-        }
-
-        // المهمة 4: الثقافة المهدوية (ID: 4) - التحديث الجديد والشامل
-        if (questTopic && (
-            questTopic.includes('مهدي') || 
-            questTopic.includes('حجة') || 
-            questTopic.includes('منتظر') || 
-            questTopic.includes('قائم') ||
-            questTopic.includes('الظهور') ||        // يشمل: علامات الظهور
-            questTopic.includes('السفراء') ||       // يشمل: السفراء الأربعة
-            questTopic.includes('الغيبة') ||        // يشمل: الغيبة الصغرى والكبرى
-            questTopic.includes('دولة العدل')       // يشمل: دولة العدل الإلهي
-        )) {
-             updateQuestProgress(4, 1);
-        }
-        // --- 👆 نهاية كود تتبع المهام اليومية 👆 ---
-
+        if (questTopic && (questTopic.includes('المعصومين') || questTopic.includes('أهل البيت') || questTopic.includes('الإمام') || questTopic.includes('النبي'))) updateQuestProgress(1, 1);
+        if (questTopic && (questTopic.includes('مهدي') || questTopic.includes('حجة') || questTopic.includes('منتظر') || questTopic.includes('قائم') || questTopic.includes('الظهور') || questTopic.includes('السفراء') || questTopic.includes('الغيبة') || questTopic.includes('دولة العدل'))) updateQuestProgress(4, 1);
 
         const scoreEl = getEl('live-score-text');
         scoreEl.textContent = formatNumberAr(quizState.score);
-
         scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
 
         if(qBankIdx > -1) userProfile.wrongQuestionsBank.splice(qBankIdx, 1);
@@ -2398,21 +2383,46 @@ function selectAnswer(idx, btn) {
         setTimeout(nextQuestion, transitionDelay);
 
     } else {
+        // --- حالة الإجابة الخاطئة ---
         quizState.marathonCorrectStreak = 0;
         quizState.fastAnswers = 0;
 
+        // ✅ [تعديل التصميم] للإجابة الخاطئة
         if(btn) {
-            btn.classList.remove('opacity-60');
-            btn.classList.add('btn-incorrect');
+            // خلفية حمراء داكنة (900)
+            btn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-red-500 bg-red-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+            
+            // تعديل دائرة الرقم
+            if(btn.firstElementChild) {
+                 btn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shrink-0 transition-colors duration-300 font-bold';
+            }
+            
+            // تعديل النص
+            if(btn.children[1]) {
+                 btn.children[1].className = 'text-white font-bold flex-1 relative z-10 transition-colors duration-300';
+            }
+
             const deductDisplay = (quizState.score >= 2) ? 2 : quizState.score;
-            showFloatingFeedback(btn, `-${deductDisplay}`, 'text-red-500');
+            showFloatingFeedback(btn, `-${deductDisplay}`, 'text-red-400');
         }
 
+        // ✅ [تعديل التصميم] كشف الإجابة الصحيحة (بنفس الستايل الداكن)
         if(q.correctAnswer >= 0 && q.correctAnswer < btns.length) {
-            btns[q.correctAnswer].classList.remove('opacity-60');
-            btns[q.correctAnswer].classList.add('btn-correct');
+            const correctBtn = btns[q.correctAnswer];
+            correctBtn.classList.remove('opacity-50', 'pointer-events-none'); // جعلها واضحة
+            
+            // تطبيق الستايل الأخضر الداكن عليها
+            correctBtn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+            
+            if(correctBtn.firstElementChild) {
+                 correctBtn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white shrink-0 font-bold';
+            }
+            if(correctBtn.children[1]) {
+                 correctBtn.children[1].className = 'text-white font-bold flex-1 relative z-10';
+            }
         }
 
+        // بقية منطق الخسارة
         if (quizState.mode === 'marathon') {
             if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); }
             else if (quizState.streak >= 5) { quizState.streak = 2; }
@@ -2478,8 +2488,6 @@ function selectAnswer(idx, btn) {
         setTimeout(nextQuestion, transitionDelay);
     }
 }
-
-
 
 bind('helper-report', 'click', async () => {
     const q = quizState.questions[quizState.idx];
