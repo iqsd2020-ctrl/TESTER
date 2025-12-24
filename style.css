@@ -257,14 +257,66 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
 #side-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 #side-menu-overlay.open { opacity: 1; pointer-events: auto; }
 
-#side-menu { 
-    position: fixed; top: 0; right: -300px; width: 280px; height: 100%; 
-    background: var(--bg-side-menu); 
-    border-left: 1px solid var(--border-color); 
-    z-index: 50; transition: right 0.3s;
-    box-shadow: -5px 0 20px var(--shadow-color); 
-    overflow-y: auto; display: flex; flex-direction: column; 
+/* تنسيق القائمة الجانبية الأساسي */
+#side-menu {
+    position: fixed;
+    top: 0;
+    right: 0; /* في RTL القائمة تظهر من اليمين */
+    width: 280px; /* عرض القائمة */
+    height: 100%;
+    background: rgba(15, 23, 42, 0.95); /* لون داكن مع شفافية بسيطة */
+    z-index: 200;
+    transform: translateX(110%); /* مخفية خارج الشاشة */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); /* ظل ناعم */
+    
+    /* الشكل الجديد: حواف دائرية من جهة اليسار فقط */
+    border-top-left-radius: 24px;
+    border-bottom-left-radius: 24px;
+    
+    /* تأثير الزجاج */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* كلاس التفعيل عند الفتح */
+#side-menu.open {
+    transform: translateX(0);
+}
+
+/* تنسيق العناصر داخل القائمة */
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    color: #cbd5e1; /* slate-300 */
+    font-weight: bold;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fbbf24; /* amber-400 */
+    border-color: rgba(251, 191, 36, 0.2);
+    transform: translateX(-5px); /* حركة بسيطة لليسار عند التحويم */
+}
+
+.menu-item .material-symbols-rounded {
+    font-size: 22px;
+    transition: transform 0.3s;
+}
+
+.menu-item:hover .material-symbols-rounded {
+    transform: scale(1.1);
+}
+
 #side-menu.open { right: 0; }
 
 .menu-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; color: var(--text-muted); cursor: pointer; border-bottom: 1px solid var(--border-color); font-family: var(--font-heading); transition: background-color 0.2s, color 0.2s, padding-right 0.2s; }
@@ -747,16 +799,6 @@ z-index: 10;
 .selection-item:last-child {
     border-bottom: 4px solid rgba(0, 0, 0, 0.5) !important; /* الحفاظ على الـ 3D للعنصر الأخير */
     margin-bottom: 0.75rem !important;
-}
-
-/* --- تحويل القائمة الجانبية وعناصرها إلى 3D (Sidebar 3D) --- */
-
-/* 1. خلفية القائمة الجانبية نفسها */
-#side-menu {
-    /* تدرج لوني داكن يعطي عمقاً */
-    background: linear-gradient(to bottom, #1e293b, #020617) !important;
-    border-left: 1px solid rgba(255,255,255,0.1) !important;
-    box-shadow: -10px 0 40px rgba(0,0,0,0.8) !important;
 }
 
 /* تنسيق عناصر القائمة الجانبية (تم التصغير) */
