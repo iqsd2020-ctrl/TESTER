@@ -3,8 +3,6 @@
     --font-heading: 'Reem Kufi', sans-serif;
     --font-body: 'Amiri', serif;
     --base-size: 16px;
-
-    /* --- المتغيرات الافتراضية (ثيم الولاء) --- */
     --bg-body: radial-gradient(circle at top, #1e293b 0%, #020617 100%);
     --bg-card: linear-gradient(to bottom right, rgba(23, 37, 84, 0.9), rgba(2, 6, 23, 0.98));
     --bg-input: rgba(30, 41, 59, 0.6);
@@ -3232,4 +3230,39 @@ button.mode-disabled {
     opacity: 1 !important;
     transform: translate(0) !important;
     pointer-events: auto !important;
+}
+/* =========================================
+   PERFORMANCE STABILIZER (مثبت الأداء) مانع الوميض والمتحكم في الخلفية 
+   ========================================= */
+
+/* تبسيط الظلال المتحركة */
+@keyframes nurGlow { 
+    0%, 100% { opacity: 0.8; } 
+    50% { opacity: 1; } /* إزالة حركة box-shadow */
+}
+
+@keyframes silver-pulse { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.9; } /* إزالة حركة box-shadow */
+}
+
+@keyframes pulse-red {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.95); } /* تحريك الحجم بدلاً من الظل */
+}
+
+/* إلغاء الفلتر الضبابي من العناصر المتحركة كثيراً */
+.nav-glass-body,
+.quest-modal-overlay,
+.audio-modal-overlay,
+.modal-overlay,
+#side-menu-overlay {
+    backdrop-filter: none !important; /* إلغاء الزجاج مؤقتاً للاختبار */
+    /* تم تعديل الشفافية إلى 0.8 لتكون أكثر وضوحاً */
+    background: rgba(0, 0, 0, 0.8) !important; 
+}
+
+/* منع تحديد النصوص الذي يسبب الوميض عند النقر السريع */
+* {
+    -webkit-tap-highlight-color: transparent;
 }
