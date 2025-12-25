@@ -8,7 +8,7 @@
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#064E3B">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="tailwind-lib.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
@@ -122,13 +122,13 @@
         <div id="auth-loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900 transition-opacity duration-700">
     
     <div class="absolute inset-0 opacity-10 pointer-events-none" 
-         style="background-image: url('https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png'); 
+         style="background-image: url('Icon.png'); 
                 background-size: 500px; background-position: center; filter: blur(10px);">
     </div>
 
     <div class="relative mb-8 z-10">
         <div class="absolute inset-0 bg-amber-500/20 blur-xl rounded-full animate-pulse"></div>
-        <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" 
+        <img src="Icon.png" 
              class="w-32 h-32 object-contain drop-shadow-2xl relative animate-[bounce_2s_infinite]" 
              alt="App Logo">
     </div>
@@ -185,7 +185,7 @@
 
         <div id="welcome-area" class="hidden fade-in">                        
             <div class="text-center mb-8">
-                <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
+                <img src="Icon.png" class="w-24 h-24 mx-auto mb-3 drop-shadow-2xl animate-pulse-slow" alt="App Logo">
                 <h1 class="text-3xl font-bold text-amber-400 font-heading tracking-wide drop-shadow-md">هياكل النور</h1>
             </div>
             
@@ -408,7 +408,7 @@
                 </div>
                 
                 <p id="final-message" class="text-lg text-slate-300 mt-4 font-bold"></p>
-                <div id="share-footer" class="hidden mt-4 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between"><span>من تطبيق: هياكل النور</span></div>
+                <div id="share-footer" class="hidden mt-4 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between"><span> تطبيق: هياكل النور</span></div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <button id="share-text-button" class="btn-secondary bg-slate-700 text-white py-3 rounded-xl justify-center border border-slate-600 hover:bg-slate-600 hover:border-amber-400 transition">مشاركة النتيجة</button>
@@ -459,7 +459,7 @@
                 
                 <div class="relative bg-gradient-to-b from-slate-800 to-slate-950 border border-amber-500/40 w-24 h-24 rounded-2xl flex items-center justify-center shadow-2xl mx-auto rotate-3 hover:rotate-0 transition-transform duration-500 group">
                     
-                    <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" 
+                    <img src="Icon.png" 
                          alt="App Icon" 
                          class="w-16 h-16 object-contain drop-shadow-[0_0_15px_rgba(245,158,11,0.4)] group-hover:scale-110 transition-transform duration-300">
                 </div>
@@ -651,7 +651,7 @@
     <div class="modal-box border-2 border-amber-500/30 bg-[#0f172a] relative overflow-hidden">
         
         <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" 
-             style="background-image: url('https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png'); 
+             style="background-image: url('Icon.png'); 
                     background-repeat: no-repeat; 
                     background-position: center; 
                     background-size: 60%;">
@@ -1138,7 +1138,7 @@
             
             <div class="text-center relative z-10">
                 <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-cyan-500/10 mb-4 border border-cyan-500/20 p-3">
-                 <img src="https://raw.githubusercontent.com/iqsd2020-ctrl/New/main/Icon.png" alt="AI Icon" class="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse">
+                 <img src="Icon.png" alt="AI Icon" class="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse">
              </div>
                 <h3 class="text-xl font-bold text-white font-heading mb-2">الشــرح والـمـعـنـى</h3>
                 <p id="ai-word-target" class="text-sm text-cyan-400 font-bold mb-4 border-b border-cyan-500/30 pb-2 inline-block">...</p>

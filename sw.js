@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ahlulbayt-quiz-offline-v5.1'; // قمنا بتحديث الإصدار لتجديد الكاش
+const CACHE_NAME = 'ahlulbayt-quiz-offline-v5.2'; // قمنا بتحديث الإصدار لتجديد الكاش
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -8,10 +8,13 @@ const STATIC_ASSETS = [
     './manifest.json',
     './Icon.png', // تأكد أن لديك صورة بهذا الاسم
     // مكتبة Tailwind CSS
-    'https://cdn.tailwindcss.com',
+    './tailwind-lib.js',
+    
+    // --- الصور المحلية ---
+    './Icon.png', // الأيقونة
+    './Css.png',  // الخلفية (التي أضفناها للتو)
     // الخطوط العربية
     'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap',
-    // أيقونات Material Symbols (المشكلة كانت هنا)
     'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0'
 ];
 

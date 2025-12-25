@@ -1,12 +1,12 @@
 {
-  "name": "test",
-  "short_name": "test",
+  "name": "هياكل النور",
+  "short_name": "هياكل النور",
   "id": "/",
   "start_url": ".",
   "display": "fullscreen",
   "background_color": "#0f172a",
   "theme_color": "#064E3B",
-  "description": "مسابقات عقائدية وتاريخية في تراث أهل البيت (عليهم السلام)",
+  "description": "مسابقات ومعارف من وحي أهل البيت (ع)",
   "orientation": "portrait",
   "categories": [
     "education",

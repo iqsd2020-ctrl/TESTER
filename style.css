@@ -18,7 +18,7 @@
     --card-3d-depth: 3px;
     --card-3d-shadow-spread: 0 10px 30px rgba(0, 0, 0, 0.6);
     --bg-card-gradient: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-    --bg-pattern-image:url("https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Css.png");
+    --bg-pattern-image: url("Css.png");
     --bg-pattern-opacity: 0.10; /* غير الرقم لتغيير شفافية الصورة الخلفية */
     --correct-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
     --wrong-bg: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
@@ -324,7 +324,7 @@ body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded):not(.badge-
     color: var(--accent-color); 
     padding-right: 2rem; 
 }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 300 !important; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal-overlay.active { opacity: 1; pointer-events: auto; }
     .modal-box { 
     background: var(--bg-side-menu); 
