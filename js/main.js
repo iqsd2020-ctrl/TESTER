@@ -2908,7 +2908,7 @@ async function loadLeaderboard() {
     renderSkeleton('leaderboard', 6);
     
     const modalTitle = document.querySelector('#leaderboard-modal h3');
-    if(modalTitle) modalTitle.textContent = "لوحة الشرف (الشهرية)";
+    if(modalTitle) modalTitle.textContent = "لوحة الشرف";
 
     let subTitle = document.getElementById('lb-subtitle-text');
     if(!subTitle) {
@@ -2918,7 +2918,7 @@ async function loadLeaderboard() {
         subTitle.style.fontFamily = "'Amiri', serif"; 
         if(modalTitle) modalTitle.parentNode.after(subTitle);
     }
-    subTitle.textContent = "التنافس على لقب بطل هذا الشهر";
+    subTitle.textContent = "هياكل النور";
 
     try {
         const currentMonthKey = getCurrentMonthKey();
