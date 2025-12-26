@@ -2403,35 +2403,109 @@ function updateStreakUI() {
     }
 }
 
-
+// دالة عرض المعلومة الإثرائية (نسخة نظيفة بدون مفضلة)
 function showEnrichment(text) {
-    if (!userProfile.stats.enrichmentCount) userProfile.stats.enrichmentCount = 0;
-    userProfile.stats.enrichmentCount++;
-
-    if (!userProfile.stats.explanationsViewed) userProfile.stats.explanationsViewed = 0;
-    userProfile.stats.explanationsViewed++;
-
-    if (effectiveUserId) {
-        updateDoc(doc(db, "users", effectiveUserId), {
-            "stats.enrichmentCount": userProfile.stats.enrichmentCount,
-            "stats.explanationsViewed": userProfile.stats.explanationsViewed
-        }).catch(e => console.error("فشل حفظ عداد القراءة", e));
+    // 1. تحديث الإحصائيات (مهم للأوسمة)
+    if (userProfile && userProfile.stats) {
+        if (!userProfile.stats.enrichmentCount) userProfile.stats.enrichmentCount = 0;
+        userProfile.stats.enrichmentCount++;
+        if (!userProfile.stats.explanationsViewed) userProfile.stats.explanationsViewed = 0;
+        userProfile.stats.explanationsViewed++;
+        
+        if (typeof effectiveUserId !== 'undefined' && effectiveUserId) {
+            updateDoc(doc(db, "users", effectiveUserId), {
+                "stats.enrichmentCount": userProfile.stats.enrichmentCount,
+                "stats.explanationsViewed": userProfile.stats.explanationsViewed
+            }).catch(console.error);
+        }
     }
 
-    getEl('enrichment-content').textContent = text;
-    const modal = getEl('enrichment-modal');
-    modal.classList.add('active');
+    // 2. وضع النص
+    const contentEl = document.getElementById('enrichment-content');
+    if(contentEl) contentEl.textContent = text;
     
-    if(typeof playSound === 'function') playSound('hint');
+    // 3. إظهار النافذة
+    const modal = document.getElementById('enrichment-modal');
+    if(modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.add('active'));
+        
+        if(typeof playSound === 'function') playSound('hint');
 
-    const closeHandler = (e) => {
-        if(e.target === modal || modal.contains(e.target)) {
+        // 4. منطق الإغلاق (ضغطة واحدة في أي مكان)
+        const closeHandler = () => {
             modal.classList.remove('active');
-            modal.removeEventListener('click', closeHandler);
-            nextQuestion(); 
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            
+            // الانتقال للسؤال التالي
+            if(typeof nextQuestion === 'function') nextQuestion(); 
+        };
+
+        // تفعيل النقر بعد نصف ثانية (لمنع الإغلاق بالخطأ فور الظهور)
+        setTimeout(() => {
+            modal.addEventListener('click', closeHandler, { once: true });
+        }, 500);
+    }
+}
+
+// جعل الدالة متاحة عالمياً
+window.showEnrichment = showEnrichment;
+
+// دالة الحفظ الفعلي في قاعدة البيانات
+async function toggleEnrichFav(btn) {
+    // منع إغلاق النافذة عند الضغط
+    window.event.stopPropagation();
+    
+    const contentText = getEl('enrichment-content').textContent;
+    const icon = btn.querySelector('span');
+    const isActive = btn.classList.contains('active');
+
+    if (!isActive) {
+        // --- عملية الحفظ ---
+        
+        // نقوم بتغليف المعلومة كأنها "سؤال" لتتناسب مع نظام المفضلة الحالي
+        const enrichObj = {
+            question: contentText,          // نص المعلومة
+            options: ["معلومة إثرائية"],    // خانة وهمية
+            correctAnswer: 0,
+            type: 'enrichment',             // علامة لنميزها لاحقاً
+            savedAt: Date.now()
+        };
+
+        // إضافة للقائمة المحلية
+        userProfile.favorites.push(enrichObj);
+        
+        // تحديث الزر
+        btn.classList.add('active');
+        icon.textContent = 'favorite';
+        toast("تم حفظ المعلومة في المفضلة ❤️");
+
+    } else {
+        // --- عملية الحذف ---
+        
+        // البحث عن العنصر لحذفه
+        const index = userProfile.favorites.findIndex(f => f.question === contentText && f.type === 'enrichment');
+        if (index > -1) {
+            userProfile.favorites.splice(index, 1);
         }
-    };
-    modal.addEventListener('click', closeHandler);
+
+        // تحديث الزر
+        btn.classList.remove('active');
+        icon.textContent = 'favorite_border';
+        toast("تمت الإزالة من المفضلة");
+    }
+
+    // الحفظ في السيرفر (Firebase)
+    if (effectiveUserId) {
+        try {
+            await updateDoc(doc(db, "users", effectiveUserId), {
+                favorites: userProfile.favorites
+            });
+        } catch(e) {
+            console.error("خطأ في حفظ المفضلة:", e);
+            toast("تعذر الحفظ في السيرفر (مشكلة اتصال)", "error");
+        }
+    }
 }
 
 // ==========================================
