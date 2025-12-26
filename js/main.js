@@ -169,23 +169,34 @@ class SmartAudioPlayer {
         }
     }
 
-    _bindAudioEvents() {
+      _bindAudioEvents() {
         this.audio.addEventListener('timeupdate', () => {
             if (isNaN(this.audio.duration)) return;
 
             const currentTime = this.audio.currentTime;
             
+            // حساب الفرق الزمني
             if (this.lastTime !== undefined) {
                 const diff = currentTime - this.lastTime;
+                // شرط: الفرق يجب أن يكون موجباً وأقل من 1.5 (لمنع الغش بتقديم الصوت)
                 if (diff > 0 && diff < 1.5) {
                     this.accumulatedTime = (this.accumulatedTime || 0) + diff;
                 }
             }
             this.lastTime = currentTime;
 
+            // طباعة العداد في الكونسول للتأكد (يمكنك حذف هذا السطر لاحقاً)
+            // console.log("Time:", Math.floor(this.accumulatedTime)); 
+
+            // التحقق من مرور 60 ثانية
             if (this.accumulatedTime >= 60) {
-                this.accumulatedTime -= 60;
+                this.accumulatedTime = 0; // تصفير العداد بدلاً من طرح 60 لضمان الدقة
                 
+                // 1. الإشعار الصوتي والنصي (يظهر للجميع حتى الضيف ليتأكد أنه يعمل)
+                if(window.playSound) window.playSound('monetization_on');
+                if(window.toast) window.toast(`🎵 استمعت لدقيقة كاملة!`, "success");
+
+                // 2. إضافة النقاط (فقط للمسجلين)
                 if (effectiveUserId) {
                     const pointsToAdd = 10;
                     
@@ -214,11 +225,12 @@ class SmartAudioPlayer {
 
                     if (typeof updateProfileUI === 'function') updateProfileUI();
                     
-                    if(window.toast) window.toast(`✨ أحسنت! كسبت ${pointsToAdd} نقاط (استماع دقيقة)`, "success");
-                    if(window.playSound) window.playSound('monetization_on');
+                    // تحديث نص الإشعار ليشمل النقاط
+                    if(window.toast) window.toast(`🎵 أحسنت! كسبت ${pointsToAdd} نقاط (استماع دقيقة)`, "success");
                 }
             }
 
+            // تحديث شريط التقدم والوقت
             const percent = (this.audio.currentTime / this.audio.duration) * 100;
             if(this.elements.progressFill) this.elements.progressFill.style.width = `${percent}%`;
             
@@ -229,6 +241,7 @@ class SmartAudioPlayer {
                 this.elements.duration.textContent = this._formatTime(this.audio.duration);
         });
 
+        // بقية الأحداث كما هي...
         this.audio.addEventListener('ended', () => {
             this.isPlaying = false;
             this._updatePlayIcon();
@@ -366,6 +379,45 @@ class SmartPdfViewer {
         this._bindEvents();
         this._bindGestures();
     }
+    // ✅ دالة جديدة: التحقق هل تم استلام المكافأة من قبل؟
+    async checkRewardStatus(bookId) {
+        // إذا كان المستخدم ضيفاً، لا نفعل شيئاً (الزر يعمل بشكل طبيعي وسيطلب منه التسجيل لاحقاً)
+        if (!effectiveUserId) return;
+
+        const btn = this.elements.finishBtn;
+        
+        // 1. إعادة تعيين الزر للحالة الافتراضية (نشط) قبل الفحص
+        // هذا مهم عند الانتقال من كتاب لآخر
+        this.isRewardClaimed = false; // متغير جديد سنستخدمه لمنع التحايل
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">card_giftcard</span>`;
+            btn.classList.remove('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
+        }
+
+        try {
+            // 2. البحث في المجموعة الفرعية read_history
+            // المسار: users -> userId -> read_history -> bookId
+            const historyRef = doc(db, "users", effectiveUserId, "read_history", bookId);
+            const docSnap = await getDoc(historyRef);
+
+            if (docSnap.exists()) {
+                console.log(` الكتاب ${bookId} تم استلام جائزته سابقاً.`);
+                
+                // 3. تعطيل الزر وتغيير شكله
+                this.isRewardClaimed = true;
+                if(btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `<span>تم الاستلام مسبقاً</span><span class="material-symbols-rounded">check</span>`;
+                    // إضافة ستايل "رمادي" للدلالة على التعطيل
+                    btn.classList.add('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
+                }
+            }
+
+        } catch (error) {
+            console.error("❌ خطأ في التحقق من سجل القراءة:", error);
+        }
+    }
 
     async loadDocument(id, title) {
         if (!id || typeof id !== 'string' || id.trim() === '') {
@@ -375,6 +427,7 @@ class SmartPdfViewer {
         }
 
         this.currentPdfId = id;
+        this.checkRewardStatus(id); 
         this.pageNum = 1;
         this.stopAutoScroll();
         this.resetZoom();
@@ -999,19 +1052,126 @@ function closeQuestModal() {
         modal.classList.add('quest-hidden');
     }, 300);
 }
+// دالة توجيه المهام الذكية (مصححة حسب ملف data.js)
+async function executeQuestAction(taskId) {
+    // 1. إغلاق نافذة المهام
+    closeQuestModal();
 
-// ==========================================
-// 📋 عرض قائمة المهام (تحديث الواجهة)
-// ==========================================
+    // 2. التعامل مع كل مهمة
+    switch(taskId) {
+        case 1: // المعصومين
+            if(document.getElementById('category-select')) {
+                // ✅ المفتاح الدقيق كما هو في ملف data.js
+                const catKey = "المعصومون (عليهم السلام)"; 
+                
+                // ضبط القائمة المنسدلة
+                document.getElementById('category-select').value = catKey;
+
+                // جلب المواضيع الفرعية من المتغير المستورد topicsData
+                let subTopics = [];
+                if (typeof topicsData !== 'undefined' && topicsData[catKey]) {
+                    subTopics = topicsData[catKey];
+                }
+                
+                // اختيار موضوع عشوائي
+                if (subTopics.length > 0) {
+                    const randomTopic = subTopics[Math.floor(Math.random() * subTopics.length)];
+                    document.getElementById('topic-select').value = randomTopic;
+                    
+                    // تحديث النص الظاهر
+                    const txtTop = document.getElementById('txt-topic-display');
+                    if(txtTop) txtTop.textContent = randomTopic;
+                } else {
+                    // احتياط في حال الفشل
+                    document.getElementById('topic-select').value = ''; 
+                }
+                
+                // تحديث نص القسم الرئيسي
+                const txtCat = document.getElementById('txt-category-display');
+                if(txtCat) txtCat.textContent = "المعصومين (ع)";
+                
+                // بدء اللعب
+                const startBtn = document.getElementById('ai-generate-btn');
+                if(startBtn) startBtn.click();
+            }
+            break;
+
+        case 4: // المهدوية
+            if(document.getElementById('category-select')) {
+                // ✅ المفتاح الدقيق كما هو في ملف data.js
+                const catKey = "الثقافة المهدوية";
+                document.getElementById('category-select').value = catKey;
+                
+                let subTopics = [];
+                if (typeof topicsData !== 'undefined' && topicsData[catKey]) {
+                    subTopics = topicsData[catKey];
+                }
+                
+                if (subTopics.length > 0) {
+                    const randomTopic = subTopics[Math.floor(Math.random() * subTopics.length)];
+                    document.getElementById('topic-select').value = randomTopic;
+                    
+                    const txtTop = document.getElementById('txt-topic-display');
+                    if(txtTop) txtTop.textContent = randomTopic;
+                } else {
+                    document.getElementById('topic-select').value = '';
+                }
+                
+                const txtCat = document.getElementById('txt-category-display');
+                if(txtCat) txtCat.textContent = "الثقافة المهدوية";
+                
+                const startBtn = document.getElementById('ai-generate-btn');
+                if(startBtn) startBtn.click();
+            }
+            break;
+
+        case 2: // المساعدات -> عشوائي شامل
+            if(document.getElementById('category-select')) {
+                document.getElementById('category-select').value = 'random';
+                document.getElementById('topic-select').value = ''; 
+                
+                const txtCat = document.getElementById('txt-category-display');
+                if(txtCat) txtCat.textContent = "عشوائي شامل";
+                
+                const txtTop = document.getElementById('txt-topic-display');
+                if(txtTop) txtTop.textContent = "-- اختر الموضوع --"; 
+
+                const startBtn = document.getElementById('ai-generate-btn');
+                if(startBtn) startBtn.click();
+            }
+            break;
+
+        case 3: // الماراثون
+            const marathonBtn = document.getElementById('btn-marathon-start');
+            if(marathonBtn && !marathonBtn.disabled) {
+                marathonBtn.click();
+            } else {
+                toast("ماراثون النور غير متاح حالياً", "info");
+            }
+            break;
+
+        case 5: // المتجر
+            openBag();
+            setTimeout(() => {
+                const shopTab = document.getElementById('tab-shop');
+                if(shopTab) switchBagTab('shop');
+            }, 100);
+            break;
+            
+        default:
+            toast("انتقل للقسم المخصص لإنجاز المهمة");
+    }
+}
+
 function renderQuestList() {
     const listContainer = document.getElementById('quest-list-container');
     if (!listContainer) return;
-
+    
     listContainer.innerHTML = '';
+    // تنسيق الحاوية لتكون عمودية
+    listContainer.className = 'flex flex-col gap-1 py-1'; 
 
-    // التحقق من وجود بيانات
     if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
-
     const template = document.getElementById('quest-item-template');
     let allCompleted = true;
 
@@ -1019,73 +1179,77 @@ function renderQuestList() {
         const isCompleted = task.current >= task.target;
         if (!isCompleted) allCompleted = false;
 
-        // 1. استنساخ القالب
         const clone = template.content.cloneNode(true);
-        
-        // 2. مسك العناصر
+        const rootItem = clone.querySelector('.quest-item');
         const descEl = clone.querySelector('.quest-desc');
         const progressTextEl = clone.querySelector('.quest-progress-text');
         const progressBar = clone.querySelector('.quest-progress-bar');
         const actionContainer = clone.querySelector('.quest-action');
         const iconEl = clone.querySelector('.quest-icon');
 
-        // 3. تعبئة البيانات
+        // تعبئة النصوص
         descEl.textContent = task.desc;
-        progressTextEl.textContent = `${task.current} / ${task.target}`;
+        progressTextEl.textContent = `${task.current}/${task.target}`;
         
-        // حساب النسبة المئوية للشريط
+        // حساب النسبة المئوية
         const percent = Math.min(100, (task.current / task.target) * 100);
-        progressBar.style.width = `${percent}%`;
-
-        // 4. تخصيص الأيقونة حسب نوع المهمة (اختياري لجمالية أكثر)
-        if(task.id === 1) iconEl.textContent = 'mosque'; // المعصومين
-        else if(task.id === 2) iconEl.textContent = 'lightbulb'; // المساعدات
-        else if(task.id === 3) iconEl.textContent = 'local_fire_department'; // الماراثون
-        else if(task.id === 4) iconEl.textContent = 'history_edu'; // المهدوية
-        else if(task.id === 5) iconEl.textContent = 'shopping_bag'; // المتجر
-
-        // 5. منطق الزر والحالة
-        if (task.claimed) {
-            // حالة: تم الاستلام
-            actionContainer.innerHTML = `
-                <span class="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-                    <span class="material-symbols-rounded text-sm">check_circle</span> مكتمل
-                </span>`;
-            progressBar.className = "h-full bg-green-600 w-0"; // لون أخضر للمكتمل
-        } else if (isCompleted) {
-            // حالة: جاهز للاستلام (زر تفاعلي)
-            const btn = document.createElement('button');
-            btn.className = "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-900 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg animate-bounce flex items-center gap-1 transition-transform active:scale-95";
-            btn.innerHTML = `<span>استلام</span> <span class="material-symbols-rounded text-sm">redeem</span>`;
-            btn.onclick = () => claimSingleReward(task.id);
-            actionContainer.appendChild(btn);
-        } else {
-            // حالة: قيد التنفيذ
-            actionContainer.innerHTML = `<span class="text-[10px] text-slate-500 font-bold">قيد التقدم</span>`;
-            // جعل الشريط رمادياً أو باهتاً حتى يكتمل
-            progressBar.className = "h-full bg-slate-600 w-0"; 
-        }
         
-        // تطبيق العرض بعد تعيين الكلاسات لضمان عمل الأنيميشن
-        requestAnimationFrame(() => { progressBar.style.width = `${percent}%`; });
+        // --- تحديد لون السائل ---
+        let colorClass = 'liquid-red'; // افتراضي (أحمر)
+        if (percent >= 100) colorClass = 'liquid-green'; // مكتمل (أخضر)
+        else if (percent >= 60) colorClass = 'liquid-cyan'; // متقدم (أزرق)
+        else if (percent >= 30) colorClass = 'liquid-gold'; // متوسط (ذهبي)
+        
+        // تطبيق الكلاسات (هام جداً: نمسح القديم ونضع الجديد)
+        progressBar.className = `quest-progress-bar liquid-fill ${colorClass}`;
+
+        // تحديد الأيقونات
+        if(task.id===1) iconEl.textContent='mosque';
+        else if(task.id===2) iconEl.textContent='lightbulb';
+        else if(task.id===3) iconEl.textContent='local_fire_department';
+        else if(task.id===4) iconEl.textContent='history_edu';
+        else if(task.id===5) iconEl.textContent='shopping_bag';
+
+        // حالات التفاعل
+        if (task.claimed) {
+            // تم الاستلام
+            actionContainer.innerHTML = `<div class="flex flex-col items-center leading-none"><span class="material-symbols-rounded text-green-500 text-lg mb-0.5 shadow-green-500/50 drop-shadow-lg">check_circle</span><span class="text-[8px] text-green-400 font-bold">منجز</span></div>`;
+            progressBar.style.width = '100%';
+            rootItem.classList.add('opacity-60', 'grayscale-[0.5]');
+        } else if (isCompleted) {
+            // جاهز للاستلام
+            actionContainer.innerHTML = `
+                <button class="w-8 h-8 rounded-full bg-amber-400 hover:bg-amber-300 text-black shadow-[0_0_10px_rgba(251,191,36,0.6)] flex items-center justify-center animate-bounce"
+                    onclick="event.stopPropagation(); claimSingleReward(${task.id})">
+                    <span class="material-symbols-rounded text-lg">redeem</span>
+                </button>`;
+            // تأخير بسيط للأنيميشن
+            setTimeout(() => { progressBar.style.width = '100%'; }, 50);
+        } else {
+            // قيد التقدم
+            rootItem.onclick = (e) => { if(e.target.tagName !== 'BUTTON') executeQuestAction(task.id); };
+            
+            actionContainer.innerHTML = `
+    <span class="material-symbols-rounded text-lg bg-gradient-to-t from-cyan-400 to-blue-500 bg-clip-text text-transparent animate-pulse group-hover:-translate-x-1 transition-all duration-300">
+        chevron_left
+    </span>`;
+
+            
+            // تطبيق العرض (Width) بعد قليل لتعمل حركة الانسياب
+            setTimeout(() => { progressBar.style.width = `${percent}%`; }, 100);
+        }
 
         listContainer.appendChild(clone);
     });
-
-    // التحكم في ظهور الجائزة الكبرى (كما هو سابقاً)
-        // التحكم في ظهور الجائزة الكبرى (كما هو سابقاً)
+    
+    // إظهار زر الجائزة الكبرى إن وجد
     const grandPrizeArea = document.getElementById('grand-prize-area');
     if (grandPrizeArea) {
-        if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) {
-            grandPrizeArea.classList.remove('hidden'); // ✅ تصحيح: إزالة كلاس الإخفاء الفعلي
-            const gpBtn = document.getElementById('claim-grand-prize-btn');
-            if(gpBtn) gpBtn.onclick = window.claimGrandPrize;
-        } else {
-            grandPrizeArea.classList.add('hidden'); // ✅ تصحيح
-        }
+        if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) grandPrizeArea.classList.remove('hidden');
+        else grandPrizeArea.classList.add('hidden');
     }
-
 }
+
 
 // --- تفعيل الأزرار (Event Listeners) ---
 // يجب التأكد من تحميل الصفحة قبل ربط العناصر
@@ -1264,29 +1428,35 @@ function playSound(type) {
 }
 
 
-async function handleLogin() {
-    const u = getEl('login-username-input').value.trim();
-    const p = getEl('login-password-input').value.trim();
-    const err = getEl('login-error-message');
-    if(!u || !p) return err.textContent = "أدخل البيانات";
-    getEl('login-btn').disabled = true;
-    try {
-        const q = query(collection(db, "users"), where("username", "==", u));
-        const snap = await getDocs(q);
-        if(snap.empty) { err.textContent = "مستخدم غير موجود"; getEl('login-btn').disabled = false; return; }
-        const d = snap.docs[0];
-        if(d.data().password === p) {
-            effectiveUserId = d.id;
-            localStorage.setItem('ahlulbaytQuiz_UserId_v2.7', effectiveUserId);
+async function handleLogin(){
+    const u=getEl('login-username-input').value.trim();
+    const p=getEl('login-password-input').value.trim();
+    const err=getEl('login-error-message');
+    const btn=getEl('login-btn');
+    if(!u||!p)return err.textContent="أدخل البيانات";
+    const oldHtml=btn.innerHTML;
+    btn.disabled=true;
+    btn.innerHTML='<span class="material-symbols-rounded animate-spin">settings</span> جاري التحقق...';
+    try{
+        const q=query(collection(db,"users"),where("username","==",u));
+        const snap=await getDocs(q);
+        if(snap.empty)throw new Error("مستخدم غير موجود");
+        const d=snap.docs[0];
+        if(d.data().password===p){
+            effectiveUserId=d.id;
+            localStorage.setItem('ahlulbaytQuiz_UserId_v2.7',effectiveUserId);
             await loadProfile(effectiveUserId);
-             setupPresenceSystem();
+            setupPresenceSystem();
             navToHome();
             toast(`أهلاً بك ${u}`);
-        } else {
-            err.textContent = "كلمة المرور خطأ";
-            getEl('login-btn').disabled = false;
+        }else{
+            throw new Error("كلمة المرور خطأ");
         }
-    } catch(e) { err.textContent = "خطأ اتصال"; getEl('login-btn').disabled = false; }
+    }catch(e){
+        err.textContent=e.message||"خطأ اتصال";
+        btn.disabled=false;
+        btn.innerHTML=oldHtml;
+    }
 }
 
 async function handleReg() {
@@ -4823,33 +4993,14 @@ async function handleAiTrigger() {
         content.style.display = 'block'; 
         content.innerHTML = ''; // تفريغ
 
-        // إنشاء زر النسخ
-        const copyBtn = document.createElement('button');
-        copyBtn.className = "float-left ml-2 mb-2 flex items-center gap-1 bg-slate-800 border border-slate-600 text-slate-300 text-[10px] px-2 py-1 rounded hover:bg-slate-700 transition cursor-pointer";
-        copyBtn.innerHTML = '<span class="material-symbols-rounded text-sm">content_copy</span> نسخ';
+
         
         // إنشاء حاوية النص
         const textDiv = document.createElement('div');
         textDiv.className = "leading-loose text-justify";
         textDiv.innerHTML = explanation;
 
-        // برمجة زر النسخ
-        copyBtn.onclick = () => {
-            // نأخذ النص الخام (بدون HTML) للنسخ
-            const rawText = textDiv.innerText;
-            navigator.clipboard.writeText(rawText).then(() => {
-                copyBtn.innerHTML = '<span class="material-symbols-rounded text-sm text-green-400">check</span> تم!';
-                copyBtn.classList.add('border-green-500', 'text-green-400');
-                
-                setTimeout(() => {
-                    copyBtn.innerHTML = '<span class="material-symbols-rounded text-sm">content_copy</span> نسخ';
-                    copyBtn.classList.remove('border-green-500', 'text-green-400');
-                }, 2000);
-            }).catch(err => toast("فشل النسخ", "error"));
-        };
-
         // إضافة العناصر للنافذة
-        content.appendChild(copyBtn);
         content.appendChild(textDiv);
 
     } catch (e) {
@@ -5036,10 +5187,20 @@ function openLearnModal(topic, audioId, pdfId) {
 
 async function handlePdfReward() {
     const btn = document.getElementById('pdf-finish-btn');
+    // جلب معرف الكتاب الحالي من الكلاس
+    const bookId = pdfViewer.currentPdfId; 
+    const bookTitle = document.getElementById('pdf-topic-title').textContent || "كتاب";
+
     if (!btn || btn.disabled) return;
+    
+    // حماية إضافية: إذا كان العلم (Flag) الذي وضعناه في الخطوة السابقة مفعلاً، نرفض فوراً
+    if (pdfViewer.isRewardClaimed) {
+        if(window.toast) window.toast("تم استلام المكافأة مسبقاً", "info");
+        return;
+    }
 
     btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري الاحتساب...`;
+    btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري التحقق...`;
 
     try {
         if (!effectiveUserId) {
@@ -5049,8 +5210,24 @@ async function handlePdfReward() {
             return;
         }
 
-        const pointsToAdd = 5;
+        // 1. الفحص الأخير في السيرفر (The Final Guard)
+        // هذا يمنع الغش لو حاول شخص استدعاء الدالة يدوياً من الكونسول
+        const historyRef = doc(db, "users", effectiveUserId, "read_history", bookId);
+        const docSnap = await getDoc(historyRef);
 
+        if (docSnap.exists()) {
+            // كشف محاولة التكرار
+            if(window.toast) window.toast("⚠️ لقد استلمت جائزة هذا الكتاب مسبقاً!", "error");
+            
+            // تحديث حالة الزر فوراً ليظهر كـ "مستلم"
+            pdfViewer.checkRewardStatus(bookId);
+            return; 
+        }
+
+        // 2. إذا وصلنا هنا، فالكتاب جديد ولم يتم استلام جائزته
+        const pointsToAdd = 50;
+
+        // تجهيز التحديثات
         const wKey = getCurrentWeekKey();
         let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
         if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
@@ -5061,6 +5238,16 @@ async function handlePdfReward() {
         if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
         mStats.correct += pointsToAdd;
 
+        // 🔥 أهم خطوة: تسجيل الكتاب في الأرشيف (Create History Record)
+        // نستخدم setDoc لإنشاء الوثيقة بمعرف الكتاب
+        await setDoc(historyRef, {
+            title: bookTitle,
+            claimedAt: serverTimestamp(),
+            points: pointsToAdd,
+            type: 'book_reward'
+        });
+
+        // 3. إضافة النقاط للمستخدم
         await updateDoc(doc(db, "users", effectiveUserId), {
             highScore: increment(pointsToAdd),
             "stats.totalReadings": increment(1),
@@ -5069,22 +5256,27 @@ async function handlePdfReward() {
             monthlyStats: mStats
         });
 
+        // تحديث البيانات المحلية
         userProfile.highScore = (userProfile.highScore || 0) + pointsToAdd;
         userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + pointsToAdd;
         userProfile.weeklyStats = wStats;
         userProfile.monthlyStats = mStats;
+        
+        // نضع علامة أن هذا الكتاب تم استلامه محلياً أيضاً
+        pdfViewer.isRewardClaimed = true; 
 
         if (typeof updateProfileUI === 'function') updateProfileUI();
 
         if(window.playSound) window.playSound('win');
-        if(window.toast) window.toast(`🎉 ممتاز! أضيفت ${pointsToAdd} نقاط لرصيدك`, "success");
+        if(window.toast) window.toast(`🎉 ممتاز! أضيفت ${pointsToAdd} نقطه`, "success");
 
+        // تغيير شكل الزر نهائياً
         btn.innerHTML = `<span>تم الاستلام</span><span class="material-symbols-rounded">check_circle</span>`;
+        btn.classList.add('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
         
         setTimeout(() => {
             if(pdfViewer) pdfViewer.close();
-            btn.disabled = false; 
-            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">card_giftcard</span>`;
+            // لا نعيد تفعيل الزر هنا، لأنه أصبح مستلماً
         }, 1500);
 
     } catch (error) {
@@ -5128,7 +5320,87 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 });
-window.toast=function(msg,type='info'){const tpl=document.getElementById('toast-template');if(!tpl){const f=document.createElement('div');f.className='fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded z-50';f.textContent=msg;document.body.appendChild(f);setTimeout(()=>f.remove(),3000);return}const clone=tpl.content.cloneNode(true);const el=clone.querySelector('.toast-box');const icon=clone.querySelector('.toast-icon');const iBox=clone.querySelector('.toast-icon-box');clone.querySelector('.toast-msg').textContent=msg;if(type==='success'){el.classList.add('bg-green-900/90','border-green-500/30');iBox.classList.add('bg-green-500/20');icon.classList.add('text-green-400');icon.textContent='check_circle'}else if(type==='error'){el.classList.add('bg-red-900/90','border-red-500/30');iBox.classList.add('bg-red-500/20');icon.classList.add('text-red-400');icon.textContent='warning'}else if(type==='gold'){el.classList.add('bg-amber-900/90','border-amber-500/30');iBox.classList.add('bg-amber-500/20');icon.classList.add('text-amber-400');icon.textContent='military_tech'}else{el.classList.add('bg-slate-800/90','border-slate-600/30');icon.textContent='info'}document.body.appendChild(el);requestAnimationFrame(()=>{el.classList.remove('translate-y-[-150%]','opacity-0');el.classList.add('translate-y-0','opacity-100')});setTimeout(()=>{el.classList.remove('translate-y-0','opacity-100');el.classList.add('translate-y-[-150%]','opacity-0');setTimeout(()=>el.remove(),500)},3000)};
+// ==========================================
+// 🔔 نظام الإشعارات (تصميم أسود + خط أميري + أرشفة)
+// ==========================================
+window.toast = function(msg, type = 'info', forceSave = false) {
+    // 1. إعداد الألوان
+    let borderColor = 'border-slate-600'; 
+    let barColor = 'bg-slate-600';
+    let iconName = ''; 
+
+    if (type === 'success') {
+        borderColor = 'border-green-500';
+        barColor = 'bg-green-500';
+        iconName = 'check_circle';
+    } else if (type === 'error') {
+        borderColor = 'border-red-600';
+        barColor = 'bg-red-600';
+        iconName = 'warning';
+    } else if (type === 'gold' || msg.includes('نقاط') || msg.includes('مكافأة')) {
+        borderColor = 'border-amber-400';
+        barColor = 'bg-amber-400';
+        iconName = 'monetization_on';
+        type = 'gold'; 
+    }
+
+    // 2. بناء العنصر
+    const box = document.createElement('div');
+    box.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] 
+                     bg-black text-white px-6 py-3 rounded-sm shadow-2xl 
+                     flex flex-col items-center justify-center 
+                     min-w-[200px] w-fit max-w-[85vw] 
+                     border border-opacity-50 ${borderColor}`;
+    
+    // ✅ هنا التعديل: تطبيق الخط الأميري
+    box.innerHTML = `
+        <span class="text-base font-bold text-center leading-relaxed tracking-wide break-words w-full" 
+              style="font-family: 'Amiri', serif;">
+            ${msg}
+        </span>
+        <div class="absolute bottom-0 left-0 h-[3px] w-full ${barColor} opacity-80" id="toast-progress"></div>
+    `;
+
+    document.body.appendChild(box);
+
+    // 3. الأنيميشن
+    requestAnimationFrame(() => {
+        box.animate([
+            { transform: 'translate(-50%, 20px)', opacity: 0 },
+            { transform: 'translate(-50%, 0)', opacity: 1 }
+        ], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+
+        const bar = box.querySelector('#toast-progress');
+        bar.style.transition = "width 3000ms linear";
+        bar.style.width = "100%";
+        requestAnimationFrame(() => {
+            bar.style.width = "0%";
+        });
+    });
+
+    // 4. الأرشفة الذكية
+    const isGameplaySpam = (msg.includes('إجابة صحيحة') || msg.includes('إجابة خاطئة')) && !msg.includes('نقاط');
+    
+    if (forceSave || type === 'gold' || type === 'error' || (type === 'success' && !isGameplaySpam)) {
+        if (typeof addLocalNotification === 'function') {
+            addLocalNotification(
+                type === 'error' ? 'تنبيه' : (type === 'gold' ? 'مكافأة' : 'إشعار'), 
+                msg, 
+                iconName || 'info'
+            );
+        }
+    }
+
+    // 5. الإزالة
+    setTimeout(() => {
+        const fadeOut = box.animate([
+            { transform: 'translate(-50%, 0)', opacity: 1 },
+            { transform: 'translate(-50%, 20px)', opacity: 0 }
+        ], { duration: 300, easing: 'ease-in', fill: 'forwards' });
+
+        fadeOut.onfinish = () => box.remove();
+    }, 3000);
+};
 function renderPdfLibrary(){const c=document.getElementById('pdf-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('book-item-template');pdfLibrary.forEach(b=>{const clone=tpl.content.cloneNode(true);const root=clone.querySelector('.book-card');const img=clone.querySelector('.book-img');const title=clone.querySelector('.book-title');img.src=b.cover;title.textContent=b.title;root.onclick=()=>{if(window.openPdfViewer)window.openPdfViewer(b.url,b.title);else window.open(b.url,'_blank')};c.appendChild(clone)})}
 function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
 // =========================================================================
