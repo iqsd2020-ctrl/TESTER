@@ -3267,3 +3267,79 @@ button.mode-disabled {
     -webkit-tap-highlight-color: transparent;
 }
 
+/* --- 💎 تصميم بطاقة الهولوجرام (Hologram Card) --- */
+.holo-card {
+    background: rgba(10, 10, 15, 0.96); /* أسود شبه معتم لسرعة الأداء */
+    border: 1px solid rgba(34, 211, 238, 0.3); /* حدود سماوية خافتة */
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.15), /* توهج خارجي */
+                inset 0 0 30px rgba(6, 182, 212, 0.05); /* توهج داخلي خفيف */
+    position: relative;
+    max-width: 90%;
+    width: 350px;
+    padding: 30px 20px 20px 20px;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-overlay.active .holo-card {
+    transform: scale(1); /* تأثير الانبثاق عند الفتح */
+}
+
+/* أيقونة المصباح النابض */
+.holo-lamp-icon {
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0f172a;
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    color: #fbbf24;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+    z-index: 10;
+    animation: lamp-pulse 3s infinite ease-in-out;
+}
+
+@keyframes lamp-pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); border-color: rgba(251, 191, 36, 0.5); }
+    50% { box-shadow: 0 0 25px rgba(251, 191, 36, 0.8); border-color: rgba(251, 191, 36, 1); }
+}
+
+/* تنسيق النص */
+.holo-title {
+    font-family: 'Amiri', serif;
+    color: #fbbf24; /* ذهبي */
+    font-size: 1.2rem;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.holo-text {
+    font-family: 'Amiri', serif;
+    color: #e2e8f0; /* أبيض مائل للرمادي لراحة العين */
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 20px;
+}
+
+/* زر المفضلة العائم */
+.holo-fav-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px; /* أو left حسب الرغبة */
+    color: rgba(255, 255, 255, 0.3);
+    transition: all 0.3s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.holo-fav-btn:hover, .holo-fav-btn.active {
+    color: #f43f5e; /* لون وردي/أحمر عند التفعيل */
+    transform: scale(1.1);
+    text-shadow: 0 0 10px rgba(244, 63, 94, 0.6);
+}

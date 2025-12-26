@@ -483,16 +483,28 @@
         </div>
     </div>
 
-    <div id="enrichment-modal" class="modal-overlay">
-        <div class="modal-box border-amber-500 border-2">
-            <div class="text-center">
-                <span class="material-symbols-rounded text-amber-400 text-5xl mb-4 animate-bounce">lightbulb</span>
-                <h3 class="text-2xl font-bold text-white font-heading mb-4">معلومة إثرائية</h3>
-                <p id="enrichment-content" class="text-slate-200 text-lg leading-loose font-body">...</p>
-                <p class="text-xs text-slate-500 mt-6">اضغط في أي مكان للمتابعة</p>
-            </div>
+  <div id="enrichment-modal" class="modal-overlay hidden z-50 fixed inset-0 flex items-center justify-center bg-black/90 transition-opacity duration-300">
+    
+    <div class="holo-card">
+        
+        <div class="holo-lamp-icon">
+            <span class="material-symbols-rounded text-2xl">lightbulb</span>
+        </div>
+
+        <h3 class="holo-title">إضاءة معرفية</h3>
+        
+        <div class="relative overflow-hidden">
+            <p id="enrichment-content" class="holo-text">
+                </p>
+        </div>
+
+        <div class="text-[10px] text-cyan-500/50 mt-4 font-mono tracking-widest border-t border-cyan-500/10 pt-2">
+            اضغط للمتابعة
         </div>
     </div>
+</div>
+
+
 
     <div id="badges-modal" class="modal-overlay">
         <div class="modal-box">
