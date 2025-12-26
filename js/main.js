@@ -2112,7 +2112,7 @@ async function startMarathon() {
         const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
         const now = Date.now();
         const diff = now - lastPlayed;
-        const twentyFourHours = 24 * 60 * 60 * 1000;
+        const twentyFourHours = 1 * 60 * 60 * 1000;
         
         if (diff < twentyFourHours) {
             toast("⛔️ لا يمكنك لعب النور إلا مرة واحدة كل 24 ساعة.", "error");
@@ -3946,7 +3946,7 @@ btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="m
 
     const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
     const now = Date.now();
-    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const twentyFourHours = 1 * 60 * 60 * 1000;
     const diff = now - lastPlayed;
 
     if (diff < twentyFourHours) {
