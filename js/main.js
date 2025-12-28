@@ -5636,6 +5636,10 @@ document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init())
 // ==========================================
 const NOTIF_TIMES = [9, 16, 21];
 
+// ==========================================
+// 🔔 نظام الإشعارات (متوافق مع أندرويد 100%)
+// ==========================================
+
 function initNotificationSystem() {
     const btn = document.getElementById('daily-notif-btn');
     const icon = document.getElementById('daily-notif-icon');
@@ -5643,76 +5647,77 @@ function initNotificationSystem() {
 
     if (!btn) return;
 
-    // تحديث الواجهة بناءً على الحالة
+    // تحديث شكل الزر بناءً على الحالة الحالية
     if (Notification.permission === 'granted') {
         icon.textContent = 'notifications_active';
         icon.classList.add('text-amber-400');
-        statusText.textContent = "التذكير مفعل";
+        if(statusText) statusText.textContent = "التذكير مفعل";
     }
 
     btn.onclick = async () => {
-        // 1. طلب الإذن إذا لم يكن ممنوحاً
+        // 1. طلب الإذن أولاً إذا لم يكن ممنوحاً
         if (Notification.permission !== 'granted') {
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
-                alert("❌ تم رفض الإذن من المتصفح.");
+                alert("تم رفض الإذن. يجب تفعيله من إعدادات المتصفح.");
                 return;
             }
         }
 
-        // 2. محاولة الإرسال مع تتبع الأخطاء
-        toast("جاري محاولة الإرسال... ⏳");
-        
-        try {
-            // محاولة أ: عبر Service Worker (الطريقة المفضلة للأندرويد)
-            if ('serviceWorker' in navigator) {
-                const reg = await navigator.serviceWorker.getRegistration();
+        // تحديث شكل الزر فوراً بعد الموافقة
+        icon.textContent = 'notifications_active';
+        icon.classList.add('text-amber-400');
+        if(statusText) statusText.textContent = "التذكير مفعل";
+
+        // 2. إرسال الإشعار بالطريقة الصحيحة (عبر Service Worker فقط)
+        toast("جاري الإرسال... ⏳");
+
+        if ('serviceWorker' in navigator) {
+            try {
+                // ننتظر حتى يصبح الـ Service Worker جاهزاً تماماً
+                const registration = await navigator.serviceWorker.ready;
                 
-                if (reg && reg.active) {
-                    await reg.showNotification("🔔 تجربة Service Worker", {
-                        body: "نجح الإرسال عبر الخدمة الخلفية!",
-                        icon: 'Icon.png',
-                        badge: 'Icon.png',
-                        vibrate: [200, 100, 200],
-                        tag: 'debug-notif-' + Date.now()
-                    });
-                    toast("✅ تم الإرسال عبر SW");
-                    console.log("Sent via SW Registration");
-                    return; // نجحنا، نخرج من الدالة
-                } else {
-                    console.warn("⚠️ Service Worker غير نشط أو غير موجود");
-                    // لا نتوقف، نجرب الطريقة البديلة
-                }
+                // الآن نرسل الإشعار بأمان
+                await registration.showNotification("🕌 هياكل النور", {
+                    body: "تجربة ناجحة! هذا الإشعار متوافق مع أندرويد.",
+                    icon: 'Icon.png',      // تأكد أن الصورة موجودة
+                    badge: 'Icon.png',     // الأيقونة الصغيرة (للأندرويد)
+                    vibrate: [200, 100, 200],
+                    tag: 'test-notification',
+                    renotify: true,
+                    actions: [
+                        {action: 'open', title: 'دخول للتطبيق'}
+                    ]
+                });
+
+                toast("✅ تم الإرسال بنجاح!");
+                console.log("Notification sent via SW");
+                
+                // جدولة الإشعار القادم (تخزين الموعد محلياً)
+                scheduleNextLocalNotification(); 
+
+            } catch (error) {
+                console.error("SW Error:", error);
+                // عرض الخطأ للمستخدم فقط في حال الفشل الشديد
+                alert("حدث خطأ أثناء الاتصال بالخلفية: " + error.message);
             }
-
-            // محاولة ب: الطريقة التقليدية (للكمبيوتر والآيفون أحياناً)
-            const n = new Notification("🔔 تجربة مباشرة", {
-                body: "نجح الإرسال بالطريقة المباشرة!",
-                icon: 'Icon.png'
-            });
-            
-            n.onshow = () => toast("✅ ظهر الإشعار المباشر");
-            n.onerror = (e) => {
-                console.error("خطأ في الإشعار المباشر:", e);
-                alert("❌ حدث خطأ داخلي أثناء عرض الإشعار. تأكد من إعدادات الهاتف.");
-            };
-
-        } catch (error) {
-            console.error(error);
-            alert("❌ خطأ برمجي: " + error.message);
+        } else {
+            alert("عذراً، متصفحك لا يدعم Service Workers المطلوبة للإشعارات.");
         }
     };
 }
+// ==========================================
+// ⏰ دالة جدولة الإشعارات (النسخة الموحدة)
+// ==========================================
 
-
-// دالة حساب وجدولة الموعد القادم
 function scheduleNextLocalNotification() {
+    // 1. لا نجدول شيئاً إذا لم يوافق المستخدم
     if (Notification.permission !== 'granted') return;
 
     const now = new Date();
     const currentHour = now.getHours();
     
-    // البحث عن أقرب ساعة قادمة في القائمة
+    // 2. البحث عن أقرب ساعة قادمة في القائمة
     let nextTargetHour = NOTIF_TIMES.find(h => h > currentHour);
     
     // إذا لم نجد (مثلاً الساعة الآن 22:00)، نختار أول ساعة ليوم غد (9:00)
@@ -5720,24 +5725,23 @@ function scheduleNextLocalNotification() {
         nextTargetHour = NOTIF_TIMES[0];
     }
 
-    // رسائل مخصصة لكل وقت
+    // 3. تحديد نص الرسالة بناءً على الوقت
     let msgBody = "حان وقت التزود بالمعرفة! 🌟";
     if (nextTargetHour === 9) msgBody = "صباح الخير! ☀️ ابدأ يومك بذكر محمد وآل محمد ومعلومة جديدة.";
     else if (nextTargetHour === 16) msgBody = "استراحة العصر ☕.. ما رأيك في تحدي سريع؟";
     else if (nextTargetHour === 21) msgBody = "هدوء الليل 🌙.. أفضل وقت لمراجعة معلوماتك وختم يومك بنور.";
 
-    // إرسال الأمر للـ Service Worker (إذا كان يدعم الجدولة مستقبلاً)
-    // حالياً بما أننا "محليون" سنعتمد على التذكير عند فتح التطبيق أو استخدام setInterval إذا كان التطبيق مفتوحاً
-    // ملاحظة: المتصفحات تقتل المؤقتات الخلفية، لكن سنقوم بتسجيل "رغبة" المستخدم
-    
     console.log(`⏰ التنبيه القادم مجدول للساعة: ${nextTargetHour}:00`);
     
-    // تخزين الموعد في LocalStorage لاستخدامه عند فتح التطبيق المرة القادمة
+    // 4. تخزين الموعد والرسالة في LocalStorage
     localStorage.setItem('next_notif_hour', nextTargetHour);
+    localStorage.setItem('next_notif_msg', msgBody); // نحفظ الرسالة لنستخدمها لاحقاً
 }
 
-// أضف هذا السطر في نهاية دالة initDailyQuests أو loadProfile أو في DOMContentLoaded
-// لضمان تشغيل النظام
+// تأكد أن هذا السطر موجود مرة واحدة فقط في نهاية الملف
 document.addEventListener('DOMContentLoaded', () => {
-    initNotificationSystem();
+    // استدعاء نظام الإشعارات عند بدء التطبيق
+    if(typeof initNotificationSystem === 'function') {
+        initNotificationSystem();
+    }
 });
