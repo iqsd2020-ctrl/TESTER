@@ -5631,86 +5631,77 @@ document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init())
 // ==========================================
 // 🔔 نظام الإشعارات المجدولة (Local Push)
 // ==========================================
-const NOTIF_TIMES = [9, 16, 21]; // الساعات المستهدفة: 9 ص، 4 م، 9 م
+// ==========================================
+// 🔔 نظام الإشعارات (المعدل والمضمون)
+// ==========================================
+const NOTIF_TIMES = [9, 16, 21];
 
 function initNotificationSystem() {
     const btn = document.getElementById('daily-notif-btn');
     const icon = document.getElementById('daily-notif-icon');
     const statusText = document.getElementById('notif-status-text');
 
-    // إخفاء الزر إذا كان المتصفح لا يدعم الإشعارات
     if (!btn || !('Notification' in window)) {
-        if(btn) btn.style.display = 'none'; 
+        if(btn) btn.style.display = 'none';
         return;
     }
 
-    // 1. التحقق من الحالة الحالية عند بدء التطبيق وتحديث شكل الزر
+    // دالة مساعدة لإطلاق الإشعار عبر Service Worker
+    const sendNotification = (title, body) => {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification(title, {
+                    body: body,
+                    icon: 'Icon.png',
+                    badge: 'Icon.png', // مهمة للأندرويد
+                    vibrate: [200, 100, 200],
+                    tag: 'test-notification', // يمنع تكرار الإشعارات
+                    renotify: true
+                });
+            });
+        } else {
+            // حل احتياطي قديم
+            new Notification(title, { body: body, icon: 'Icon.png' });
+        }
+    };
+
+    // 1. التحقق من الحالة
     if (Notification.permission === 'granted') {
         icon.textContent = 'notifications_active';
-        icon.classList.add('text-amber-400', 'animate-pulse-slow');
+        icon.classList.add('text-amber-400');
         btn.classList.add('border-amber-500/50', 'bg-amber-500/10');
         statusText.textContent = "التذكير مفعل";
-        statusText.classList.add('text-amber-500/60');
-        
-        // جدولة التنبيه القادم فوراً لضمان الاستمرارية
         scheduleNextLocalNotification();
-
     } else if (Notification.permission === 'denied') {
         icon.textContent = 'notifications_off';
-        statusText.textContent = "محظور من المتصفح";
+        statusText.textContent = "محظور";
     }
 
-    // 2. منطق الزر عند الضغط
+    // 2. عند الضغط
     btn.onclick = () => {
         if (Notification.permission === 'granted') {
-            // ✅ الحالة الأولى: الإذن ممنوح مسبقاً -> نرسل إشعار تجريبي فوراً
-            new Notification("🔔 تجربة فورية", {
-                body: "هذا إشعار تجريبي! اضغط عليّ للعودة للتطبيق.",
-                icon: 'Icon.png',
-                badge: 'Icon.png',
-                vibrate: [200, 100, 200]
-            });
-
-            toast("تم إرسال إشعار تجريبي 🚀");
-            
-            // إعادة جدولة الموعد القادم للتأكيد
-            scheduleNextLocalNotification(); 
+            // 👇 هنا التغيير الجوهري: نستخدم الدالة الجديدة
+            sendNotification("🔔 نجحت التجربة!", "هذا الإشعار قادم من Service Worker وهو الطريقة الصحيحة.");
+            toast("تم إرسال الإشعار.. انظر للأعلى 👆");
+            scheduleNextLocalNotification();
 
         } else if (Notification.permission === 'denied') {
-            // ⛔ الحالة الثانية: المستخدم حظر الإشعارات -> نظهر له طريقة الحل
-             window.showConfirm(
-                "الإشعارات محظورة",
-                "لقد قمت بحظر الإشعارات سابقاً. لتفعيل التذكير، اضغط على أيقونة القفل 🔒 بجانب الرابط في المتصفح واختر 'سماح' (Allow).",
-                "settings_off",
-                null 
-            );
-
+             window.showConfirm("تنبيه", "الإشعارات محظورة من إعدادات المتصفح.", "settings_off", null);
         } else {
-            // 🆕 الحالة الثالثة: طلب الإذن لأول مرة
             Notification.requestPermission().then(permission => {
                 if (permission === 'granted') {
-                    // تغيير شكل الزر للذهبي
                     icon.textContent = 'notifications_active';
                     icon.classList.add('text-amber-400');
-                    btn.classList.add('border-amber-500/50', 'bg-amber-500/10');
                     statusText.textContent = "تم التفعيل!";
                     
-                    // إطلاق إشعار ترحيبي
-                    new Notification("🕌 هياكل النور", {
-                        body: "تم تفعيل التذكير اليومي بنجاح! سيصلك تنبيه في المواعيد المحددة.",
-                        icon: 'Icon.png',
-                        badge: 'Icon.png'
-                    });
-
-                    // جدولة أول موعد
+                    // إطلاق إشعار الترحيب
+                    sendNotification("🕌 أهلاً بك", "تم تفعيل الإشعارات بنجاح.");
                     scheduleNextLocalNotification();
-                    toast("تم تفعيل الإشعارات بنجاح 🎉");
-                } else {
-                    statusText.textContent = "تم الرفض";
                 }
             });
         }
     };
+}
 }
 
 // دالة حساب وجدولة الموعد القادم
