@@ -5641,68 +5641,69 @@ function initNotificationSystem() {
     const icon = document.getElementById('daily-notif-icon');
     const statusText = document.getElementById('notif-status-text');
 
-    if (!btn || !('Notification' in window)) {
-        if(btn) btn.style.display = 'none';
-        return;
-    }
+    if (!btn) return;
 
-    // دالة مساعدة لإطلاق الإشعار عبر Service Worker
-    const sendNotification = (title, body) => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification(title, {
-                    body: body,
-                    icon: 'Icon.png',
-                    badge: 'Icon.png', // مهمة للأندرويد
-                    vibrate: [200, 100, 200],
-                    tag: 'test-notification', // يمنع تكرار الإشعارات
-                    renotify: true
-                });
-            });
-        } else {
-            // حل احتياطي قديم
-            new Notification(title, { body: body, icon: 'Icon.png' });
-        }
-    };
-
-    // 1. التحقق من الحالة
+    // تحديث الواجهة بناءً على الحالة
     if (Notification.permission === 'granted') {
         icon.textContent = 'notifications_active';
         icon.classList.add('text-amber-400');
-        btn.classList.add('border-amber-500/50', 'bg-amber-500/10');
         statusText.textContent = "التذكير مفعل";
-        scheduleNextLocalNotification();
-    } else if (Notification.permission === 'denied') {
-        icon.textContent = 'notifications_off';
-        statusText.textContent = "محظور";
     }
 
-    // 2. عند الضغط
-    btn.onclick = () => {
-        if (Notification.permission === 'granted') {
-            // 👇 هنا التغيير الجوهري: نستخدم الدالة الجديدة
-            sendNotification("🔔 نجحت التجربة!", "هذا الإشعار قادم من Service Worker وهو الطريقة الصحيحة.");
-            toast("تم إرسال الإشعار.. انظر للأعلى 👆");
-            scheduleNextLocalNotification();
+    btn.onclick = async () => {
+        // 1. طلب الإذن إذا لم يكن ممنوحاً
+        if (Notification.permission !== 'granted') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                alert("❌ تم رفض الإذن من المتصفح.");
+                return;
+            }
+        }
 
-        } else if (Notification.permission === 'denied') {
-             window.showConfirm("تنبيه", "الإشعارات محظورة من إعدادات المتصفح.", "settings_off", null);
-        } else {
-            Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                    icon.textContent = 'notifications_active';
-                    icon.classList.add('text-amber-400');
-                    statusText.textContent = "تم التفعيل!";
-                    
-                    // إطلاق إشعار الترحيب
-                    sendNotification("🕌 أهلاً بك", "تم تفعيل الإشعارات بنجاح.");
-                    scheduleNextLocalNotification();
+        // 2. محاولة الإرسال مع تتبع الأخطاء
+        toast("جاري محاولة الإرسال... ⏳");
+        
+        try {
+            // محاولة أ: عبر Service Worker (الطريقة المفضلة للأندرويد)
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                
+                if (reg && reg.active) {
+                    await reg.showNotification("🔔 تجربة Service Worker", {
+                        body: "نجح الإرسال عبر الخدمة الخلفية!",
+                        icon: 'Icon.png',
+                        badge: 'Icon.png',
+                        vibrate: [200, 100, 200],
+                        tag: 'debug-notif-' + Date.now()
+                    });
+                    toast("✅ تم الإرسال عبر SW");
+                    console.log("Sent via SW Registration");
+                    return; // نجحنا، نخرج من الدالة
+                } else {
+                    console.warn("⚠️ Service Worker غير نشط أو غير موجود");
+                    // لا نتوقف، نجرب الطريقة البديلة
                 }
+            }
+
+            // محاولة ب: الطريقة التقليدية (للكمبيوتر والآيفون أحياناً)
+            const n = new Notification("🔔 تجربة مباشرة", {
+                body: "نجح الإرسال بالطريقة المباشرة!",
+                icon: 'Icon.png'
             });
+            
+            n.onshow = () => toast("✅ ظهر الإشعار المباشر");
+            n.onerror = (e) => {
+                console.error("خطأ في الإشعار المباشر:", e);
+                alert("❌ حدث خطأ داخلي أثناء عرض الإشعار. تأكد من إعدادات الهاتف.");
+            };
+
+        } catch (error) {
+            console.error(error);
+            alert("❌ خطأ برمجي: " + error.message);
         }
     };
 }
-}
+
 
 // دالة حساب وجدولة الموعد القادم
 function scheduleNextLocalNotification() {
