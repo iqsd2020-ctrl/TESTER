@@ -100,3 +100,24 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
+
+// 4. التفاعل مع النقر على الإشعار (فتح التطبيق)
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close(); // إغلاق الإشعار
+
+    // محاولة فتح نافذة التطبيق أو التركيز عليها إذا كانت مفتوحة
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            // إذا كان هناك تبويب مفتوح، ركز عليه
+            for (const client of clientList) {
+                if (client.url.includes('index.html') && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // إذا لم يكن مفتوحاً، افتح نافذة جديدة
+            if (clients.openWindow) {
+                return clients.openWindow('./index.html');
+            }
+        })
+    );
+});
