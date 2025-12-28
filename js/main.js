@@ -4,7 +4,7 @@ import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where,
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
 import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
-import { topicsData, infallibles, badgesData, badgesMap } from './data.js';
+import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from './data.js';
 
 // ==========================================
 // 🛠️ أدوات الربط الذكي (نظام المطابقة بالتجريد - Abstract Match)
@@ -1904,35 +1904,31 @@ bind('ai-generate-btn', 'click', async () => {
     }
 
     try {
-        if (navigator.onLine) {
-            const cacheBuster = Date.now();
-            const marathonUrl = `https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Data/Noor/dataNooR.json?v=${cacheBuster}`;
-            fetch(marathonUrl).catch(err => console.log("Background cache skipped:", err));
-        }
+        // --- نظام الجلب المحلي الجديد (JSON) ---
+        const fileName = sectionFilesMap[topic] || sectionFilesMap['default'];
+        const filePath = `./Data/Noor/${fileName}`;
+        
+        console.log(`📂 جاري جلب الأسئلة من: ${filePath} للموضوع: ${topic}`);
+        
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error("Failed to fetch local JSON");
+        
+        let allQuestionsInFile = await response.json();
+        let allAvailableQuestions = [];
 
-        const QUERY_LIMIT = 3000;
-        let qQuery;
-
-        if (cat === 'random' || !cat) {
-            qQuery = query(collection(db, "questions"), where("isReviewed", "==", true), limit(QUERY_LIMIT));
+        if (cat === 'random' || !cat || topic === 'random') {
+            allAvailableQuestions = allQuestionsInFile;
         } else {
-            qQuery = query(collection(db, "questions"), where("topic", "==", topic), where("isReviewed", "==", true), limit(QUERY_LIMIT));
+            // فلترة الأسئلة بناءً على الموضوع الفرعي (topic) داخل الملف
+            allAvailableQuestions = allQuestionsInFile.filter(q => q.topic === topic);
         }
 
-        const snap = await getDocs(qQuery);
-
-        if (cat !== 'random' && cat !== '' && snap.empty) {
-            const msg = navigator.onLine ? "عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً." : "لا توجد أسئلة محفوظة لهذا القسم، اتصل بالإنترنت وحاول مرة أخرى.";
-            toast(msg, "error");
+        if (allAvailableQuestions.length === 0) {
+            toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
             btn.disabled = false;
             btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
             return;
         }
-
-        let firebaseQs = [];
-        snap.forEach(d => firebaseQs.push({ id: d.id, ...d.data() }));
-
-        let allAvailableQuestions = firebaseQs;
         const seenIds = userProfile.seenQuestions || [];
         let freshQuestions = allAvailableQuestions.filter(q => !seenIds.includes(q.id));
 
