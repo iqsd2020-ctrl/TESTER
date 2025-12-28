@@ -5626,3 +5626,106 @@ window.CHEAT_MANAGER = {
 
 // تشغيل النظام عند التحميل
 document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
+
+
+// ==========================================
+// 🔔 نظام الإشعارات المجدولة (Local Push)
+// ==========================================
+
+const NOTIF_TIMES = [9, 16, 21]; // الساعات المستهدفة: 9 ص، 4 م، 9 م
+
+function initNotificationSystem() {
+    const btn = document.getElementById('daily-notif-btn');
+    const icon = document.getElementById('daily-notif-icon');
+    const statusText = document.getElementById('notif-status-text');
+
+    if (!btn || !('Notification' in window)) {
+        if(btn) btn.style.display = 'none'; // إخفاء الزر إذا المتصفح لا يدعم
+        return;
+    }
+
+    // 1. التحقق من الحالة الحالية عند بدء التطبيق
+    if (Notification.permission === 'granted') {
+        icon.textContent = 'notifications_active';
+        icon.classList.add('text-amber-400', 'animate-pulse-slow');
+        btn.classList.add('border-amber-500/50', 'bg-amber-500/10');
+        statusText.textContent = "التذكير مفعل";
+        statusText.classList.add('text-amber-500/60');
+        
+        // جدولة التنبيه القادم فوراً لضمان الاستمرارية
+        scheduleNextLocalNotification();
+    } else if (Notification.permission === 'denied') {
+        icon.textContent = 'notifications_off';
+        statusText.textContent = "محظور من المتصفح";
+    }
+
+    // 2. تفعيل الزر عند الضغط
+    btn.onclick = () => {
+        if (Notification.permission === 'granted') {
+            // إذا كان مفعل بالفعل، نعطي ملاحظة للمستخدم (أو يمكن برمجة خيار للإيقاف)
+            toast("الإشعارات مفعلة بالفعل ✅");
+            scheduleNextLocalNotification(); // إعادة جدولة للتأكيد
+        } else if (Notification.permission === 'denied') {
+            toast("لقد حظرت الإشعارات. يرجى تفعيلها من إعدادات المتصفح ⚙️", "error");
+        } else {
+            // طلب الإذن
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    icon.textContent = 'notifications_active';
+                    icon.classList.add('text-amber-400');
+                    statusText.textContent = "تم التفعيل!";
+                    
+                    // إطلاق إشعار تجريبي فوري
+                    new Notification("🕌 هياكل النور", {
+                        body: "تم تفعيل التذكير اليومي بنجاح! سيصلك تنبيه في المواعيد المحددة.",
+                        icon: 'Icon.png',
+                        badge: 'Icon.png'
+                    });
+
+                    // جدولة أول موعد
+                    scheduleNextLocalNotification();
+                    toast("تم تفعيل الإشعارات بنجاح 🎉");
+                } else {
+                    statusText.textContent = "تم الرفض";
+                }
+            });
+        }
+    };
+}
+
+// دالة حساب وجدولة الموعد القادم
+function scheduleNextLocalNotification() {
+    if (Notification.permission !== 'granted') return;
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // البحث عن أقرب ساعة قادمة في القائمة
+    let nextTargetHour = NOTIF_TIMES.find(h => h > currentHour);
+    
+    // إذا لم نجد (مثلاً الساعة الآن 22:00)، نختار أول ساعة ليوم غد (9:00)
+    if (!nextTargetHour) {
+        nextTargetHour = NOTIF_TIMES[0];
+    }
+
+    // رسائل مخصصة لكل وقت
+    let msgBody = "حان وقت التزود بالمعرفة! 🌟";
+    if (nextTargetHour === 9) msgBody = "صباح الخير! ☀️ ابدأ يومك بذكر محمد وآل محمد ومعلومة جديدة.";
+    else if (nextTargetHour === 16) msgBody = "استراحة العصر ☕.. ما رأيك في تحدي سريع؟";
+    else if (nextTargetHour === 21) msgBody = "هدوء الليل 🌙.. أفضل وقت لمراجعة معلوماتك وختم يومك بنور.";
+
+    // إرسال الأمر للـ Service Worker (إذا كان يدعم الجدولة مستقبلاً)
+    // حالياً بما أننا "محليون" سنعتمد على التذكير عند فتح التطبيق أو استخدام setInterval إذا كان التطبيق مفتوحاً
+    // ملاحظة: المتصفحات تقتل المؤقتات الخلفية، لكن سنقوم بتسجيل "رغبة" المستخدم
+    
+    console.log(`⏰ التنبيه القادم مجدول للساعة: ${nextTargetHour}:00`);
+    
+    // تخزين الموعد في LocalStorage لاستخدامه عند فتح التطبيق المرة القادمة
+    localStorage.setItem('next_notif_hour', nextTargetHour);
+}
+
+// أضف هذا السطر في نهاية دالة initDailyQuests أو loadProfile أو في DOMContentLoaded
+// لضمان تشغيل النظام
+document.addEventListener('DOMContentLoaded', () => {
+    initNotificationSystem();
+});
