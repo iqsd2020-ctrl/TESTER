@@ -5745,18 +5745,18 @@ document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init())
 const achievementsGallery = [
     { 
         id: 1, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true',  //رابط الصورة العادية
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true',   //رابط الصورة HD
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',  //رابط الصورة العادية
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',   //رابط الصورة HD
         title: 'نور المعصومين',
-        target: 50, //شرط الحصول على الصورة
+        target: 100, //شرط الحصول على الصورة
         conditionType: 'section_score', 
         sectionKey: "المعصومون (عليهم السلام)", //اسم الموضوع بدقة
         desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 2, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/2.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/2.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png',
         title: 'ميراث الأنبياء',
         target: 40, 
         conditionType: 'section_score', 
@@ -5765,8 +5765,8 @@ const achievementsGallery = [
     },
     { 
         id: 3, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/3.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/3.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png',
         title: 'سيرة الصالحين',
         target: 30, 
         conditionType: 'section_score', 
@@ -5775,8 +5775,8 @@ const achievementsGallery = [
     },
     { 
         id: 4, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/4.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/4.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png',
         title: 'نبع البلاغة',
         target: 30, 
         conditionType: 'section_score', 
@@ -5785,8 +5785,8 @@ const achievementsGallery = [
     },
     { 
         id: 5, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/5.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/5.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png',
         title: 'الفقه والعقائد',
         target: 40, 
         conditionType: 'section_score', 
@@ -5795,8 +5795,8 @@ const achievementsGallery = [
     },
     { 
         id: 6, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/6.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/6.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png',
         title: 'الثقافة المهدوية',
         target: 50, 
         conditionType: 'section_score', 
@@ -5805,8 +5805,8 @@ const achievementsGallery = [
     },
     { 
         id: 7, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/7.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/7.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png',
         title: 'أحداث التاريخ',
         target: 30, 
         conditionType: 'section_score', 
@@ -5815,8 +5815,8 @@ const achievementsGallery = [
     },
     { 
         id: 8, 
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/8.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/8.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png',
         title: 'زاد العباد',
         target: 30, 
         conditionType: 'section_score', 
@@ -5826,8 +5826,8 @@ const achievementsGallery = [
     { 
         id: 9, 
         // ملاحظة: تأكد أن الصورة 9.png موجودة في مستودع iqsd2020-ctrl
-        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true', 
-        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/9.png?raw=true',
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png',
         title: 'السيد مقتدى الصدر',
         target: 20, 
         conditionType: 'topic_score', // في حال الموضوع الفرعي
