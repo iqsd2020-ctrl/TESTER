@@ -5757,82 +5757,82 @@ const achievementsGallery = [
         id: 2, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png',
-        title: 'ميراث الأنبياء',
-        target: 40, 
+        title: 'نور المعصومين',
+        target: 200, 
         conditionType: 'section_score', 
-        sectionKey: "الأنبياء والرسل",
-        desc: 'أكمل الإنجاز في قسم الأنبياء والرسل'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 3, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png',
-        title: 'سيرة الصالحين',
-        target: 30, 
+        title: 'نور المعصومين',
+        target: 300, 
         conditionType: 'section_score', 
-        sectionKey: "شخصيات (أصحاب وعلماء ونساء)",
-        desc: 'إنجازات قسم الشخصيات والأصحاب'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 4, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png',
-        title: 'نبع البلاغة',
-        target: 30, 
+        title: 'نور المعصومين',
+        target: 400, 
         conditionType: 'section_score', 
-        sectionKey: "القرآن ونهج البلاغة",
-        desc: 'إنجازات قسم القرآن ونهج البلاغة'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 5, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png',
-        title: 'الفقه والعقائد',
-        target: 40, 
+        title: 'نور المعصومين',
+        target: 500, 
         conditionType: 'section_score', 
-        sectionKey: "عقائد وفقه",
-        desc: 'إنجازات قسم العقائد والفقه'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 6, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png',
-        title: 'الثقافة المهدوية',
-        target: 50, 
+        title: 'نور المعصومين',
+        target: 600, 
         conditionType: 'section_score', 
-        sectionKey: "الثقافة المهدوية",
-        desc: 'إنجازات قسم الثقافة المهدوية'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 7, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png',
-        title: 'أحداث التاريخ',
-        target: 30, 
+        title: 'نور المعصومين',
+        target: 700, 
         conditionType: 'section_score', 
-        sectionKey: "تاريخ ومعارك",
-        desc: 'إنجازات قسم التاريخ والمعارك'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 8, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png',
-        title: 'زاد العباد',
-        target: 30, 
+        title: 'نور المعصومين',
+        target: 800, 
         conditionType: 'section_score', 
-        sectionKey: "أدعية وزيارات",
-        desc: 'إنجازات قسم الأدعية والزيارات'
+        sectionKey: "المعصومون (عليهم السلام)",
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 9, 
         // ملاحظة: تأكد أن الصورة 9.png موجودة في مستودع iqsd2020-ctrl
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png',
-        title: 'السيد مقتدى الصدر',
-        target: 20, 
+        title: 'الامام المهدي',
+        target: 10, 
         conditionType: 'topic_score', // في حال الموضوع الفرعي
-        topicKey: "السيد مقتدى الصدر",
-        desc: 'أجب 20 سؤالاً صحيحاً عن السيد مقتدى الصدر'
+        topicKey: "الإمام المهدي (عج)",
+        desc: 'أجب بشكل صحيح في قسم الامام المهدي'
     }
 ];
 
