@@ -5502,6 +5502,32 @@ function renderPdfLibrary(){const c=document.getElementById('pdf-list-container'
 function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
 
 
+// 1. عند الضغط على الزر في القائمة الجانبية
+bind('nav-achievements', 'click', () => {
+    toggleMenu(false); // إغلاق القائمة الجانبية
+
+    // إخفاء جميع الشاشات الرئيسية الأخرى
+    hide('welcome-area');
+    hide('quiz-proper');
+    hide('results-area');
+    hide('login-area');
+    hide('auth-loading');
+    
+    // إظهار صفحة الإنجازات
+    show('achievements-view');
+    
+    // (اختياري) إضافة حالة للسجل لزر الرجوع في الهاتف
+    window.history.pushState({ view: 'achievements' }, "", "");
+});
+
+// 2. زر الرجوع من صفحة الإنجازات إلى الرئيسية
+bind('btn-back-achievements', 'click', () => {
+    hide('achievements-view');
+    
+    // العودة للرئيسية باستخدام الدالة الموجودة مسبقاً
+    navToHome(); 
+});
+
 // =========================================================================
 // 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (تحديث العدادات + أدوات المطور)
 // =========================================================================
@@ -5711,3 +5737,228 @@ window.CHEAT_MANAGER = {
 
 // تشغيل النظام
 document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
+
+// ==========================================
+// 🎨 نظام معرض الإنجازات (النسخة النهائية المصححة)
+// ==========================================
+
+const achievementsGallery = [
+    { 
+        id: 1, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true',  //رابط الصورة العادية
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true',   //رابط الصورة HD
+        title: 'نور المعصومين',
+        target: 50, //شرط الحصول على الصورة
+        conditionType: 'section_score', 
+        sectionKey: "المعصومون (عليهم السلام)", //اسم الموضوع بدقة
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
+    },
+    { 
+        id: 2, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/2.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/2.png?raw=true',
+        title: 'ميراث الأنبياء',
+        target: 40, 
+        conditionType: 'section_score', 
+        sectionKey: "الأنبياء والرسل",
+        desc: 'أكمل الإنجاز في قسم الأنبياء والرسل'
+    },
+    { 
+        id: 3, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/3.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/3.png?raw=true',
+        title: 'سيرة الصالحين',
+        target: 30, 
+        conditionType: 'section_score', 
+        sectionKey: "شخصيات (أصحاب وعلماء ونساء)",
+        desc: 'إنجازات قسم الشخصيات والأصحاب'
+    },
+    { 
+        id: 4, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/4.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/4.png?raw=true',
+        title: 'نبع البلاغة',
+        target: 30, 
+        conditionType: 'section_score', 
+        sectionKey: "القرآن ونهج البلاغة",
+        desc: 'إنجازات قسم القرآن ونهج البلاغة'
+    },
+    { 
+        id: 5, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/5.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/5.png?raw=true',
+        title: 'الفقه والعقائد',
+        target: 40, 
+        conditionType: 'section_score', 
+        sectionKey: "عقائد وفقه",
+        desc: 'إنجازات قسم العقائد والفقه'
+    },
+    { 
+        id: 6, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/6.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/6.png?raw=true',
+        title: 'الثقافة المهدوية',
+        target: 50, 
+        conditionType: 'section_score', 
+        sectionKey: "الثقافة المهدوية",
+        desc: 'إنجازات قسم الثقافة المهدوية'
+    },
+    { 
+        id: 7, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/7.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/7.png?raw=true',
+        title: 'أحداث التاريخ',
+        target: 30, 
+        conditionType: 'section_score', 
+        sectionKey: "تاريخ ومعارك",
+        desc: 'إنجازات قسم التاريخ والمعارك'
+    },
+    { 
+        id: 8, 
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/8.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/8.png?raw=true',
+        title: 'زاد العباد',
+        target: 30, 
+        conditionType: 'section_score', 
+        sectionKey: "أدعية وزيارات",
+        desc: 'إنجازات قسم الأدعية والزيارات'
+    },
+    { 
+        id: 9, 
+        // ملاحظة: تأكد أن الصورة 9.png موجودة في مستودع iqsd2020-ctrl
+        img: 'https://github.com/iqsd2020-ctrl/iqsd2020-ctrl.github.io/blob/main/1.png?raw=true', 
+        hdUrl: 'https://github.com/sjad/iqsd2020-ctrl.github.io/blob/main/9.png?raw=true',
+        title: 'السيد مقتدى الصدر',
+        target: 20, 
+        conditionType: 'topic_score', // في حال الموضوع الفرعي
+        topicKey: "السيد مقتدى الصدر",
+        desc: 'أجب 20 سؤالاً صحيحاً عن السيد مقتدى الصدر'
+    }
+];
+
+// دالة حساب التقدم
+function calculateAchievementProgress(ach) {
+    // تصحيح: استخدام userProfile مباشرة بدلاً من window.userProfile
+    const stats = (typeof userProfile !== 'undefined' && userProfile.stats) ? userProfile.stats : {};
+    const topicStats = stats.topicCorrect || {}; 
+    let current = 0;
+
+    // 1. حساب نقاط قسم كامل
+    if (ach.conditionType === 'section_score') {
+        const subTopics = (typeof topicsData !== 'undefined' ? topicsData[ach.sectionKey] : []) || [];
+        
+        subTopics.forEach(subTopic => {
+            const cleanSubTopic = normalizeTextForMatch(subTopic);
+            Object.keys(topicStats).forEach(userTopic => {
+                if (normalizeTextForMatch(userTopic) === cleanSubTopic) {
+                    current += topicStats[userTopic];
+                }
+            });
+        });
+    } 
+    // 2. حساب نقاط موضوع محدد
+    else if (ach.conditionType === 'topic_score') {
+        const targetKey = normalizeTextForMatch(ach.topicKey);
+        Object.keys(topicStats).forEach(playedTopic => {
+            if (normalizeTextForMatch(playedTopic) === targetKey) {
+                current += topicStats[playedTopic];
+            }
+        });
+    }
+    // 3. المجموع الكلي
+    else if (ach.conditionType === 'total_correct') {
+        current = stats.totalCorrect || 0;
+    }
+
+    return Math.min(current, ach.target);
+}
+
+// دالة الرسم
+function renderAchievementsView() {
+    const container = document.getElementById('achievements-grid');
+    if (!container) return;
+    
+    container.innerHTML = '';
+
+    achievementsGallery.forEach(ach => {
+        const current = calculateAchievementProgress(ach);
+        const percent = Math.floor((current / ach.target) * 100);
+        const isUnlocked = percent >= 100;
+
+        const card = document.createElement('div');
+        card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
+        
+        card.innerHTML = `
+            <div class="image-reveal-wrapper">
+                <img src="${ach.img}" class="img-backdrop">
+                
+                <div class="reveal-mask" style="height: ${percent}%; border-top: 1px solid #fbbf24;">
+                    <img src="${ach.img}" class="img-color">
+                </div>
+
+                ${!isUnlocked ? `
+                <div class="absolute top-3 left-3 z-20 bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md flex items-center gap-1">
+                    <span class="material-symbols-rounded text-slate-400 text-sm">lock</span>
+                    <span class="text-[10px] text-slate-300">مغلق</span>
+                </div>
+                ` : `
+                <div class="absolute top-3 left-3 z-20 bg-green-500/20 px-3 py-1 rounded-full border border-green-500/50 backdrop-blur-md flex items-center gap-1 animate-pulse">
+                    <span class="material-symbols-rounded text-green-400 text-sm">check_circle</span>
+                    <span class="text-[10px] text-green-100 font-bold">مكتمل</span>
+                </div>
+                `}
+            </div>
+            
+            <div class="p-5 w-full bg-slate-800 border-t border-slate-700 relative z-20">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h4 class="text-lg font-bold text-white mb-1 font-heading">${ach.title}</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">${ach.desc}</p>
+                    </div>
+                    <div class="relative flex items-center justify-center w-12 h-12">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="24" cy="24" r="20" stroke="#334155" stroke-width="4" fill="transparent" />
+                            <circle cx="24" cy="24" r="20" stroke="${isUnlocked ? '#22c55e' : '#f59e0b'}" stroke-width="4" fill="transparent" 
+                                    stroke-dasharray="125.6" stroke-dashoffset="${125.6 - (125.6 * percent) / 100}" 
+                                    class="transition-all duration-1000" stroke-linecap="round" />
+                        </svg>
+                        <span class="absolute text-[10px] font-bold ${isUnlocked ? 'text-green-400' : 'text-amber-500'}">${percent}%</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 rounded-lg p-2 flex justify-between items-center mb-2 border border-slate-700/50">
+                    <span class="text-[10px] text-slate-500">التقدم الحالي</span>
+                    <span class="text-xs font-bold text-white font-mono dir-ltr">${current} / ${ach.target}</span>
+                </div>
+
+                ${isUnlocked ? `
+                <div class="action-footer fade-in">
+                     <a href="${ach.hdUrl}" download="Achievement_${ach.id}_HD.png" target="_blank" class="btn-download-achievement">
+                        <span class="material-symbols-rounded">download</span>
+                        <span>تحميل الصورة عالية الدقة</span>
+                     </a>
+                </div>
+                ` : ''}
+            </div>
+        `;
+        
+        container.appendChild(card);
+    });
+}
+
+// ربط الزر في القائمة
+bind('nav-achievements', 'click', () => {
+    if(typeof toggleMenu === 'function') toggleMenu(false);
+    
+    hide('welcome-area');
+    hide('quiz-proper');
+    hide('results-area');
+    hide('login-area');
+    hide('auth-loading');
+    
+    show('achievements-view');
+    renderAchievementsView();
+    
+    // تسجيل المشهد في المتصفح للزر الرجوع
+    window.history.pushState({ view: 'achievements' }, "", "");
+});
