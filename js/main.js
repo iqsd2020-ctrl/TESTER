@@ -1904,23 +1904,50 @@ bind('ai-generate-btn', 'click', async () => {
     }
 
     try {
-        // --- نظام الجلب المحلي الجديد (JSON) ---
-        const fileName = sectionFilesMap[topic] || sectionFilesMap['default'];
-        const filePath = `./Data/Noor/${fileName}`;
-        
-        console.log(`📂 جاري جلب الأسئلة من: ${filePath} للموضوع: ${topic}`);
-        
-        const response = await fetch(filePath);
-        if (!response.ok) throw new Error("Failed to fetch local JSON");
-        
-        let allQuestionsInFile = await response.json();
+        // --- نظام الجلب المحلي المطور (JSON) ---
         let allAvailableQuestions = [];
 
         if (cat === 'random' || !cat || topic === 'random') {
-            allAvailableQuestions = allQuestionsInFile;
+            // في الوضع العشوائي: نجلب الأسئلة من كافة الملفات الرئيسية لضمان التنوع
+            const mainFiles = [
+                "infallibles_all.json",
+                "prophets.json",
+                "personalities.json",
+                "quran_nahj.json",
+                "aqida_fiqh.json",
+                "mahdi_culture.json",
+                "history_battles.json",
+                "dua_ziyarat.json"
+            ];
+            
+            console.log("🎲 وضع عشوائي: جاري دمج الأسئلة من كافة الملفات...");
+            
+            const fetchPromises = mainFiles.map(file => 
+                fetch(`./Data/Noor/${file}`)
+                    .then(res => res.ok ? res.json() : [])
+                    .catch(() => [])
+            );
+            
+            const results = await Promise.all(fetchPromises);
+            allAvailableQuestions = results.flat();
+            
+            // إذا كانت الملفات فارغة، نستخدم الملف الافتراضي كاحتياطي
+            if (allAvailableQuestions.length === 0) {
+                const backupRes = await fetch(`./Data/Noor/dataNooR.json`);
+                if (backupRes.ok) allAvailableQuestions = await backupRes.json();
+            }
+        } else if (quizState.mode === 'marathon') {
+            // وضع الماراثون: يستخدم ملف dataNooR.json المخصص له
+            const response = await fetch(`./Data/Noor/dataNooR.json`);
+            if (response.ok) allAvailableQuestions = await response.json();
         } else {
-            // فلترة الأسئلة بناءً على الموضوع الفرعي (topic) داخل الملف
-            allAvailableQuestions = allQuestionsInFile.filter(q => q.topic === topic);
+            // وضع الأقسام: جلب الملف المخصص للقسم المختار فقط
+            const fileName = sectionFilesMap[topic] || sectionFilesMap['default'];
+            const response = await fetch(`./Data/Noor/${fileName}`);
+            if (response.ok) {
+                const allQuestionsInFile = await response.json();
+                allAvailableQuestions = allQuestionsInFile.filter(q => q.topic === topic);
+            }
         }
 
         if (allAvailableQuestions.length === 0) {
@@ -5626,110 +5653,3 @@ window.CHEAT_MANAGER = {
 
 // تشغيل النظام عند التحميل
 document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
-
-// ==========================================
-// 🔔 نظام الإشعارات (الإصلاح النهائي والشامل)
-// ==========================================
-
-const NOTIF_TIMES = [9, 16, 21];
-
-function initNotificationSystem() {
-    const btn = document.getElementById('daily-notif-btn');
-    const icon = document.getElementById('daily-notif-icon');
-    const statusText = document.getElementById('notif-status-text');
-
-    if (!btn) return;
-
-    // 1. تحديث الواجهة عند فتح التطبيق
-    if (Notification.permission === 'granted') {
-        icon.textContent = 'notifications_active';
-        icon.classList.add('text-amber-400');
-        if (statusText) statusText.textContent = "التذكير مفعل";
-    }
-
-    // 2. معالجة النقر على زر الجرس
-    btn.onclick = async () => {
-        // أ) طلب الإذن إذا لم يكن ممنوحاً
-        if (Notification.permission !== 'granted') {
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                alert("❌ تم رفض الإذن. يجب تفعيل الإشعارات من إعدادات المتصفح يدوياً.");
-                return;
-            }
-        }
-
-        // ب) تحديث شكل الزر فوراً
-        icon.textContent = 'notifications_active';
-        icon.classList.add('text-amber-400');
-        if (statusText) statusText.textContent = "التذكير مفعل";
-
-        // ج) محاولة إرسال الإشعار التجريبي
-        toast("جاري الاتصال بالنظام... ⏳");
-
-        if ('serviceWorker' in navigator) {
-            try {
-                // نستخدم getRegistration لأنه أسرع وأضمن من .ready في بعض الحالات
-                const registration = await navigator.serviceWorker.getRegistration();
-                
-                if (registration && registration.active) {
-                    await registration.showNotification("🔔 تجربة ناجحة", {
-                        body: "نظام الإشعارات يعمل بنجاح الآن! سيصلك التنبيه في المواعيد المحددة.",
-                        icon: 'Icon.png',      // تأكد أن الصورة Icon.png موجودة في المجلد الرئيسي
-                        badge: 'Icon.png',
-                        vibrate: [200, 100, 200],
-                        tag: 'test-notification',
-                        renotify: true
-                    });
-                    
-                    toast("✅ تم الإرسال! انظر شريط الإشعارات");
-                    
-                    // د) جدولة الموعد القادم فقط بعد نجاح التجربة
-                    scheduleNextLocalNotification();
-
-                } else {
-                    // هنا نعرف السبب إذا لم يظهر الإشعار
-                    alert("⚠️ تنبيه: ملف الخدمة (Service Worker) غير نشط حالياً. يرجى تحديث الصفحة والمحاولة مجدداً.");
-                    console.log("Service Worker Registration not found or not active");
-                }
-            } catch (error) {
-                alert("❌ حدث خطأ تقني أثناء الإرسال: " + error.message);
-                console.error("Notification Error:", error);
-            }
-        } else {
-            alert("❌ متصفحك لا يدعم تقنية Service Worker المطلوبة للإشعارات.");
-        }
-    };
-}
-
-// دالة حساب وجدولة الوقت القادم (مدمجة)
-function scheduleNextLocalNotification() {
-    if (Notification.permission !== 'granted') return;
-
-    const now = new Date();
-    const currentHour = now.getHours();
-    
-    // البحث عن أقرب ساعة قادمة
-    let nextTargetHour = NOTIF_TIMES.find(h => h > currentHour);
-    
-    // إذا انتهى اليوم، نختار أول موعد غداً
-    if (!nextTargetHour) {
-        nextTargetHour = NOTIF_TIMES[0];
-    }
-
-    // تجهيز نص الرسالة
-    let msgBody = "حان وقت التزود بالمعرفة! 🌟";
-    if (nextTargetHour === 9) msgBody = "صباح الخير! ☀️ ابدأ يومك بذكر محمد وآل محمد.";
-    else if (nextTargetHour === 16) msgBody = "استراحة العصر ☕.. هل أنت مستعد للتحدي؟";
-    else if (nextTargetHour === 21) msgBody = "هدوء الليل 🌙.. اختم يومك بمعلومة مفيدة.";
-
-    console.log(`⏰ التنبيه القادم مجدول للساعة: ${nextTargetHour}:00`);
-    
-    // حفظ البيانات
-    localStorage.setItem('next_notif_hour', nextTargetHour);
-    localStorage.setItem('next_notif_msg', msgBody);
-}
-
-// تشغيل النظام عند بدء التطبيق
-document.addEventListener('DOMContentLoaded', () => {
-    initNotificationSystem();
-});
