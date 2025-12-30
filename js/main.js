@@ -3249,6 +3249,42 @@ function getLastMonthKey() {
     return `${year}-${month}`;
 }
 
+let leaderboardTimerInterval = null;
+
+function startLeaderboardResetTimer() {
+    const timerContainer = document.getElementById('leaderboard-reset-timer');
+    const timerDisplay = document.getElementById('reset-timer-display');
+    if (!timerContainer || !timerDisplay) return;
+
+    if (leaderboardTimerInterval) clearInterval(leaderboardTimerInterval);
+
+    const updateTimer = () => {
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const diff = nextMonth - now;
+
+        // التحقق إذا كان متبقي أقل من أسبوع (7 أيام * 24 ساعة * 60 دقيقة * 60 ثانية * 1000 مللي ثانية)
+        const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+        
+        if (diff <= oneWeekInMs) {
+            timerContainer.classList.remove('hidden');
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // التنسيق المطلوب: days:hours:minutes:seconds
+            timerDisplay.textContent = `${days}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+            timerContainer.classList.add('hidden');
+        }
+    };
+
+    updateTimer();
+    leaderboardTimerInterval = setInterval(updateTimer, 1000);
+}
+
 function renderLastMonthWinner(winner, container) {
     const winnerHtml = `
         <div class="last-month-winner-card relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/40 via-slate-900 to-slate-900 p-5 mb-8 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in">
@@ -5230,19 +5266,21 @@ document.addEventListener('DOMContentLoaded', updateOnlineStatus);
 bind('bottom-leaderboard-btn', 'click', () => {
     if(typeof toggleMenu === 'function') toggleMenu(false);
     
-    // إخفاء جميع الشاشات الرئيسية الأخرى
+    // إخفاء جميع الشاشات الرئيسية الأخرى والشريط السفلي
     hide('welcome-area');
     hide('quiz-proper');
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
     hide('achievements-view');
+    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
     
     // إظهار صفحة المتصدرين
     show('leaderboard-view');
     
     // استدعاء دالة تحميل البيانات
     loadLeaderboard();
+    startLeaderboardResetTimer();
     
     // تسجيل المشهد في المتصفح للزر الرجوع
     window.history.pushState({ view: 'leaderboard' }, "", "");
@@ -5635,6 +5673,7 @@ bind('nav-achievements', 'click', () => {
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
+    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
     
     show('achievements-view');
     // استدعاء الدالة من الملف المستورد مع تمرير ملف المستخدم
