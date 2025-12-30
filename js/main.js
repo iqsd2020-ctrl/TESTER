@@ -5,6 +5,7 @@ import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTi
 import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
 import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
 import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from './data.js';
+import { renderAchievementsView } from './achievements.js';
 
 // ==========================================
 // 🛠️ أدوات الربط الذكي (نظام المطابقة بالتجريد - Abstract Match)
@@ -14,15 +15,12 @@ import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from 
  * 1. دالة تنظيف وتجريد النصوص
  * الهدف: تحويل النص إلى "هيكل عظمي" نقي للمقارنة
  */
+window.normalizeTextForMatch = normalizeTextForMatch;
 function normalizeTextForMatch(text) {
     if (!text) return "";
     
     return text
-        // 1. حذف أي نص بين قوسين نهائياً (يزيل (ص)، (ع)، (عليه السلام)...)
-        // هذا يحل مشكلة اختلاف كتابة الألقاب
         .replace(/\([^\)]*\)/g, "") 
-        
-        // 2. توحيد الحروف العربية المتشابهة
         .replace(/(آ|إ|أ)/g, "ا")
         .replace(/ة/g, "ه")
         .replace(/ى/g, "ي")
@@ -977,7 +975,12 @@ const framesData = [
     { id: 'dragon_breath', name: 'أنفاس التنين', price: 8500, cssClass: 'frame-dragon-breath' },
     { id: 'mystic_aura', name: 'الهالة الصوفية', price: 6200, cssClass: 'frame-mystic' },
     { id: 'time_portal', name: 'بوابة الزمن', price: 7500, cssClass: 'frame-time' },
-    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' }
+    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' },
+    { id: 'blackhole', name: 'الثقب الأسود', price: 12000, cssClass: 'frame-blackhole' },
+    { id: 'lava_flow', name: 'الحمم البركانية', price: 6500, cssClass: 'frame-lava' },
+    { id: 'frost_crystal', name: 'الكريستال المتجمد', price: 5800, cssClass: 'frame-frost' },
+    { id: 'royal_gold', name: 'الذهب الملكي', price: 15000, cssClass: 'frame-royal-gold' },
+    { id: 'plasma_storm', name: 'عاصفة البلازما', price: 7200, cssClass: 'frame-plasma' }
 ];
 
 // دالة تسجيل حالة التواجد في RTDB (مصححة)
@@ -1704,6 +1707,7 @@ function navToHome() {
     quizState.active = false;
     
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
+    hide('achievements-view'); hide('leaderboard-view'); hide('bag-view');
     show('welcome-area');
     
     initDropdowns();
@@ -2906,7 +2910,19 @@ async function endQuiz() {
 
     const currentMonthKey = getCurrentMonthKey();
     let monthlyStats = userProfile.monthlyStats || { key: '', correct: 0 };
-    if (monthlyStats.key !== currentMonthKey) { monthlyStats = { key: currentMonthKey, correct: 0 }; }
+    
+    // التحقق من تصفير الشهر وحفظ الفائز
+    if (monthlyStats.key && monthlyStats.key !== currentMonthKey) {
+        // هذا يعني أننا في شهر جديد، والبيانات القديمة تخص الشهر الماضي
+        try {
+            saveMonthlyWinner(monthlyStats.key);
+        } catch(e) { console.error("Error saving monthly winner:", e); }
+        
+        monthlyStats = { key: currentMonthKey, correct: 0 };
+    } else if (!monthlyStats.key) {
+        monthlyStats.key = currentMonthKey;
+    }
+    
     monthlyStats.correct += safeCorrectCount;
 
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
@@ -3170,54 +3186,138 @@ let currentLeaderboardMode = 'monthly';
 // في ملف main.js - استبدل دالة loadLeaderboard بالكامل
 
 async function loadLeaderboard() {
-    hide('leaderboard-loading');
-    show('leaderboard-list');
+    const container = getEl('leaderboard-list');
+    const loading = getEl('leaderboard-loading');
+    if (loading) loading.classList.remove('hidden');
+    if (container) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+    }
+    
     renderSkeleton('leaderboard', 6);
     
-    const modalTitle = document.querySelector('#leaderboard-modal h3');
-    if(modalTitle) modalTitle.textContent = "لوحة الشرف";
-
-    let subTitle = document.getElementById('lb-subtitle-text');
-    if(!subTitle) {
-        subTitle = document.createElement('p');
-        subTitle.id = 'lb-subtitle-text';
-        subTitle.className = "text-[11px] text-slate-400 text-center mb-2 opacity-80";
-        subTitle.style.fontFamily = "'Amiri', serif"; 
-        if(modalTitle) modalTitle.parentNode.after(subTitle);
-    }
-    subTitle.textContent = "هياكل النور";
-
     try {
         const currentMonthKey = getCurrentMonthKey();
+        
+        // 1. جلب فائز الشهر الماضي
+        const lastMonthKey = getLastMonthKey();
+        const winnerDoc = await getDoc(doc(db, "winners", lastMonthKey));
+        let lastMonthWinner = null;
+        if (winnerDoc.exists()) {
+            lastMonthWinner = winnerDoc.data();
+        }
+
+        // 2. جلب المتصدرين الحاليين
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", currentMonthKey), orderBy("monthlyStats.correct", "desc"), limit(20));
-        
         const s = await getDocs(q);
-        const l = getEl('leaderboard-list');
-        l.innerHTML = '';
         
-        if (s.empty) {
-            l.innerHTML = `<div class="text-center text-slate-400 py-6">بداية شهر جديد! كن أول المنافسين في القائمة.</div>`;
-            return;
+        if (loading) loading.classList.add('hidden');
+        if (container) container.classList.remove('hidden');
+        container.innerHTML = '';
+
+        // 3. عرض فائز الشهر الماضي في الأعلى
+        if (lastMonthWinner) {
+            renderLastMonthWinner(lastMonthWinner, container);
         }
         
-        // 🚨 الخطوة الجديدة: جلب حالات التواجد من RTDB
-        const statusUpdates = {};
-        const statusRef = ref(rtdb, 'status');
-        
-        // نقوم بجلب كل الحالات دفعة واحدة (RTDB قراءة خفيفة جداً)
-        onValue(statusRef, (snapshot) => {
-             snapshot.forEach((child) => {
-                 statusUpdates[child.key] = child.val();
-             });
-             // بعد جلب الحالات، نقوم بإنشاء القائمة
-             renderLeaderboardList(s.docs, l, statusUpdates);
-        }, { onlyOnce: true }); // نجلبها مرة واحدة لتسريع العرض
+        if (s.empty) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = "text-center text-slate-400 py-10 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 mt-4";
+            emptyMsg.innerHTML = `
+                <span class="material-symbols-rounded text-4xl block mb-2 opacity-20">emoji_events</span>
+                <p>بداية شهر جديد! كن أول المنافسين في القائمة.</p>
+            `;
+            container.appendChild(emptyMsg);
+        } else {
+            // 🚨 جلب حالات التواجد من RTDB
+            const statusUpdates = {};
+            const statusRef = ref(rtdb, 'status');
+            onValue(statusRef, (snapshot) => {
+                 snapshot.forEach((child) => {
+                     statusUpdates[child.key] = child.val();
+                 });
+                 renderLeaderboardList(s.docs, container, statusUpdates);
+            }, { onlyOnce: true });
+        }
 
     } catch(e) { 
         console.error(e); 
-        // رسالة الخطأ تبقى كما هي
-        getEl('leaderboard-list').innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل (قد تحتاج لإنشاء Index أو تفعيل RTDB)</div>`; 
+        if (container) container.innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل</div>`; 
     }
+}
+
+function getLastMonthKey() {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+
+let leaderboardTimerInterval = null;
+
+function startLeaderboardResetTimer() {
+    const timerContainer = document.getElementById('leaderboard-reset-timer');
+    const timerDisplay = document.getElementById('reset-timer-display');
+    if (!timerContainer || !timerDisplay) return;
+
+    if (leaderboardTimerInterval) clearInterval(leaderboardTimerInterval);
+
+    const updateTimer = () => {
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const diff = nextMonth - now;
+
+        // التحقق إذا كان متبقي أقل من أسبوع (7 أيام * 24 ساعة * 60 دقيقة * 60 ثانية * 1000 مللي ثانية)
+        const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+        
+        if (diff <= oneWeekInMs) {
+            timerContainer.classList.remove('hidden');
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // التنسيق المطلوب: days:hours:minutes:seconds
+            timerDisplay.textContent = `${days}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+            timerContainer.classList.add('hidden');
+        }
+    };
+
+    updateTimer();
+    leaderboardTimerInterval = setInterval(updateTimer, 1000);
+}
+
+function renderLastMonthWinner(winner, container) {
+    const winnerHtml = `
+        <div class="last-month-winner-card relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/40 via-slate-900 to-slate-900 p-5 mb-8 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in">
+            <div class="absolute top-0 right-0 p-2">
+                <span class="material-symbols-rounded text-amber-500/20 text-6xl rotate-12">workspace_premium</span>
+            </div>
+            <div class="relative z-10 flex items-center gap-4">
+                <div class="relative">
+                    <div class="w-20 h-20 rounded-2xl border-2 border-amber-500 shadow-lg overflow-hidden bg-slate-800 flex items-center justify-center">
+                        ${winner.photoURL ? `<img src="${winner.photoURL}" class="w-full h-full object-cover">` : `<span class="material-symbols-rounded text-5xl text-amber-500/50">person</span>`}
+                    </div>
+                    <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
+                        <span class="material-symbols-rounded text-slate-900 text-lg font-bold">trophy</span>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">بطل الشهر الماضي</span>
+                    <h3 class="text-xl font-bold text-white font-heading mb-1">${winner.username}</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400">حقق إنجازاً بـ</span>
+                        <span class="text-sm font-bold text-amber-400">${formatNumberAr(winner.score)} نقطة</span>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
+        </div>
+    `;
+    container.insertAdjacentHTML('afterbegin', winnerHtml);
 }
 
 function renderLeaderboardList(docs, container, statusUpdates) {
@@ -3571,11 +3671,35 @@ bind('restart-button', 'click', navToHome);
 
 function getCurrentMonthKey() {
     const d = new Date();
-    // التعديل: استخدام التاريخ المحلي أيضاً
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
-    
     return `${year}-${month}`;
+}
+
+async function saveMonthlyWinner(monthKey) {
+    try {
+        // جلب المتصدر لهذا الشهر
+        const q = query(collection(db, "users"), where("monthlyStats.key", "==", monthKey), orderBy("monthlyStats.correct", "desc"), limit(1));
+        const s = await getDocs(q);
+        
+        if (!s.empty) {
+            const winnerData = s.docs[0].data();
+            const winnerId = s.docs[0].id;
+            
+            // حفظ الفائز في مجموعة خاصة
+            await setDoc(doc(db, "winners", monthKey), {
+                userId: winnerId,
+                username: winnerData.username || "لاعب مجهول",
+                photoURL: winnerData.photoURL || "",
+                score: winnerData.monthlyStats.correct,
+                monthKey: monthKey,
+                timestamp: serverTimestamp()
+            });
+            console.log(`🏆 تم حفظ فائز الشهر ${monthKey}: ${winnerData.username}`);
+        }
+    } catch(e) {
+        console.error("Failed to save monthly winner:", e);
+    }
 }
 
 // ==========================================
@@ -3585,7 +3709,7 @@ function getCurrentMonthKey() {
 let isBagSystemInitialized = false;
 
 function openBag() {
-    toggleMenu(false);
+    if(typeof toggleMenu === 'function') toggleMenu(false);
     
     // 1. التهيئة لمرة واحدة فقط (بناء الهيكل)
     if (!isBagSystemInitialized) {
@@ -3596,9 +3720,28 @@ function openBag() {
     // 2. تحديث الحالة فقط (سريع جداً ولا يسبب وميض)
     updateBagState();
     
-    // 3. فتح النافذة
-    openModal('bag-modal');
+    // 3. إخفاء الشاشات الأخرى والشريط السفلي
+    hide('welcome-area');
+    hide('quiz-proper');
+    hide('results-area');
+    hide('login-area');
+    hide('auth-loading');
+    hide('achievements-view');
+    hide('leaderboard-view');
+    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
+    
+    // 4. إظهار صفحة الحقيبة
+    show('bag-view');
+    
+    // تسجيل المشهد في المتصفح للزر الرجوع
+    window.history.pushState({ view: 'bag' }, "", "");
 }
+
+// زر الرجوع من صفحة الحقيبة إلى الرئيسية
+bind('btn-back-bag', 'click', () => {
+    hide('bag-view');
+    navToHome(); 
+});
 
 // دالة البناء الأولي (تعمل مرة واحدة فقط عند فتح التطبيق لأول مرة)
 function initBagSystem() {
@@ -3653,7 +3796,46 @@ function initBagSystem() {
     shopContainer.appendChild(shopGrid);
 }
 
-function createGameItemCard(fData,type){const tpl=document.getElementById('game-item-template');const clone=tpl.content.cloneNode(true);const btn=clone.querySelector('button');const prev=clone.querySelector('.item-preview');const name=clone.querySelector('.item-name');const act=clone.querySelector('.item-action');btn.id=`btn-${type}-${fData.id}`;prev.innerHTML=getAvatarHTML(userProfile.customAvatar,fData.id,"w-full h-full");name.textContent=fData.name;if(type==='shop'){act.innerHTML=`<span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">${formatNumberAr(fData.price)} <span class="material-symbols-rounded text-[10px]">monetization_on</span></span>`}else{act.innerHTML='<div class="equip-badge hidden bg-green-500/20 p-1 rounded-full"><span class="material-symbols-rounded text-green-400 text-sm">check</span></div>'}btn.onclick=()=>{if(type==='inventory'){equipFrame(fData.id)}else{if(!btn.classList.contains('owned')){window.buyShopItem('frame',fData.price,fData.id)}}};return btn}
+function createGameItemCard(fData, type) {
+    const tpl = document.getElementById('game-item-template');
+    const clone = tpl.content.cloneNode(true);
+    const btn = clone.querySelector('button');
+    const prev = clone.querySelector('.item-preview');
+    const name = clone.querySelector('.item-name');
+    const act = clone.querySelector('.item-action');
+
+    btn.id = `btn-${type}-${fData.id}`;
+    
+    // استخدام حجم أكبر للمعاينة في الصفحة الجديدة
+    prev.innerHTML = getAvatarHTML(userProfile.customAvatar, fData.id, "w-16 h-16");
+    name.textContent = fData.name;
+
+    if (type === 'shop') {
+        act.innerHTML = `
+            <span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">
+                ${formatNumberAr(fData.price)} 
+                <span class="material-symbols-rounded text-[10px]">monetization_on</span>
+            </span>
+        `;
+    } else {
+        act.innerHTML = `
+            <div class="equip-badge hidden bg-green-500/20 p-1 rounded-full">
+                <span class="material-symbols-rounded text-green-400 text-sm">check</span>
+            </div>
+        `;
+    }
+
+    btn.onclick = () => {
+        if (type === 'inventory') {
+            equipFrame(fData.id);
+        } else {
+            if (!btn.classList.contains('owned')) {
+                window.buyShopItem('frame', fData.price, fData.id);
+            }
+        }
+    };
+    return btn;
+}
 
 
 // دالة التحديث (تعمل عند كل فتح للحقيبة أو شراء)
@@ -5143,17 +5325,34 @@ document.addEventListener('DOMContentLoaded', updateOnlineStatus);
 
 // --- تفعيل أزرار الشريط السفلي الجديدة (محدث للعمل المباشر) ---
 
-// 1. ربط زر المتصدرين السفلي (تم نقل منطق الفتح إلى هنا مباشرة)
+// 1. ربط زر المتصدرين السفلي (تم تحويله لفتح صفحة مستقلة)
 bind('bottom-leaderboard-btn', 'click', () => {
-    toggleMenu(false); // إغلاق القائمة الجانبية
-    openModal('leaderboard-modal'); // فتح النافذة
+    if(typeof toggleMenu === 'function') toggleMenu(false);
     
-    // تنظيف التبويبات القديمة إن وجدت لضمان التحديث
-    const oldTabs = document.getElementById('lb-tabs-container');
-    if (oldTabs) oldTabs.remove();
-
+    // إخفاء جميع الشاشات الرئيسية الأخرى والشريط السفلي
+    hide('welcome-area');
+    hide('quiz-proper');
+    hide('results-area');
+    hide('login-area');
+    hide('auth-loading');
+    hide('achievements-view');
+    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
+    
+    // إظهار صفحة المتصدرين
+    show('leaderboard-view');
+    
     // استدعاء دالة تحميل البيانات
     loadLeaderboard();
+    startLeaderboardResetTimer();
+    
+    // تسجيل المشهد في المتصفح للزر الرجوع
+    window.history.pushState({ view: 'leaderboard' }, "", "");
+});
+
+// زر الرجوع من صفحة المتصدرين إلى الرئيسية
+bind('btn-back-leaderboard', 'click', () => {
+    hide('leaderboard-view');
+    navToHome(); 
 });
 
 // 2. ربط زر الحقيبة السفلي
@@ -5528,425 +5727,7 @@ bind('btn-back-achievements', 'click', () => {
     navToHome(); 
 });
 
-// =========================================================================
-// 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (تحديث العدادات + أدوات المطور)
-// =========================================================================
-
-window.CHEAT_MANAGER = {
-    clicks: 0,
-    timer: null,
-    
-    // دالة مساعدة لربط المستمع بأي عنصر
-    attachListener: function(elementId) {
-        const btn = document.getElementById(elementId);
-        if (!btn) return;
-
-        btn.addEventListener('click', (e) => {
-            this.clicks++;
-            if (this.timer) clearTimeout(this.timer);
-            this.timer = setTimeout(() => { this.clicks = 0; }, 1000); 
-
-            // الشرط: 7 نقرات متتالية
-            if (this.clicks === 7) { 
-                this.showPanel();
-                this.clicks = 0;
-            }
-        });
-    },
-
-    // 1. كود التهيئة: يراقب زر الإشعارات (للقائمة) وعداد النقاط (للعبة)
-    init: function() {
-        this.attachListener('notif-btn');      // في الشاشة الرئيسية
-        this.attachListener('live-score-text'); // داخل اللعبة
-        
-        // ربط العنوان الرئيسي أيضاً كاحتياط
-        const appTitle = document.querySelector('#welcome-area h1');
-        if (appTitle) {
-            appTitle.addEventListener('click', () => {
-                this.clicks++;
-                if (this.timer) clearTimeout(this.timer);
-                this.timer = setTimeout(() => { this.clicks = 0; }, 1000); 
-                if (this.clicks === 7) { this.showPanel(); this.clicks = 0; }
-            });
-        }
-    },
-
-    // 2. إظهار اللوحة
-    showPanel: function() {
-        if (document.getElementById('dev-cheat-panel')) return;
-
-        const div = document.createElement('div');
-        div.id = 'dev-cheat-panel';
-        div.style.cssText = `
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(15, 23, 42, 0.98); border: 2px solid #ef4444; border-radius: 15px;
-            padding: 20px; z-index: 10000; width: 320px; text-align: center;
-            box-shadow: 0 0 50px rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px);
-            max-height: 80vh; overflow-y: auto;
-        `;
-        
-        div.innerHTML = `
-            <h3 class="text-red-500 font-bold text-xl mb-4 flex items-center justify-center gap-2">
-                <span class="material-symbols-rounded">admin_panel_settings</span> أدوات المطور
-            </h3>
-            <div class="flex flex-col gap-2">
-                <button id="btn-update-counts" onclick="window.CHEAT_MANAGER.updateSystemCounts()" class="p-3 bg-slate-800 border border-amber-500 rounded text-amber-400 font-bold hover:bg-slate-700 transition flex items-center justify-center gap-2">
-                    <span class="material-symbols-rounded">sync</span> تحديث عدادات الأسئلة
-                </button>
-                <div class="h-px bg-slate-700 my-2"></div>
-                <button onclick="window.CHEAT_MANAGER.revealAnswer()" class="p-2 bg-slate-800 border border-slate-600 rounded text-blue-300 hover:bg-slate-700 transition">👁️ كشف الإجابة</button>
-                <button onclick="window.CHEAT_MANAGER.resetMarathon()" class="p-2 bg-slate-800 border border-slate-600 rounded text-blue-400 hover:bg-slate-700 transition">⏱️ تصفير الماراثون</button>
-                <button onclick="window.CHEAT_MANAGER.resetDailyQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-green-400 hover:bg-slate-700 transition">📅 تصفير المهام</button>
-                <button onclick="window.CHEAT_MANAGER.completeAllQuests()" class="p-2 bg-slate-800 border border-slate-600 rounded text-purple-400 hover:bg-slate-700 transition">✅ إكمال المهام</button>
-                <button onclick="document.getElementById('dev-cheat-panel').remove()" class="mt-4 text-sm text-slate-500 hover:text-white border-t border-slate-700 pt-2 w-full">إغلاق</button>
-            </div>
-        `;
-        document.body.appendChild(div);
-        if (typeof playSound === 'function') playSound('win');
-    },
-
-    // --- الوظائف ---
-
-    // ✅ دالة تحديث العدادات الجديدة (تقرأ ملفات JSON وتحسب الأسئلة)
-    updateSystemCounts: async function() {
-        const btn = document.getElementById('btn-update-counts');
-        if(btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري الحساب...`;
-        }
-
-        try {
-            // 1. قائمة الملفات التي تحتوي على الأسئلة
-            const files = [
-                "infallibles_all.json",
-                "prophets.json",
-                "personalities.json",
-                "quran_nahj.json",
-                "aqida_fiqh.json",
-                "mahdi_culture.json",
-                "history_battles.json",
-                "dua_ziyarat.json"
-            ];
-
-            const counts = {};
-            let totalQuestions = 0;
-
-            // 2. جلب الملفات وتحليلها
-            const fetchPromises = files.map(file => 
-                fetch(`./Data/Noor/${file}`)
-                    .then(res => res.ok ? res.json() : [])
-                    .catch(err => { console.error(`Error loading ${file}`, err); return []; })
-            );
-
-            const results = await Promise.all(fetchPromises);
-
-            // 3. تجميع الإحصائيات
-            results.flat().forEach(q => {
-                if (q && q.topic) {
-                    // تنظيف اسم الموضوع لضمان التطابق
-                    const topicName = q.topic.trim();
-                    counts[topicName] = (counts[topicName] || 0) + 1;
-                    totalQuestions++;
-                }
-            });
-
-            // 4. الحفظ في Firestore (system/counts)
-            // هذا المستند هو الذي يستخدمه التطبيق لعرض أشرطة التقدم
-            await setDoc(doc(db, "system", "counts"), counts);
-            
-            // 5. تحديث المتغير المحلي فوراً
-            dbTopicCounts = counts;
-
-            // تحديث الواجهة إذا لزم الأمر
-            if(typeof initDropdowns === 'function') initDropdowns();
-
-            // إشعار النجاح
-            const msg = `✅ تم التحديث بنجاح!\nعدد المواضيع: ${Object.keys(counts).length}\nإجمالي الأسئلة: ${totalQuestions}`;
-            alert(msg);
-            toast("تم تحديث قاعدة البيانات بنجاح", "success");
-            
-            // إغلاق اللوحة
-            const panel = document.getElementById('dev-cheat-panel');
-            if(panel) panel.remove();
-
-        } catch (e) {
-            console.error(e);
-            alert("❌ حدث خطأ أثناء التحديث: " + e.message);
-            if(btn) {
-                btn.disabled = false;
-                btn.innerHTML = "❌ فشل - حاول مرة أخرى";
-            }
-        }
-    },
-
-    revealAnswer: function() {
-        if (typeof quizState === 'undefined' || !quizState.active) {
-            toast("يجب أن تكون داخل سؤال لتكشف الإجابة!", "error");
-            return;
-        }
-        const q = quizState.questions[quizState.idx];
-        const btns = document.querySelectorAll('.option-btn');
-        
-        if (btns[q.correctAnswer]) {
-            const btn = btns[q.correctAnswer];
-            btn.style.border = "2px solid #ef4444";
-            btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
-            btn.classList.add('animate-pulse');
-            
-            const panel = document.getElementById('dev-cheat-panel');
-            if(panel) panel.remove();
-            
-            toast("👁️ تم كشف الإجابة", "success");
-        }
-    },
-
-    resetMarathon: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
-        try {
-            await updateDoc(doc(db, "users", effectiveUserId), { lastMarathonDate: null });
-            if(typeof userProfile !== 'undefined') userProfile.lastMarathonDate = null;
-            if(typeof checkMarathonStatus === 'function') checkMarathonStatus();
-            toast("🔓 تم تصفير وقت الماراثون!", "success");
-        } catch(e) { console.error(e); toast("فشل التصفير", "error"); }
-    },
-
-    resetDailyQuests: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
-        try {
-            const oldDate = "2000-01-01";
-            if(typeof userProfile !== 'undefined') userProfile.dailyQuests.date = oldDate; 
-            await updateDoc(doc(db, "users", effectiveUserId), { "dailyQuests.date": oldDate });
-            if(typeof initDailyQuests === 'function') initDailyQuests();
-            if(typeof renderQuestList === 'function') renderQuestList();
-            if(typeof updateProfileUI === 'function') updateProfileUI();
-            toast("📅 تم تصفير المهام", "success");
-        } catch(e) { console.error(e); toast("فشل تصفير المهام", "error"); }
-    },
-
-    completeAllQuests: async function() {
-        if (typeof effectiveUserId === 'undefined' || !effectiveUserId || !userProfile.dailyQuests) return;
-        try {
-            userProfile.dailyQuests.tasks.forEach(t => { t.current = t.target; });
-            await updateDoc(doc(db, "users", effectiveUserId), { "dailyQuests.tasks": userProfile.dailyQuests.tasks });
-            if(typeof renderQuestList === 'function') renderQuestList();
-            if(typeof updateProfileUI === 'function') updateProfileUI();
-            toast("✅ تم إكمال المهام!", "success");
-        } catch(e) { console.error(e); toast("فشل الإكمال", "error"); }
-    }
-};
-
-// تشغيل النظام
-document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
-
-// ==========================================
-// 🎨 نظام معرض الإنجازات (النسخة النهائية المصححة)
-// ==========================================
-
-const achievementsGallery = [
-    { 
-        id: 1, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',  //رابط الصورة العادية
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',   //رابط الصورة HD
-        title: 'نور المعصومين',
-        target: 100, //شرط الحصول على الصورة
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)", //اسم الموضوع بدقة
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 2, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png',
-        title: 'نور المعصومين',
-        target: 200, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 3, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png',
-        title: 'نور المعصومين',
-        target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 4, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png',
-        title: 'نور المعصومين',
-        target: 400, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 5, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png',
-        title: 'نور المعصومين',
-        target: 500, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 6, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png',
-        title: 'نور المعصومين',
-        target: 600, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 7, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png',
-        title: 'نور المعصومين',
-        target: 700, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 8, 
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png',
-        title: 'نور المعصومين',
-        target: 800, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
-    },
-    { 
-        id: 9, 
-        // ملاحظة: تأكد أن الصورة 9.png موجودة في مستودع iqsd2020-ctrl
-        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png', 
-        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png',
-        title: 'الامام المهدي',
-        target: 10, 
-        conditionType: 'topic_score', // في حال الموضوع الفرعي
-        topicKey: "الإمام المهدي (عج)",
-        desc: 'أجب بشكل صحيح في قسم الامام المهدي'
-    }
-];
-
-// دالة حساب التقدم
-function calculateAchievementProgress(ach) {
-    // تصحيح: استخدام userProfile مباشرة بدلاً من window.userProfile
-    const stats = (typeof userProfile !== 'undefined' && userProfile.stats) ? userProfile.stats : {};
-    const topicStats = stats.topicCorrect || {}; 
-    let current = 0;
-
-    // 1. حساب نقاط قسم كامل
-    if (ach.conditionType === 'section_score') {
-        const subTopics = (typeof topicsData !== 'undefined' ? topicsData[ach.sectionKey] : []) || [];
-        
-        subTopics.forEach(subTopic => {
-            const cleanSubTopic = normalizeTextForMatch(subTopic);
-            Object.keys(topicStats).forEach(userTopic => {
-                if (normalizeTextForMatch(userTopic) === cleanSubTopic) {
-                    current += topicStats[userTopic];
-                }
-            });
-        });
-    } 
-    // 2. حساب نقاط موضوع محدد
-    else if (ach.conditionType === 'topic_score') {
-        const targetKey = normalizeTextForMatch(ach.topicKey);
-        Object.keys(topicStats).forEach(playedTopic => {
-            if (normalizeTextForMatch(playedTopic) === targetKey) {
-                current += topicStats[playedTopic];
-            }
-        });
-    }
-    // 3. المجموع الكلي
-    else if (ach.conditionType === 'total_correct') {
-        current = stats.totalCorrect || 0;
-    }
-
-    return Math.min(current, ach.target);
-}
-
-// دالة الرسم
-function renderAchievementsView() {
-    const container = document.getElementById('achievements-grid');
-    if (!container) return;
-    
-    container.innerHTML = '';
-
-    achievementsGallery.forEach(ach => {
-        const current = calculateAchievementProgress(ach);
-        const percent = Math.floor((current / ach.target) * 100);
-        const isUnlocked = percent >= 100;
-
-        const card = document.createElement('div');
-        card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
-        
-        card.innerHTML = `
-            <div class="image-reveal-wrapper">
-                <img src="${ach.img}" class="img-backdrop">
-                
-                <div class="reveal-mask" style="height: ${percent}%; border-top: 1px solid #fbbf24;">
-                    <img src="${ach.img}" class="img-color">
-                </div>
-
-                ${!isUnlocked ? `
-                <div class="absolute top-3 left-3 z-20 bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md flex items-center gap-1">
-                    <span class="material-symbols-rounded text-slate-400 text-sm">lock</span>
-                    <span class="text-[10px] text-slate-300">مغلق</span>
-                </div>
-                ` : `
-                <div class="absolute top-3 left-3 z-20 bg-green-500/20 px-3 py-1 rounded-full border border-green-500/50 backdrop-blur-md flex items-center gap-1 animate-pulse">
-                    <span class="material-symbols-rounded text-green-400 text-sm">check_circle</span>
-                    <span class="text-[10px] text-green-100 font-bold">مكتمل</span>
-                </div>
-                `}
-            </div>
-            
-            <div class="p-5 w-full bg-slate-800 border-t border-slate-700 relative z-20">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <h4 class="text-lg font-bold text-white mb-1 font-heading">${ach.title}</h4>
-                        <p class="text-xs text-slate-400 leading-relaxed">${ach.desc}</p>
-                    </div>
-                    <div class="relative flex items-center justify-center w-12 h-12">
-                        <svg class="w-full h-full transform -rotate-90">
-                            <circle cx="24" cy="24" r="20" stroke="#334155" stroke-width="4" fill="transparent" />
-                            <circle cx="24" cy="24" r="20" stroke="${isUnlocked ? '#22c55e' : '#f59e0b'}" stroke-width="4" fill="transparent" 
-                                    stroke-dasharray="125.6" stroke-dashoffset="${125.6 - (125.6 * percent) / 100}" 
-                                    class="transition-all duration-1000" stroke-linecap="round" />
-                        </svg>
-                        <span class="absolute text-[10px] font-bold ${isUnlocked ? 'text-green-400' : 'text-amber-500'}">${percent}%</span>
-                    </div>
-                </div>
-
-                <div class="bg-slate-900/50 rounded-lg p-2 flex justify-between items-center mb-2 border border-slate-700/50">
-                    <span class="text-[10px] text-slate-500">التقدم الحالي</span>
-                    <span class="text-xs font-bold text-white font-mono dir-ltr">${current} / ${ach.target}</span>
-                </div>
-
-                ${isUnlocked ? `
-                <div class="action-footer fade-in">
-                     <a href="${ach.hdUrl}" download="Achievement_${ach.id}_HD.png" target="_blank" class="btn-download-achievement">
-                        <span class="material-symbols-rounded">download</span>
-                        <span>تحميل الصورة عالية الدقة</span>
-                     </a>
-                </div>
-                ` : ''}
-            </div>
-        `;
-        
-        container.appendChild(card);
-    });
-}
-
-// ربط الزر في القائمة
+// ربط الزر في القائمة (تم نقل المنطق إلى achievements.js)
 bind('nav-achievements', 'click', () => {
     if(typeof toggleMenu === 'function') toggleMenu(false);
     
@@ -5955,9 +5736,11 @@ bind('nav-achievements', 'click', () => {
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
+    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
     
     show('achievements-view');
-    renderAchievementsView();
+    // استدعاء الدالة من الملف المستورد مع تمرير ملف المستخدم
+    renderAchievementsView(typeof userProfile !== 'undefined' ? userProfile : null);
     
     // تسجيل المشهد في المتصفح للزر الرجوع
     window.history.pushState({ view: 'achievements' }, "", "");
