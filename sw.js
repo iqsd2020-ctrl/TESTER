@@ -1,12 +1,6 @@
-const CACHE_NAME = 'ahlulbayt-quiz-offline-v1.0'; // قمنا بتحديث الإصدار لتجديد الكاش
+const CACHE_NAME = 'ahlulbayt-quiz-offline-v1.2'; // قمنا بتحديث الإصدار لتجديد الكاش
 const STATIC_ASSETS = [
     './',
-    './index.html',
-    './style.css',
-    './js/main.js',
-    './js/data.js',
-    './manifest.json',
-    './Icon.png', // تأكد أن لديك صورة بهذا الاسم
     // مكتبة Tailwind CSS
     './tailwind-lib.js',
     
