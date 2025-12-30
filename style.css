@@ -2188,25 +2188,32 @@ input[list]:hover::-webkit-calendar-picker-indicator {
    2. FIXED FRAMES (الإطارات التي تم إصلاحها)
    ========================================= */
 
-/* مجرة الفلك (تم التحسين) */
+/* مجرة الفلك (تم الإصلاح) */
 .frame-galaxy-fixed {
     border: 2px solid transparent;
-    position: absolute; inset: -3px; border-radius: 50%;
-    background: conic-gradient(from 0deg, #f0f, #00f, #0ff, #f0f);
+    position: relative;
+    border-radius: 50%;
+    /* تقنية القناع لإظهار الحدود فقط */
+    background: conic-gradient(from 0deg, #f0f, #00f, #0ff, #f0f) border-box; 
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+}
+.frame-galaxy-fixed::before {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    background: conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #6366f1);
     animation: spinSlow 3s linear infinite;
-    -webkit-mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    box-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
+    z-index: -1;
 }
 
-/* ألوان الطيف (تم التحسين) */
+/* ألوان الطيف (تم الإصلاح) */
 .frame-rgb-fixed {
     position: absolute; inset: -3px; border-radius: 50%;
     background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
     animation: spinRGB 1.5s linear infinite;
-    -webkit-mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+    -webkit-mask: radial-gradient(closest-side, transparent 85%, black 86%);
+    mask: radial-gradient(closest-side, transparent 85%, black 86%);
 }
 @keyframes spinRGB { to { transform: rotate(360deg); } }
 
@@ -2255,15 +2262,13 @@ input[list]:hover::-webkit-calendar-picker-indicator {
 }
 @keyframes floatHalo { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-5px); } }
 
-/* هلال العيد (تم التحسين) */
+/* هلال العيد */
 .frame-crescent {
     border-radius: 50%;
-    border: 2px solid transparent;
-    border-left: 3px solid #fbbf24;
-    filter: drop-shadow(0 0 8px #fbbf24);
-    animation: moonRotate 4s infinite ease-in-out;
+    box-shadow: -4px -4px 0 2px #fbbf24; /* هلال من الظل */
+    transform: rotate(-45deg);
+    border: 1px solid transparent;
 }
-@keyframes moonRotate { 0%, 100% { transform: rotate(-45deg); } 50% { transform: rotate(-15deg); } }
 
 /* زخرفة كوفية */
 .frame-kufic {
@@ -2342,19 +2347,19 @@ input[list]:hover::-webkit-calendar-picker-indicator {
 
 /* --- مجموعة السايبر والمستقبل --- */
 
-/* الخلل الرقمي (تم التحسين) */
+/* الخلل الرقمي */
 .frame-glitch {
     border: 2px solid #ef4444;
-    box-shadow: -2px 0 #22d3ee, 2px 0 #facc15;
-    animation: glitchAnim 0.2s infinite;
+    box-shadow: -2px 0 #22d3ee;
+    animation: glitchAnim 1s infinite steps(2);
 }
 @keyframes glitchAnim {
-    0% { transform: translate(0); opacity: 1; }
-    20% { transform: translate(-2px, 1px); opacity: 0.8; }
-    40% { transform: translate(2px, -1px); }
-    60% { transform: translate(-1px, -2px); }
-    80% { transform: translate(1px, 2px); }
-    100% { transform: translate(0); }
+    0% { clip-path: inset(0 0 0 0); transform: translate(0); }
+    20% { clip-path: inset(20% 0 80% 0); transform: translate(-2px, 2px); }
+    40% { clip-path: inset(80% 0 10% 0); transform: translate(2px, -2px); }
+    60% { clip-path: inset(10% 0 60% 0); transform: translate(-2px, 0); }
+    80% { clip-path: inset(50% 0 30% 0); transform: translate(2px, 2px); }
+    100% { clip-path: inset(0 0 0 0); transform: translate(0); }
 }
 
 /* الماسح الضوئي */
@@ -2451,75 +2456,18 @@ input[list]:hover::-webkit-calendar-picker-indicator {
 }
 @keyframes breathe { 0%,100% { box-shadow: 0 0 10px #22c55e, inset 0 0 20px #b91c1c; } 50% { box-shadow: 0 0 25px #4ade80, inset 0 0 30px #ef4444; } }
 
-/* إطار اللانهاية (تم التحسين) */
+/* إطار اللانهاية */
 .frame-infinity {
-    border: 3px solid #fff;
-    box-shadow: 0 0 20px #fff, inset 0 0 10px #fff;
-    animation: infinityGlow 4s infinite linear;
+    background: linear-gradient(45deg, #ff00cc, #3333ff, #ff00cc);
+    background-size: 400% 400%;
+    animation: infinityGradient 3s ease infinite;
+    -webkit-mask: radial-gradient(closest-side, transparent 88%, black 89%);
+    mask: radial-gradient(closest-side, transparent 88%, black 89%);
 }
-@keyframes infinityGlow {
-    0% { filter: hue-rotate(0deg) drop-shadow(0 0 10px #f00); }
-    33% { filter: hue-rotate(120deg) drop-shadow(0 0 10px #0f0); }
-    66% { filter: hue-rotate(240deg) drop-shadow(0 0 10px #00f); }
-    100% { filter: hue-rotate(360deg) drop-shadow(0 0 10px #f00); }
-}
-
-/* --- إطارات جديدة إضافية --- */
-
-/* إطار الثقب الأسود */
-.frame-blackhole {
-    border: 4px double #000;
-    box-shadow: 0 0 20px #6366f1, inset 0 0 30px #000;
-    animation: blackholeSpin 2s infinite linear;
-}
-@keyframes blackholeSpin { 
-    from { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(1.05); box-shadow: 0 0 40px #a855f7; }
-    to { transform: rotate(360deg) scale(1); }
-}
-
-/* إطار الحمم البركانية */
-.frame-lava {
-    border: 3px solid #7f1d1d;
-    background: conic-gradient(#f97316, #ef4444, #7f1d1d, #f97316);
-    -webkit-mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    mask: radial-gradient(closest-side, transparent 88%, black 90%);
-    animation: lavaFlow 2s infinite linear;
-    filter: drop-shadow(0 0 8px #ef4444);
-}
-@keyframes lavaFlow { to { transform: rotate(360deg); } }
-
-/* إطار الكريستال المتجمد */
-.frame-frost {
-    border: 2px solid #fff;
-    background: linear-gradient(45deg, #bae6fd, #fff, #bae6fd);
-    box-shadow: 0 0 15px #7dd3fc;
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    animation: frostPulse 3s infinite alternate;
-}
-@keyframes frostPulse { from { opacity: 0.7; } to { opacity: 1; transform: scale(1.05); } }
-
-/* إطار الذهب الملكي */
-.frame-royal-gold {
-    border: 4px solid #fbbf24;
-    border-style: double;
-    box-shadow: 0 0 20px #d97706, inset 0 0 10px #fef3c7;
-    background: linear-gradient(45deg, #fbbf24, #fef3c7, #fbbf24);
-    -webkit-mask: radial-gradient(closest-side, transparent 85%, black 87%);
-    mask: radial-gradient(closest-side, transparent 85%, black 87%);
-    animation: goldShine 2s infinite;
-}
-@keyframes goldShine { 0% { filter: brightness(1); } 50% { filter: brightness(1.4); } 100% { filter: brightness(1); } }
-
-/* إطار البلازما */
-.frame-plasma {
-    border: 2px solid #8b5cf6;
-    box-shadow: 0 0 20px #d946ef, inset 0 0 15px #8b5cf6;
-    animation: plasmaAnim 1.5s infinite alternate;
-}
-@keyframes plasmaAnim { 
-    from { border-radius: 50%; box-shadow: 0 0 10px #d946ef; } 
-    to { border-radius: 45% 55% 50% 50% / 50% 50% 55% 45%; box-shadow: 0 0 30px #8b5cf6; } 
+@keyframes infinityGradient { 
+    0% { background-position: 0% 50%; } 
+    50% { background-position: 100% 50%; } 
+    100% { background-position: 0% 50%; } 
 }
 
 /* الهالة الصوفية */
