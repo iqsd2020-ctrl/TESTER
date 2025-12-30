@@ -14,6 +14,31 @@ import { topicsData } from './data.js';
  * conditionType: نوع الشرط ('section_score' للقسم، 'topic_score' لموضوع محدد، 'total_correct' للمجموع الكلي)
  * sectionKey / topicKey: المفتاح البرمجي للقسم أو الموضوع كما هو في ملف data.js
  * desc: وصف الإنجاز
+ __________
+     { 
+        id: 1, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/1.png',
+        title: 'نور المعصومين',
+        target: 100,
+        conditionType: 'section_score', 
+        sectionKey: "المعصومون (عليهم السلام)", // هذا صحيح لأنه section_score
+        desc: 'أجب بشكل صحيح في قسم المعصومين'
+    },
+    _________
+    قسم كامل∆    
+        { 
+        id: 2, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png',
+        title: 'ملحمة كربلاء',
+        target: 200, 
+        conditionType: 'topic_score', 
+        topicKey: "واقعة كربلاء", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح على واقعة كربلاء '
+    },
+    ________
+    موضوع محدد∆
  */
 export const achievementsGallery = [
     { 
@@ -23,90 +48,91 @@ export const achievementsGallery = [
         title: 'نور المعصومين',
         target: 100,
         conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
+        sectionKey: "المعصومون (عليهم السلام)", // هذا صحيح لأنه section_score
         desc: 'أجب بشكل صحيح في قسم المعصومين'
     },
     { 
         id: 2, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/2.png',
-        title: 'نور المعصومين',
+        title: 'ملحمة كربلاء',
         target: 200, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        conditionType: 'topic_score', 
+        topicKey: "واقعة كربلاء", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح على واقعة كربلاء '
     },
     { 
         id: 3, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/3.png',
-        title: 'نور المعصومين',
+        title: 'نور المهدي',
         target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        conditionType: 'topic_score', 
+        topicKey: "الإمام المهدي (عج)", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح على موضوع الامام المهدي '
     },
     { 
         id: 4, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/4.png',
-        title: 'نور المعصومين',
+        title: 'نور النبي',
         target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        conditionType: 'topic_score', 
+        topicKey: "سيرة النبي محمد (ص)", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح حول النبي محمد (ص) '
     },
     { 
         id: 5, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/5.png',
-        title: 'نور المعصومين',
+        title: 'يوم الغدير',
         target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        conditionType: 'topic_score', 
+        topicKey: "عيد الغدير الأغر", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح حول يوم الغدير'
     },
     { 
         id: 6, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/6.png',
-        title: 'نور المعصومين',
+        title: 'اسد الله الغالب',
         target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        conditionType: 'topic_score', 
+        topicKey: "سيرة الإمام علي (ع)", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح حول الامام علي (ع) '  
     },
     { 
         id: 7, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/7.png',
-        title: 'نور المعصومين',
-        target: 300, 
-        conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        title: 'قالع خيبر',
+        target: 200, 
+        conditionType: 'topic_score', 
+        topicKey: "معركة خيبر", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح في قسم التاريخ حول معركة خيبر'
     },
     { 
         id: 8, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/8.png',
-        title: 'نور المعصومين',
+        title: 'المهدي',
         target: 1000, 
         conditionType: 'section_score', 
-        sectionKey: "المعصومون (عليهم السلام)",
-        desc: 'أجب بشكل صحيح في قسم المعصومين'
+        sectionKey: "الثقافة المهدوية", // هذا صحيح لأنه section_score
+        desc: 'أجب بشكل صحيح حول القضية المهدوية '
     },
     { 
         id: 9, 
         img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png', 
         hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/9.png',
-        title: 'الامام المهدي',
+        title: 'الحسن المجتبى',
         target: 10, 
         conditionType: 'topic_score',
-        topicKey: "الإمام المهدي (عج)",
-        desc: 'أجب بشكل صحيح في قسم الامام المهدي'
+        topicKey: "سيرة الإمام الحسن المجتبى (ع)", // هذا كان صحيحاً من الأصل
+        desc: 'أجب بشكل صحيح حول الامام الحسن'
     }
 ];
+
 
 /**
  * دالة مساعدة لتنظيف النصوص (يجب أن تكون متوفرة أو مستوردة)
