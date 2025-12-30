@@ -975,12 +975,7 @@ const framesData = [
     { id: 'dragon_breath', name: 'أنفاس التنين', price: 8500, cssClass: 'frame-dragon-breath' },
     { id: 'mystic_aura', name: 'الهالة الصوفية', price: 6200, cssClass: 'frame-mystic' },
     { id: 'time_portal', name: 'بوابة الزمن', price: 7500, cssClass: 'frame-time' },
-    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' },
-    { id: 'blackhole', name: 'الثقب الأسود', price: 12000, cssClass: 'frame-blackhole' },
-    { id: 'lava_flow', name: 'الحمم البركانية', price: 6500, cssClass: 'frame-lava' },
-    { id: 'frost_crystal', name: 'الكريستال المتجمد', price: 5800, cssClass: 'frame-frost' },
-    { id: 'royal_gold', name: 'الذهب الملكي', price: 15000, cssClass: 'frame-royal-gold' },
-    { id: 'plasma_storm', name: 'عاصفة البلازما', price: 7200, cssClass: 'frame-plasma' }
+    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' }
 ];
 
 // دالة تسجيل حالة التواجد في RTDB (مصححة)
@@ -1707,7 +1702,7 @@ function navToHome() {
     quizState.active = false;
     
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
-    hide('achievements-view'); hide('leaderboard-view'); hide('bag-view');
+    hide('achievements-view'); hide('leaderboard-view');
     show('welcome-area');
     
     initDropdowns();
@@ -3709,7 +3704,7 @@ async function saveMonthlyWinner(monthKey) {
 let isBagSystemInitialized = false;
 
 function openBag() {
-    if(typeof toggleMenu === 'function') toggleMenu(false);
+    toggleMenu(false);
     
     // 1. التهيئة لمرة واحدة فقط (بناء الهيكل)
     if (!isBagSystemInitialized) {
@@ -3720,28 +3715,9 @@ function openBag() {
     // 2. تحديث الحالة فقط (سريع جداً ولا يسبب وميض)
     updateBagState();
     
-    // 3. إخفاء الشاشات الأخرى والشريط السفلي
-    hide('welcome-area');
-    hide('quiz-proper');
-    hide('results-area');
-    hide('login-area');
-    hide('auth-loading');
-    hide('achievements-view');
-    hide('leaderboard-view');
-    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
-    
-    // 4. إظهار صفحة الحقيبة
-    show('bag-view');
-    
-    // تسجيل المشهد في المتصفح للزر الرجوع
-    window.history.pushState({ view: 'bag' }, "", "");
+    // 3. فتح النافذة
+    openModal('bag-modal');
 }
-
-// زر الرجوع من صفحة الحقيبة إلى الرئيسية
-bind('btn-back-bag', 'click', () => {
-    hide('bag-view');
-    navToHome(); 
-});
 
 // دالة البناء الأولي (تعمل مرة واحدة فقط عند فتح التطبيق لأول مرة)
 function initBagSystem() {
@@ -3796,46 +3772,7 @@ function initBagSystem() {
     shopContainer.appendChild(shopGrid);
 }
 
-function createGameItemCard(fData, type) {
-    const tpl = document.getElementById('game-item-template');
-    const clone = tpl.content.cloneNode(true);
-    const btn = clone.querySelector('button');
-    const prev = clone.querySelector('.item-preview');
-    const name = clone.querySelector('.item-name');
-    const act = clone.querySelector('.item-action');
-
-    btn.id = `btn-${type}-${fData.id}`;
-    
-    // استخدام حجم أكبر للمعاينة في الصفحة الجديدة
-    prev.innerHTML = getAvatarHTML(userProfile.customAvatar, fData.id, "w-16 h-16");
-    name.textContent = fData.name;
-
-    if (type === 'shop') {
-        act.innerHTML = `
-            <span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">
-                ${formatNumberAr(fData.price)} 
-                <span class="material-symbols-rounded text-[10px]">monetization_on</span>
-            </span>
-        `;
-    } else {
-        act.innerHTML = `
-            <div class="equip-badge hidden bg-green-500/20 p-1 rounded-full">
-                <span class="material-symbols-rounded text-green-400 text-sm">check</span>
-            </div>
-        `;
-    }
-
-    btn.onclick = () => {
-        if (type === 'inventory') {
-            equipFrame(fData.id);
-        } else {
-            if (!btn.classList.contains('owned')) {
-                window.buyShopItem('frame', fData.price, fData.id);
-            }
-        }
-    };
-    return btn;
-}
+function createGameItemCard(fData,type){const tpl=document.getElementById('game-item-template');const clone=tpl.content.cloneNode(true);const btn=clone.querySelector('button');const prev=clone.querySelector('.item-preview');const name=clone.querySelector('.item-name');const act=clone.querySelector('.item-action');btn.id=`btn-${type}-${fData.id}`;prev.innerHTML=getAvatarHTML(userProfile.customAvatar,fData.id,"w-full h-full");name.textContent=fData.name;if(type==='shop'){act.innerHTML=`<span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">${formatNumberAr(fData.price)} <span class="material-symbols-rounded text-[10px]">monetization_on</span></span>`}else{act.innerHTML='<div class="equip-badge hidden bg-green-500/20 p-1 rounded-full"><span class="material-symbols-rounded text-green-400 text-sm">check</span></div>'}btn.onclick=()=>{if(type==='inventory'){equipFrame(fData.id)}else{if(!btn.classList.contains('owned')){window.buyShopItem('frame',fData.price,fData.id)}}};return btn}
 
 
 // دالة التحديث (تعمل عند كل فتح للحقيبة أو شراء)
