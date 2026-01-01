@@ -3180,53 +3180,82 @@ let currentLeaderboardMode = 'monthly';
 
 // في ملف main.js - استبدل دالة loadLeaderboard بالكامل
 
+// 1. دالة تحميل لوحة المتصدرين (مع جلب البيانات الحية لبطل الشهر)
 async function loadLeaderboard() {
     const container = getEl('leaderboard-list');
     const loading = getEl('leaderboard-loading');
+    
+    // عرض التحميل
     if (loading) loading.classList.remove('hidden');
     if (container) {
         container.classList.add('hidden');
         container.innerHTML = '';
     }
-    
     renderSkeleton('leaderboard', 6);
-    
+
     try {
         const currentMonthKey = getCurrentMonthKey();
-        
-        // 1. جلب فائز الشهر الماضي
         const lastMonthKey = getLastMonthKey();
+
+        // --- جلب بطل الشهر الماضي ---
         const winnerDoc = await getDoc(doc(db, "winners", lastMonthKey));
         let lastMonthWinner = null;
+
         if (winnerDoc.exists()) {
-            lastMonthWinner = winnerDoc.data();
+            const savedWinnerData = winnerDoc.data();
+            
+            // محاولة جلب البيانات الحية (الصورة والإطار الحاليين)
+            try {
+                if (savedWinnerData.userId) {
+                    const liveUserDoc = await getDoc(doc(db, "users", savedWinnerData.userId));
+                    if (liveUserDoc.exists()) {
+                        const liveData = liveUserDoc.data();
+                        // دمج البيانات: السكور من السجل القديم، والصورة والإطار من السجل الحي
+                        lastMonthWinner = {
+                            ...savedWinnerData,
+                            username: liveData.username || savedWinnerData.username,
+                            customAvatar: liveData.customAvatar,
+                            equippedFrame: liveData.equippedFrame || 'default'
+                        };
+                    } else {
+                        lastMonthWinner = savedWinnerData; // المستخدم غير موجود، نستخدم البيانات القديمة
+                    }
+                } else {
+                    lastMonthWinner = savedWinnerData;
+                }
+            } catch (err) {
+                console.error("Error fetching live winner data:", err);
+                lastMonthWinner = savedWinnerData;
+            }
         }
 
-        // 2. جلب المتصدرين الحاليين
+        // --- جلب المتصدرين لهذا الشهر ---
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", currentMonthKey), orderBy("monthlyStats.correct", "desc"), limit(20));
         const s = await getDocs(q);
-        
+
+        // إخفاء التحميل وإظهار القائمة
         if (loading) loading.classList.add('hidden');
         if (container) container.classList.remove('hidden');
-        container.innerHTML = '';
+        container.innerHTML = ''; // تنظيف الهيكل العظمي (Skeleton)
 
-        // 3. عرض فائز الشهر الماضي في الأعلى
+        // رسم بطل الشهر الماضي (إذا وجد)
         if (lastMonthWinner) {
             renderLastMonthWinner(lastMonthWinner, container);
         }
-        
+
+        // رسم بقية القائمة
         if (s.empty) {
             const emptyMsg = document.createElement('div');
             emptyMsg.className = "text-center text-slate-400 py-10 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 mt-4";
             emptyMsg.innerHTML = `
                 <span class="material-symbols-rounded text-4xl block mb-2 opacity-20">emoji_events</span>
-                <p>بداية شهر جديد! كن أول المنافسين في القائمة.</p>
+                <p>بداية شهر جديد!<br>كن أول المنافسين في القائمة.</p>
             `;
             container.appendChild(emptyMsg);
         } else {
-            // 🚨 جلب حالات التواجد من RTDB
             const statusUpdates = {};
             const statusRef = ref(rtdb, 'status');
+            // جلب حالة الاتصال مرة واحدة
             onValue(statusRef, (snapshot) => {
                  snapshot.forEach((child) => {
                      statusUpdates[child.key] = child.val();
@@ -3234,11 +3263,45 @@ async function loadLeaderboard() {
                  renderLeaderboardList(s.docs, container, statusUpdates);
             }, { onlyOnce: true });
         }
-
     } catch(e) { 
-        console.error(e); 
-        if (container) container.innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل</div>`; 
+        console.error("Leaderboard Error:", e);
+        if (container) container.innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل، تأكد من الاتصال</div>`;
     }
+}
+
+// 2. دالة رسم بطاقة بطل الشهر (باستخدام getAvatarHTML)
+function renderLastMonthWinner(winner, container) {
+    // نستخدم دالة getAvatarHTML لإنشاء الصورة مع الإطار بشكل صحيح
+    const avatarHtml = getAvatarHTML(winner.customAvatar, winner.equippedFrame || 'default', "w-full h-full");
+
+    const winnerHtml = `
+        <div class="last-month-winner-card relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/40 via-slate-900 to-slate-900 p-5 mb-8 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in">
+            <div class="absolute top-0 right-0 p-2">
+                <span class="material-symbols-rounded text-amber-500/20 text-6xl rotate-12">workspace_premium</span>
+            </div>
+            <div class="relative z-10 flex items-center gap-4">
+                <div class="relative">
+                    <div class="w-20 h-20 rounded-2xl shadow-lg overflow-visible flex items-center justify-center bg-slate-800">
+                        ${avatarHtml}
+                    </div>
+                    <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg z-20">
+                        <span class="material-symbols-rounded text-slate-900 text-lg font-bold">trophy</span>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">بطل الشهر الماضي</span>
+                    <h3 class="text-xl font-bold text-white font-heading mb-1">${winner.username}</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400">حقق إنجازاً بـ</span>
+                        <span class="text-sm font-bold text-amber-400">${formatNumberAr(winner.score)} نقطة</span>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
+        </div>
+    `;
+    // إضافة البطاقة في بداية القائمة
+    container.insertAdjacentHTML('afterbegin', winnerHtml);
 }
 
 function getLastMonthKey() {
@@ -3285,38 +3348,7 @@ function startLeaderboardResetTimer() {
     leaderboardTimerInterval = setInterval(updateTimer, 1000);
 }
 
-function renderLastMonthWinner(winner, container) {
-    const winnerHtml = `
-        <div class="last-month-winner-card relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/40 via-slate-900 to-slate-900 p-5 mb-8 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in">
-            <div class="absolute top-0 right-0 p-2">
-                <span class="material-symbols-rounded text-amber-500/20 text-6xl rotate-12">workspace_premium</span>
-            </div>
-            <div class="relative z-10 flex items-center gap-4">
-                <div class="relative">
-                    <div class="w-20 h-20 rounded-2xl border-2 border-amber-500 shadow-lg overflow-hidden bg-slate-800 flex items-center justify-center">
-                        ${winner.photoURL ? `<img src="${winner.photoURL}" class="w-full h-full object-cover">` : `<span class="material-symbols-rounded text-5xl text-amber-500/50">person</span>`}
-                    </div>
-                    <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
-                        <span class="material-symbols-rounded text-slate-900 text-lg font-bold">trophy</span>
-                    </div>
-                </div>
-                <div class="flex-1">
-                    <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">بطل الشهر الماضي</span>
-                    <h3 class="text-xl font-bold text-white font-heading mb-1">${winner.username}</h3>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400">حقق إنجازاً بـ</span>
-                        <span class="text-sm font-bold text-amber-400">${formatNumberAr(winner.score)} نقطة</span>
-                    </div>
-                </div>
-            </div>
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
-        </div>
-    `;
-    container.insertAdjacentHTML('afterbegin', winnerHtml);
-}
-
 function renderLeaderboardList(docs, container, statusUpdates) {
-    container.innerHTML = '';
     
     // 1. جلب القالب
     const template = document.getElementById('leaderboard-row-template');
@@ -3673,19 +3705,27 @@ function getCurrentMonthKey() {
 
 async function saveMonthlyWinner(monthKey) {
     try {
-        // جلب المتصدر لهذا الشهر
+        // 1. أولاً: نتحقق هل تم تسجيل فائز لهذا الشهر مسبقاً؟
+        const winnerDocRef = doc(db, "winners", monthKey);
+        const winnerDocSnap = await getDoc(winnerDocRef);
+
+        // إذا كان المستند موجوداً، لا تفعل شيئاً وتوقف فوراً
+        // هذا يمنع استبدال البطل الحقيقي بشخص آخر لاحقاً
+        if (winnerDocSnap.exists()) {
+            console.log(`🏆 فائز شهر ${monthKey} مسجل مسبقاً، لن يتم الاستبدال.`);
+            return;
+        }
+
+        // 2. إذا لم يكن مسجلاً، نقوم بالبحث عنه وحفظه (الكود الأصلي)
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", monthKey), orderBy("monthlyStats.correct", "desc"), limit(1));
         const s = await getDocs(q);
-        
         if (!s.empty) {
             const winnerData = s.docs[0].data();
             const winnerId = s.docs[0].id;
-            
-            // حفظ الفائز في مجموعة خاصة
-            await setDoc(doc(db, "winners", monthKey), {
+            await setDoc(winnerDocRef, {
                 userId: winnerId,
                 username: winnerData.username || "لاعب مجهول",
-                photoURL: winnerData.photoURL || "",
+                photoURL: winnerData.photoURL || "", // حقل احتياطي
                 score: winnerData.monthlyStats.correct,
                 monthKey: monthKey,
                 timestamp: serverTimestamp()
@@ -5682,3 +5722,63 @@ bind('nav-achievements', 'click', () => {
     // تسجيل المشهد في المتصفح للزر الرجوع
     window.history.pushState({ view: 'achievements' }, "", "");
 });
+
+// ==========================================
+// ⏰ نظام جدولة الإشعارات اليومي
+// ==========================================
+
+// 1. دالة البدء: تطلب الإذن وتتأكد من دعم المتصفح
+function initNotificationSystem() {
+    // التحقق من دعم المتصفح للإشعارات وعامل الخدمة
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+        // طلب الإذن من المستخدم
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                console.log("تم منح إذن الإشعارات");
+                scheduleDailyNotification();
+            }
+        });
+    }
+}
+
+// تشغيل النظام فوراً
+initNotificationSystem();
+
+// 2. دالة الجدولة: تحسب الوقت وترسل الأمر
+async function scheduleDailyNotification() {
+    // الحصول على عامل الخدمة المسجل (الحارس)
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+
+    // --- حساب التوقيت (9:00 صباحاً) ---
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(9, 0, 0, 0); // الساعة 9:00:00
+
+    // إذا كانت الساعة 9 قد مرت اليوم بالفعل، نضبط الموعد لغد
+    if (now > scheduledTime) {
+        scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    // --- تجهيز محتوى الإشعار ---
+    const title = "هياكل النور";
+    const options = {
+        body: "لا تنسَ وردك اليومي، ابدأ يومك بذكر الله 📿",
+        icon: 'Icon.png', // ⚠️ تأكد أن لديك صورة بهذا الاسم أو غير المسار لصورة موجودة
+        badge: 'Icon.png',
+        tag: 'daily-reminder', // مهم جداً: يمنع تكرار الإشعارات فوق بعضها
+    };
+
+    // --- تفعيل الجدولة (الخدعة التقنية) ---
+    // نتحقق هل المتصفح يدعم خاصية "زناد الوقت" (TimestampTrigger)
+    if ('showTrigger' in Notification.prototype) {
+        // إضافة توقيت الانطلاق للإشعار
+        options.showTrigger = new TimestampTrigger(scheduledTime.getTime());
+        
+        // إرسال الأمر للنظام
+        reg.showNotification(title, options);
+        console.log("✅ تمت جدولة الإشعار القادم في: " + scheduledTime.toLocaleString());
+    } else {
+        console.log("⚠️ تنبيه: هذا المتصفح لا يدعم جدولة الإشعارات أثناء الإغلاق التام.");
+    }
+}

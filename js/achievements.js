@@ -130,7 +130,49 @@ export const achievementsGallery = [
         conditionType: 'topic_score',
         topicKey: "سيرة الإمام الحسن المجتبى (ع)", // هذا كان صحيحاً من الأصل
         desc: 'أجب بشكل صحيح حول الامام الحسن'
+    },
+            { 
+        id: 10, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/10.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/10.png',
+        title: 'ملحمة كربلاء',
+        target: 100, 
+        conditionType: 'topic_score', 
+        topicKey: "واقعة كربلاء", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح على واقعة كربلاء '
+    },
+            { 
+        id: 11, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/11.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/11.png',
+        title: 'سيدة النساء',
+        target: 200, 
+        conditionType: 'topic_score', 
+        topicKey: "السيدة فاطمة الزهراء", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح حول السيدة الزهراء '
+    },
+            { 
+        id: 12, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/12.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/12.png',
+        title: 'خدير خم',
+        target: 150, 
+        conditionType: 'topic_score', 
+        topicKey: "عيد الغدير الأغر", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح على واقعة غدير خم '
+    },
+            { 
+        id: 13, 
+        img: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/13.png', 
+        hdUrl: 'https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/img/13.png',
+        title: 'ابو الفضل العباس',
+        target: 100, 
+        conditionType: 'topic_score', 
+        topicKey: "أبو الفضل العباس (ع)", // تم التغيير من sectionKey إلى topicKey
+        desc: 'أجب بشكل صحيح حول ابو الفضل العباس '
     }
+
+   
 ];
 
 
