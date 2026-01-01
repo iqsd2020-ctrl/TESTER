@@ -1,3 +1,9 @@
+// ==========================================
+// ⚙️ إعدادات الإشعارات
+// ==========================================
+// 🔴 الرابط الكامل للتطبيق (لضمان الفتح الصحيح 100%)
+const APP_URL = 'https://iqsd2020-ctrl.github.io/New/';
+
 const NOTIF_CONFIG = {
     title: "هياكل النور",
     body: "لا تنسى الصلاة على محمد وآل محمد أبدا",
@@ -8,15 +14,24 @@ const NOTIF_CONFIG = {
     minute: 0
 };
 
-// 🔴 الرابط الكامل للتطبيق (الحل القاطع للمشاكل)
-const APP_URL = 'https://iqsd2020-ctrl.github.io/New/';
-
+// ==========================================
+// 🛠️ دوال النظام
+// ==========================================
 function initNotificationSystem() {
     if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
 
+    // إذا كان الإذن ممنوحاً
     if (Notification.permission === 'granted') {
-        navigator.serviceWorker.ready.then(reg => scheduleDailyNotification(reg));
-    } else if (Notification.permission !== 'denied') {
+        navigator.serviceWorker.ready.then(reg => {
+            // 1. جدولة إشعار الغد
+            scheduleDailyNotification(reg);
+            
+            // 2. تشغيل الإشعار الفوري (الترحيب) الآن ✅
+            showWelcomeNotification();
+        });
+    } 
+    // إذا لم يمنح الإذن بعد
+    else if (Notification.permission !== 'denied') {
         document.addEventListener('click', requestPermissionAndSchedule, { once: true });
     }
 }
@@ -24,7 +39,10 @@ function initNotificationSystem() {
 function requestPermissionAndSchedule() {
     Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
-            navigator.serviceWorker.ready.then(reg => scheduleDailyNotification(reg));
+            navigator.serviceWorker.ready.then(reg => {
+                scheduleDailyNotification(reg);
+                showWelcomeNotification(); // تشغيل الترحيب بعد الموافقة فوراً
+            });
         }
     });
 }
@@ -43,8 +61,7 @@ function scheduleDailyNotification(reg) {
         icon: NOTIF_CONFIG.icon,
         badge: NOTIF_CONFIG.badge,
         tag: NOTIF_CONFIG.tag,
-        // 👇 هنا نضع الرابط الكامل
-        data: { url: https://iqsd2020-ctrl.github.io/New/ } 
+        data: { url: APP_URL } // الرابط الثابت
     };
 
     if ('showTrigger' in Notification.prototype) {
@@ -53,8 +70,9 @@ function scheduleDailyNotification(reg) {
     }
 }
 
+// دالة الإشعار الفوري
 function showWelcomeNotification() {
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && Notification.permission === 'granted') {
         navigator.serviceWorker.ready.then(reg => {
             reg.showNotification("هياكل النور ازدد علمًا ووعيًا", {
                 body: "لا تنسى العودة مجدداً",
@@ -62,11 +80,12 @@ function showWelcomeNotification() {
                 badge: 'Icon.png',
                 vibrate: [300, 100, 200],
                 tag: 'welcome-notification',
-                // 👇 وهنا أيضاً
-                data: { url: APP_URL } 
+                data: { url: APP_URL } // الرابط الثابت
             });
         });
     }
 }
 
+// جعل الدوال متاحة
+window.initNotificationSystem = initNotificationSystem;
 window.showWelcomeNotification = showWelcomeNotification;
