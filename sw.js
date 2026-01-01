@@ -1,5 +1,5 @@
 const CONFIG = {
-    version: 'ahlulbayt-quiz-v2.0-fix',
+    version: 'ahlulbayt-quiz-v2.1-fix-path', // قمت بتحديث الإصدار
     staticAssets: [
         './',
         './index.html',
@@ -40,8 +40,13 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     
-    let urlToOpen = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
-    urlToOpen = new URL(urlToOpen, self.location.origin).href;
+    // جلب الرابط النسبي
+    let relativeUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : './';
+    
+    // 👈 التعديل الجوهري هنا:
+    // استخدام self.registration.scope بدلاً من self.location.origin
+    // هذا يضمن أن الرابط يبدأ من مجلد /New/ (أو أي مجلد يوجد فيه التطبيق)
+    let urlToOpen = new URL(relativeUrl, self.registration.scope).href;
 
     const promiseChain = clients.matchAll({
         type: 'window',
@@ -49,6 +54,7 @@ self.addEventListener('notificationclick', function(event) {
     }).then((windowClients) => {
         for (let i = 0; i < windowClients.length; i++) {
             const client = windowClients[i];
+            // التحقق من أن النافذة المفتوحة تطابق الرابط المطلوب
             if (client.url === urlToOpen && 'focus' in client) {
                 return client.focus();
             }
