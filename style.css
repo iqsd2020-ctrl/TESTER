@@ -999,8 +999,10 @@ z-index: 10;
 }
 
 /* --- تحسين صفوف لوحة المتصدرين إلى 3D --- */
+/* --- تحسين صفوف لوحة المتصدرين إلى 3D --- */
 
-#leaderboard-list > div {
+/* 🔥 التعديل: استثناء البطاقات اللامعة من هذا الستايل الثابت */
+#leaderboard-list > div:not(.active-shine) {
     /* 1. استبدال الخلفية بخلفية متدرجة 3D */
     background: linear-gradient(to bottom, rgba(51, 65, 85, 0.5), rgba(30, 41, 59, 0.8)) !important;
     
@@ -1014,6 +1016,20 @@ z-index: 10;
     
     /* إلغاء التحويلات القديمة واستبدالها بحركة الضغط */
     transition: transform 0.1s, border-bottom-width 0.1s, background-color 0.2s !important;
+}
+
+/* تأثير التحويم (Hover) - أيضاً نستثني اللامع */
+#leaderboard-list > div:not(.active-shine):hover {
+    background: linear-gradient(to bottom, rgba(60, 75, 95, 0.6), rgba(40, 50, 70, 0.9)) !important;
+    transform: translateY(-1px) !important; 
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* تأثير الضغط (Active Press) - أيضاً نستثني اللامع */
+#leaderboard-list > div:not(.active-shine):active {
+    border-bottom-width: 1px !important;
+    transform: translateY(3px) !important; 
+    box-shadow: none !important;
 }
 
 /* تأثير التحويم (Hover) */
