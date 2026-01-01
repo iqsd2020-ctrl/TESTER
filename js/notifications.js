@@ -40,7 +40,7 @@ function scheduleDailyNotification(reg) {
         icon: NOTIF_CONFIG.icon,
         badge: NOTIF_CONFIG.badge,
         tag: NOTIF_CONFIG.tag,
-        data: { url: '/' }
+        data: { url: './' } // 👈 تم التعديل هنا: النقطة مهمة جداً لتعني "نفس المجلد"
     };
 
     if ('showTrigger' in Notification.prototype) {
@@ -58,7 +58,7 @@ function showWelcomeNotification() {
                 badge: 'Icon.png',
                 vibrate: [300, 100, 200],
                 tag: 'welcome-notification',
-                data: { url: '/' }
+                data: { url: './' } // 👈 وهنا أيضاً
             });
         });
     }
