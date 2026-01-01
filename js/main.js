@@ -5723,82 +5723,14 @@ bind('nav-achievements', 'click', () => {
     window.history.pushState({ view: 'achievements' }, "", "");
 });
 
-// ==========================================
-// ⏰ نظام جدولة الإشعارات اليومي
-// ==========================================
 
-// 1. دالة البدء: تطلب الإذن وتتأكد من دعم المتصفح
-function initNotificationSystem() {
-    // التحقق من دعم المتصفح للإشعارات وعامل الخدمة
-    if ('Notification' in window && 'serviceWorker' in navigator) {
-        // طلب الإذن من المستخدم
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                console.log("تم منح إذن الإشعارات");
-                scheduleDailyNotification();
-            }
-        });
+// تشغيل نظام الإشعارات
+if (window.initNotificationSystem) {
+    // 1. تشغيل الجدولة اليومية (الساعة 9)
+    window.initNotificationSystem();
+
+    // 2. إظهار الإشعار الفوري (الترحيب)
+    if (window.showWelcomeNotification) {
+        window.showWelcomeNotification();
     }
-}
-
-// تشغيل النظام فقط بعد أول نقرة للمستخدم على الصفحة
-document.addEventListener('click', function() {
-    // التحقق مما إذا كان الإذن لم يُمنح بعد
-    if (Notification.permission !== 'granted') {
-        initNotificationSystem();
-    }
-}, { once: true }); // {once: true} تعني نفذ هذا الأمر مرة واحدة فقط
-
-// 2. دالة الجدولة: تحسب الوقت وترسل الأمر
-async function scheduleDailyNotification() {
-    // الحصول على عامل الخدمة المسجل (الحارس)
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) return;
-
-    // --- حساب التوقيت (9:00 صباحاً) ---
-    const now = new Date();
-    const scheduledTime = new Date();
-    scheduledTime.setHours(9, 0, 0, 0); // الساعة 9:00:00
-
-    // إذا كانت الساعة 9 قد مرت اليوم بالفعل، نضبط الموعد لغد
-    if (now > scheduledTime) {
-        scheduledTime.setDate(scheduledTime.getDate() + 1);
-    }
-
-    // --- تجهيز محتوى الإشعار ---
-    const title = "هياكل النور";
-    const options = {
-        body: "لا تنسَ وردك اليومي، ابدأ يومك بذكر الله 📿",
-        icon: 'Icon.png', // ⚠️ تأكد أن لديك صورة بهذا الاسم أو غير المسار لصورة موجودة
-        badge: 'Icon.png',
-        tag: 'daily-reminder', // مهم جداً: يمنع تكرار الإشعارات فوق بعضها
-    };
-
-    // --- تفعيل الجدولة (الخدعة التقنية) ---
-    // نتحقق هل المتصفح يدعم خاصية "زناد الوقت" (TimestampTrigger)
-    if ('showTrigger' in Notification.prototype) {
-        // إضافة توقيت الانطلاق للإشعار
-        options.showTrigger = new TimestampTrigger(scheduledTime.getTime());
-        
-        // إرسال الأمر للنظام
-        reg.showNotification(title, options);
-        console.log("✅ تمت جدولة الإشعار القادم في: " + scheduledTime.toLocaleString());
-    } else {
-        console.log("⚠️ تنبيه: هذا المتصفح لا يدعم جدولة الإشعارات أثناء الإغلاق التام.");
-    }
-}
-
-// ==========================================
-// 🚀 كود اختبار فوري (سيظهر الإشعار بمجرد تشغيل الصفحة)
-// ==========================================
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then(reg => {
-        reg.showNotification("تجربة فورية 👳‍♂️", {
-            body: "السلام عليكم! نظام الإشعارات يعمل بنجاح.",
-            icon: 'Icon.png',
-            badge: 'Icon.png',
-            vibrate: [200, 100, 200], // اهتزاز بسيط للتنبيه
-            tag: 'test-notification'
-        });
-    });
 }
