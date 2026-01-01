@@ -4,7 +4,7 @@
 // ==========================================
 const NOTIF_CONFIG = {
     title: "هياكل النور",
-    body: "ابدأ يومك بذكر الله.. لا تفوت وردك اليومي 📿",
+    body: "لا تنسى الصلاة على محمد وآل محمد",
     icon: 'Icon.png',     // تأكد من المسار
     badge: 'Icon.png',
     tag: 'daily-reminder',
@@ -91,7 +91,7 @@ function scheduleDailyNotification(reg) {
 function showWelcomeNotification() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification("هياكل النور-ازدد علمًا ووعيًا", {
+            reg.showNotification("هياكل النور ازدد علمًا ووعيًا", {
                 body: "لا تنسى العودة مجدداً",
                 icon: 'Icon.png',
                 badge: 'Icon.png',
