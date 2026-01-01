@@ -1,6 +1,5 @@
-// sw.js
 const CONFIG = {
-    version: 'ahlulbayt-quiz-v4.0-direct-link', // تحديث الإصدار
+    version: 'ahlulbayt-quiz-v5.0-final', // تحديث الإصدار
     staticAssets: [
         './',
         'index.html',
@@ -12,7 +11,7 @@ const CONFIG = {
     ]
 };
 
-// 1. التثبيت
+// 1. التثبيت (تحديث فوري)
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
@@ -20,7 +19,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// 2. التفعيل وتنظيف القديم
+// 2. التفعيل (حذف الكاش القديم)
 self.addEventListener('activate', (event) => {
     event.waitUntil(Promise.all([
         clients.claim(),
@@ -32,7 +31,7 @@ self.addEventListener('activate', (event) => {
     ]));
 });
 
-// 3. استراتيجية الكاش
+// 3. استرجاع الملفات (Cache First)
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
@@ -41,11 +40,11 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// 4. معالجة النقر (بسيط ومباشر)
+// 4. معالجة النقر على الإشعار (فتح التطبيق)
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
 
-    // نأخذ الرابط من البيانات، وإذا لم يوجد نستخدم الرابط الثابت كاحتياط
+    // نأخذ الرابط من بيانات الإشعار، أو نستخدم الرابط الافتراضي
     const urlToOpen = event.notification.data && event.notification.data.url 
                       ? event.notification.data.url 
                       : 'https://iqsd2020-ctrl.github.io/New/';
@@ -54,14 +53,15 @@ self.addEventListener('notificationclick', function(event) {
         type: 'window',
         includeUncontrolled: true
     }).then((windowClients) => {
-        // البحث عن نافذة مفتوحة لنفس الرابط
+        // أ- هل التطبيق مفتوح؟ حاول التركيز عليه
         for (let i = 0; i < windowClients.length; i++) {
             const client = windowClients[i];
-            if (client.url === urlToOpen && 'focus' in client) {
+            // مطابقة الرابط (نتجاهل الرموز الختامية مثل # أو / لضمان المطابقة)
+            if (client.url.startsWith(urlToOpen) && 'focus' in client) {
                 return client.focus();
             }
         }
-        // فتح نافذة جديدة
+        // ب- إذا لم يكن مفتوحاً، افتح نافذة جديدة
         if (clients.openWindow) {
             return clients.openWindow(urlToOpen);
         }
