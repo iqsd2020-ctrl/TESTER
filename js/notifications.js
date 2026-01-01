@@ -4,7 +4,7 @@
 // ==========================================
 const NOTIF_CONFIG = {
     title: "هياكل النور",
-    body: "لا تنسى الصلاة على محمد وآل محمد",
+    body: "لا تنسى الصلاة على محمد وآل محمد أبدا",
     icon: 'Icon.png',     // تأكد من المسار
     badge: 'Icon.png',
     tag: 'daily-reminder',
@@ -95,7 +95,7 @@ function showWelcomeNotification() {
                 body: "لا تنسى العودة مجدداً",
                 icon: 'Icon.png',
                 badge: 'Icon.png',
-                vibrate: [200, 100, 200],
+                vibrate: [300, 100, 200],
                 tag: 'welcome-notification' // تاغ مختلف لكي لا يمسح الإشعار المجدول
             });
         });
