@@ -3269,40 +3269,57 @@ async function loadLeaderboard() {
     }
 }
 
-// 2. دالة رسم بطاقة بطل الشهر (باستخدام getAvatarHTML)
+// دالة رسم بطاقة بطل الشهر (تصميم مضغوط + لون بنفسجي ملكي مميز)
 function renderLastMonthWinner(winner, container) {
-    // نستخدم دالة getAvatarHTML لإنشاء الصورة مع الإطار بشكل صحيح
     const avatarHtml = getAvatarHTML(winner.customAvatar, winner.equippedFrame || 'default', "w-full h-full");
 
     const winnerHtml = `
-        <div class="last-month-winner-card relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/40 via-slate-900 to-slate-900 p-5 mb-8 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in">
-            <div class="absolute top-0 right-0 p-2">
-                <span class="material-symbols-rounded text-amber-500/20 text-6xl rotate-12">workspace_premium</span>
+        <div class="last-month-winner-card relative overflow-hidden rounded-xl border border-purple-500/50 bg-gradient-to-br from-indigo-950 via-purple-900/60 to-indigo-950 p-2 mb-4 shadow-[0_4px_15px_rgba(168,85,247,0.25)] animate-fade-in group">
+            
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.15),transparent_70%)]"></div>
+            
+            <div class="absolute -bottom-4 -left-4 rotate-12 opacity-10">
+                <span class="material-symbols-rounded text-6xl text-purple-200">military_tech</span>
             </div>
-            <div class="relative z-10 flex items-center gap-4">
-                <div class="relative">
-                    <div class="w-20 h-20 rounded-2xl shadow-lg overflow-visible flex items-center justify-center bg-slate-800">
+
+            <div class="relative z-10 flex items-center gap-2">
+                
+                <div class="relative shrink-0">
+                    <div class="w-12 h-12 rounded-full border border-purple-300/50 shadow-md flex items-center justify-center bg-black/40 ring-1 ring-amber-500/20">
                         ${avatarHtml}
                     </div>
-                    <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg z-20">
-                        <span class="material-symbols-rounded text-slate-900 text-lg font-bold">trophy</span>
+                    <div class="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-b from-yellow-300 to-amber-600 rounded-full flex items-center justify-center shadow-sm z-20 border border-white/50">
+                        <span class="material-symbols-rounded text-white text-[10px]">star</span>
                     </div>
                 </div>
-                <div class="flex-1">
-                    <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">بطل الشهر الماضي</span>
-                    <h3 class="text-xl font-bold text-white font-heading mb-1">${winner.username}</h3>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400">حقق إنجازاً بـ</span>
-                        <span class="text-sm font-bold text-amber-400">${formatNumberAr(winner.score)} نقطة</span>
+
+                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                    
+                    <div class="flex justify-between items-center mb-1 px-1">
+                        <h3 class="text-xs font-bold text-white truncate font-heading leading-none drop-shadow-md">${winner.username}</h3>
+                        <span class="text-[8px] font-bold text-purple-200 bg-purple-500/20 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase tracking-wide">بطل الشهر الماضي</span>
                     </div>
+
+                    <div class="relative flex items-center justify-center gap-1 bg-black/30 rounded py-0.5 border border-purple-500/20 w-full shadow-inner">
+                        <span class="material-symbols-rounded text-amber-400 text-sm">workspace_premium</span>
+                        
+                        <span class="text-lg font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 font-mono leading-none pt-0.5">
+                            ${formatNumberAr(winner.score)}
+                        </span>
+                        
+                        <span class="text-[8px] text-purple-200/60 self-end mb-0.5">نقطة</span>
+                    </div>
+
                 </div>
             </div>
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
+            
+            <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"></div>
         </div>
     `;
-    // إضافة البطاقة في بداية القائمة
+    
     container.insertAdjacentHTML('afterbegin', winnerHtml);
 }
+
 
 function getLastMonthKey() {
     const d = new Date();
@@ -3347,9 +3364,7 @@ function startLeaderboardResetTimer() {
     updateTimer();
     leaderboardTimerInterval = setInterval(updateTimer, 1000);
 }
-
 function renderLeaderboardList(docs, container, statusUpdates) {
-    
     // 1. جلب القالب
     const template = document.getElementById('leaderboard-row-template');
     let r = 1;
@@ -3375,37 +3390,61 @@ function renderLeaderboardList(docs, container, statusUpdates) {
         nameEl.textContent = data.username;
         scoreEl.textContent = formatNumberAr(correctCount);
 
-        // ضبط حجم الخط للأسماء الطويلة
         const nameLen = (data.username || "").length;
         if (nameLen > 25) nameEl.classList.add('text-[10px]', 'leading-tight'); 
         else if (nameLen > 18) nameEl.classList.add('text-xs'); 
         else nameEl.classList.add('text-lg');
 
-        // 4. منطق الترتيب (الألوان والميداليات) - نستخدم كلاسات CSS بدلاً من كتابة الستايل يدوياً
-        // الوضع الافتراضي (عادي)
-        let borderClass = 'border-slate-700';
-        let bgClass = 'bg-slate-800';
+        // ==========================================
+        // 🔙 العودة للكود الأصلي (بدون حركة) 🔙
+        // ==========================================
+        
+        // تنظيف الستايل
+        row.style.cssText = ''; 
+
+        // 1. تعيين الكلاسات الأساسية
+        row.className = `leaderboard-row flex justify-between items-center p-3 mb-3 rounded-xl border-2 transition transform hover:scale-[1.01] cursor-pointer group relative`;
+row.style.setProperty('border-width', '0.3px', 'important');
         let medalHtml = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
 
+        // 2. منطق الألوان الأصلي
         if (r <= 3) {
-            // المميزون (الـ Top 3)
-            borderClass = 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]';
-            bgClass = 'bg-gradient-to-r from-slate-800 to-amber-900/20';
-            
-            if (r === 1) medalHtml = '<span class="material-symbols-rounded text-amber-400">emoji_events</span>'; 
-            else if (r === 2) medalHtml = '<span class="material-symbols-rounded text-slate-300">military_tech</span>';
-            else if (r === 3) medalHtml = '<span class="material-symbols-rounded text-orange-700">military_tech</span>';
+            // === الثلاثة الأوائل (تدرج لوني ثابت وأنيق) ===
+            row.style.setProperty('background-image', 'linear-gradient(to right, #322d07, #000)', 'important');
+            row.style.setProperty('background-color', 'transparent', 'important');
+
+            if (r === 1) {
+                // الأول
+                medalHtml = '<span class="material-symbols-rounded text-amber-400">emoji_events</span>'; 
+                row.style.setProperty('border-color', '#fbbf24', 'important'); // Amber-400
+                row.style.setProperty('box-shadow', '0 0 15px rgba(251, 191, 36, 0.3)', 'important');
+            } 
+            else if (r === 2) {
+                // الثاني
+                medalHtml = '<span class="material-symbols-rounded text-slate-300">military_tech</span>';
+                row.style.setProperty('border-color', '#cbd5e1', 'important'); // Slate-300
+                row.style.setProperty('box-shadow', '0 0 10px rgba(203, 213, 225, 0.3)', 'important');
+            }
+            else if (r === 3) {
+                // الثالث
+                medalHtml = '<span class="material-symbols-rounded text-orange-700">military_tech</span>';
+                row.style.setProperty('border-color', '#c2410c', 'important'); // Orange-700
+                row.style.setProperty('box-shadow', '0 0 10px rgba(194, 65, 12, 0.3)', 'important');
+            }
+
+        } else {
+            // === باقي المتنافسين ===
+            row.style.setProperty('background-image', 'none', 'important');
+            row.style.setProperty('background-color', '#0f172a', 'important'); 
+            row.style.setProperty('border-color', '#1e293b', 'important');
         }
 
-        // تطبيق الكلاسات المحسوبة
-        row.className = `leaderboard-row flex justify-between items-center p-3 mb-3 rounded-xl border-2 transition transform hover:scale-[1.01] cursor-pointer group hover:bg-slate-700 relative ${bgClass} ${borderClass}`;
         rankEl.innerHTML = medalHtml;
 
-        // 5. الأفاتار (نستخدم الدالة المساعدة الموجودة مسبقاً لحقن HTML الصورة)
+        // إكمال باقي الكود (الأفاتار والحالة) كما هو...
         const pFrame = data.equippedFrame || 'default';
         avatarBox.innerHTML = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
 
-        // 6. منطق الحالة (Online/Offline)
         const userStatus = statusUpdates[userId];
         const isOnline = userStatus && userStatus.state === 'online';
         
@@ -3414,7 +3453,6 @@ function renderLeaderboardList(docs, container, statusUpdates) {
             statusText.className = "status-text text-[9px] text-green-400 font-bold leading-none pt-0.5";
             statusText.textContent = "نشط الآن";
         } else if (userStatus && userStatus.last_changed) {
-            // حساب الوقت منذ آخر ظهور
             const timeDiff = Date.now() - userStatus.last_changed;
             let timeAgo = "منذ لحظات";
             if (timeDiff > 86400000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 86400000))} يوم`;
@@ -3430,12 +3468,12 @@ function renderLeaderboardList(docs, container, statusUpdates) {
             statusText.textContent = "غير متاح";
         }
 
-        // 7. ربط الحدث والإضافة
         row.onclick = () => showPlayerProfile(data);
         container.appendChild(clone);
         r++;
     });
 }
+
 
 function showPlayerProfile(data){getEl('popup-player-name').textContent=data.username;getEl('popup-player-score').textContent=`${formatNumberAr(data.highScore)} نقطة`;if(data.customAvatar){getEl('popup-player-img').src=data.customAvatar;show('popup-player-img');hide('popup-player-icon')}else{hide('popup-player-img');show('popup-player-icon')}const bContainer=getEl('popup-player-badges');bContainer.innerHTML='';bContainer.className='grid grid-cols-3 gap-4 justify-items-center max-h-60 overflow-y-auto p-4 scrollbar-thin';let descBox=document.getElementById('profile-badge-desc-box');if(!descBox){descBox=document.createElement('div');descBox.id='profile-badge-desc-box';descBox.className='mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 text-center min-h-[4rem] flex items-center justify-center w-full';bContainer.parentNode.appendChild(descBox)}descBox.innerHTML='<p class="text-xs text-slate-500 animate-pulse">اضغط على أي وسام لمعرفة قصته</p>';if(data.badges&&data.badges.length>0){const bestBadges={};data.badges.forEach(bid=>{if(bid==='beginner')return;const[baseId,lvlPart]=bid.split('_lvl');const level=parseInt(lvlPart)||1;if(!bestBadges[baseId]||level>bestBadges[baseId].level){bestBadges[baseId]={id:bid,baseId:baseId,level:level}}});const finalBadges=Object.values(bestBadges);if(finalBadges.length===0){bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لم يحصل هذا اللاعب على أوسمة خاصة بعد.</span>'}else{const tpl=document.getElementById('mini-badge-template');finalBadges.forEach(item=>{const bObj=badgesMap[item.baseId];if(bObj){let tierName='برونزي',glowStyle='',tierColorHex='#b45309';if(item.level===2){tierName='فضي';glowStyle='box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';tierColorHex='#cbd5e1'}else if(item.level===3){tierName='ذهبي';glowStyle='box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: #fbbf24;';tierColorHex='#fbbf24'}else if(item.level===4){tierName='ماسي';glowStyle='box-shadow: 0 0 15px rgba(34, 211, 238, 0.8); border-color: #22d3ee;';tierColorHex='#22d3ee'}else if(item.level===5){tierName='أسطوري';glowStyle='box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';tierColorHex='#ef4444'}else{glowStyle='box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;'}const clone=tpl.content.cloneNode(true);const ring=clone.querySelector('.badge-ring');const img=clone.querySelector('.badge-img');const name=clone.querySelector('.badge-name');const tier=clone.querySelector('.badge-tier');const root=clone.querySelector('.mini-badge');img.src=bObj.image;name.textContent=bObj.name;tier.textContent=`(${tierName})`;tier.style.color=tierColorHex;ring.style.cssText=glowStyle;root.onclick=()=>{const allRings=bContainer.querySelectorAll('.badge-ring');allRings.forEach(r=>r.style.transform='scale(1)');ring.style.transform='scale(1.15)';descBox.innerHTML=`<div class="fade-in"><strong class="text-amber-400 text-xs block mb-1 border-b border-amber-500/20 pb-1 mx-auto w-fit">${bObj.name}</strong><p class="text-xs text-slate-200 leading-relaxed"><span class="text-green-400 font-bold">"${bObj.desc}"</span></p></div>`;playSound('click')};bContainer.appendChild(clone)}})}}else{bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لا توجد أوسمة مكتسبة.</span>'}openModal('player-profile-modal')}
 
