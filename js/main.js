@@ -5741,8 +5741,13 @@ function initNotificationSystem() {
     }
 }
 
-// تشغيل النظام فوراً
-initNotificationSystem();
+// تشغيل النظام فقط بعد أول نقرة للمستخدم على الصفحة
+document.addEventListener('click', function() {
+    // التحقق مما إذا كان الإذن لم يُمنح بعد
+    if (Notification.permission !== 'granted') {
+        initNotificationSystem();
+    }
+}, { once: true }); // {once: true} تعني نفذ هذا الأمر مرة واحدة فقط
 
 // 2. دالة الجدولة: تحسب الوقت وترسل الأمر
 async function scheduleDailyNotification() {
