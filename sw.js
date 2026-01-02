@@ -1,8 +1,18 @@
 const CONFIG = {
-    version: 'ahlulbayt-quiz-v2.1-fix-path', // قمت بتحديث الإصدار
+    version: 'ahlulbayt-quiz-v2.3-prod', // قمت بتحديث الإصدار
     staticAssets: [
         './',
         './index.html',
+        './js/StartQuiz.mp3',
+        './js/Enter.mp3',
+        './js/achievements.js',
+        './js/DataPdf.js',
+        './js/DataMp3.js',
+        './js/data.js',
+        './js/main.js?v=3.1',
+        './js/notifications.js',
+        './manifest.json',
+        './style.css?v=4.6',
         './tailwind-lib.js',
         './Icon.png',
         './Css.png',
