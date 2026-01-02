@@ -1,7 +1,10 @@
 const CONFIG = {
-    version: 'ahlulbayt-p-v2.3 fix-path', // قمت بتحديث الإصدار
+    version: 'ahlulbayt-quiz-v2.1-fix-path', // قمت بتحديث الإصدار
     staticAssets: [
         './',
+        './index.html',
+        './tailwind-lib.js',
+        './Icon.png',
         './Css.png',
         'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap',
         'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0'
