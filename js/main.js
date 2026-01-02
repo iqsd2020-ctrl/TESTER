@@ -7,6 +7,14 @@ import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
 import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from './data.js';
 import { renderAchievementsView } from './achievements.js';
 
+// تنظيف أي إعدادات قديمة متعلقة بالذكاء الاصطناعي (تمت إزالة الميزة نهائياً)
+try {
+    localStorage.removeItem('ai_api_key');
+    localStorage.removeItem('ai_model');
+} catch (e) {
+    // قد يفشل localStorage في بعض البيئات (وضع التصفح الخاص)، ولا مشكلة.
+}
+
 // ==========================================
 window.normalizeTextForMatch = normalizeTextForMatch;
 function normalizeTextForMatch(text) {
@@ -871,7 +879,8 @@ window.rewardQueue = [];
 const ENRICHMENT_FREQUENCY = 0;
 let transitionDelay = 2000;
 let isMuted = false;
-let timerInterval = null;
+// تم إزالة مؤقت واجهة المسابقة بالكامل (لا يوجد عداد وقت للأسئلة)
+let timerInterval = null; // (باقٍ فقط لتجنب أي أخطاء في حال وجود مراجع قديمة)
 let audioContext = null; 
 let marathonInterval = null;
 let currentSelectionMode = null; 
@@ -1674,7 +1683,6 @@ function updateProfileUI() {
 
 function navToHome() {
     manageAudioSystem('stop_quiz');
-    stopTimer(); 
     if (quizState.typeWriterInterval) {
         clearInterval(quizState.typeWriterInterval);
         quizState.typeWriterInterval = null;
@@ -1697,15 +1705,7 @@ function navToHome() {
     
     initDropdowns();
     
-    quizState.timerEnabled = localStorage.getItem('timerEnabled') === 'false' ? false : true;
-    const toggleBtn = getEl('toggle-timer-btn');
-    if(quizState.timerEnabled) {
-        toggleBtn.classList.add('text-amber-400');
-        toggleBtn.classList.remove('text-slate-500');
-    } else {
-        toggleBtn.classList.remove('text-amber-400');
-        toggleBtn.classList.add('text-slate-500');
-    }
+    // تم حذف مؤقت المسابقة، لذا لا توجد حالة/زر للمؤقت.
 
     setTimeout(checkWhatsNew, 1500); 
     checkMarathonStatus();
@@ -2199,28 +2199,7 @@ bind('quit-quiz-btn', 'click', () => {
     );
 });
 
-bind('toggle-timer-btn', 'click', () => {
-    if(quizState.mode === 'marathon') { toast("⛔️ لا يمكن إيقاف المؤقت في وضع النور!", "error"); return; }
-    quizState.timerEnabled = !quizState.timerEnabled;
-    localStorage.setItem('timerEnabled', quizState.timerEnabled); 
-    updateTimerUI();
-});
-
-function updateTimerUI() {
-    const btn = getEl('toggle-timer-btn');
-    const barContainer = getEl('timer-bar-container');
-    if(quizState.timerEnabled) {
-        btn.classList.add('text-amber-400');
-        btn.classList.remove('text-slate-500');
-        barContainer.style.display = 'block';
-        if(quizState.active) startTimer(); 
-    } else {
-        btn.classList.remove('text-amber-400');
-        btn.classList.add('text-slate-500');
-        barContainer.style.display = 'none';
-        stopTimer();
-    }
-}
+// (تم حذف زر/منطق مؤقت المسابقة بالكامل)
 
 function renderLives() {
     const el = getEl('lives-display');
@@ -2366,12 +2345,7 @@ function startQuiz() {
 
     quizState.marathonCorrectStreak = 0; 
 
-    if (quizState.mode === 'marathon') {
-        quizState.timerEnabled = true; 
-    } else {
-         const initialTimerState = localStorage.getItem('timerEnabled') === 'false' ? false : true;
-         quizState.timerEnabled = initialTimerState;
-    }
+    // تم حذف مؤقت الأسئلة نهائياً في جميع الأوضاع
 
     hide('welcome-area'); show('quiz-proper');
     getEl('quiz-topic-display').textContent = quizState.contextTopic || 'مسابقة متنوعة';
@@ -2384,38 +2358,7 @@ function startQuiz() {
     updateStreakUI();
     updateEnrichmentUI(); 
     renderLives();
-    updateTimerUI(); 
     renderQuestion();
-}
-
-
-function startTimer() {
-    stopTimer(); 
-    if(!quizState.timerEnabled) return; 
-    const bar = getEl('timer-bar');
-    bar.style.transition = 'none';
-    bar.style.width = '100%';
-    void bar.offsetWidth; 
-    bar.style.transition = 'width 30s linear';
-    bar.style.width = '0%';
-    timerInterval = setTimeout(() => {
-        if(quizState.active) {
-            toast("انتهى الوقت!", "error");
-            selectAnswer(-1, null); 
-        }
-    }, 30000);
-}
-
-function stopTimer() {
-    clearTimeout(timerInterval);
-    timerInterval = null;
-    const bar = getEl('timer-bar');
-    if(bar) {
-        const computedStyle = window.getComputedStyle(bar);
-        const w = computedStyle.getPropertyValue('width');
-        bar.style.transition = 'none';
-        bar.style.width = w;
-    }
 }
 
 
@@ -2501,7 +2444,6 @@ function renderQuestion() {
     
     getEl('feedback-text').textContent = '';
     quizState.startTime = Date.now(); 
-    startTimer();
 }
 
 function nextQuestion() {
@@ -2659,7 +2601,6 @@ function selectAnswer(idx, btn) {
     if(!quizState.active || quizState.processingAnswer) return;
     quizState.processingAnswer = true; 
 
-    stopTimer();
     const answerTime = Date.now() - quizState.startTime;
     const q = quizState.questions[quizState.idx];
     const isCorrect = idx === q.correctAnswer;
@@ -5286,144 +5227,8 @@ bind('btn-send-contact', 'click', async () => {
 });
 
 // ==========================================
-// 🧠 نظام الشرح الذكي (محدث)
+// (تمت إزالة نظام الشرح بالذكاء الاصطناعي بالكامل)
 // ==========================================
-
-// 1. تفعيل الميزة على الأحداث
-document.addEventListener('DOMContentLoaded', () => {
-    // استعادة الإعدادات
-    const savedKey = localStorage.getItem('ai_api_key');
-    if(savedKey) {
-        const input = document.getElementById('ai-api-key');
-        if(input) input.value = savedKey;
-    }
-});
-
-// حفظ الإعدادات
-const btnSaveAi = document.getElementById('btn-save-ai');
-if(btnSaveAi) {
-    btnSaveAi.addEventListener('click', () => {
-        const key = document.getElementById('ai-api-key').value.trim();
-        const model = document.getElementById('ai-model-select').value.trim();
-        if(!key) return toast("أدخل المفتاح أولاً", "error");
-        
-        localStorage.setItem('ai_api_key', key);
-        localStorage.setItem('ai_model', model || 'gemini-2.5-flash');
-        toast("✅ تم الحفظ");
-    });
-}
-
-// 2. مستمع النقر المزدوج (للحاسوب وبعض الهواتف)
-document.addEventListener('dblclick', (e) => {
-    // التأكد أن النقر تم داخل المناطق المسموح بها
-    if (e.target.closest('#question-text') || e.target.closest('#enrichment-content')) {
-        handleAiTrigger();
-    }
-});
-
-// 3. مستمع القائمة المختصرة (للضغط المطول في الهاتف)
-document.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('#question-text') || e.target.closest('#enrichment-content')) {
-        const selection = window.getSelection();
-        // إذا كان هناك نص محدد، نلغي القائمة ونشغل الذكاء
-        if (selection.toString().trim().length > 0) {
-            e.preventDefault();
-            handleAiTrigger();
-        }
-    }
-});
-
-// 4. الدالة الرئيسية (مع إصلاح العلامات الزرقاء وزر النسخ)
-async function handleAiTrigger() {
-    if (!navigator.onLine) {
-        toast("هذه الميزة تتطلب اتصالاً بالإنترنت ", "error");
-        return; // إيقاف العملية فوراً
-    }
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
-    
-    if (!selectedText) return;
-
-    // 1. التقاط السياق
-    let fullContext = "";
-    if (selection.anchorNode && selection.anchorNode.parentElement) {
-        fullContext = selection.anchorNode.parentElement.textContent;
-    }
-
-    // 2. التحقق من المفتاح
-    const apiKey = localStorage.getItem('ai_api_key');
-    if (!apiKey) {
-        if (selection.removeAllRanges) selection.removeAllRanges();
-        toast("⚠️ أدخل مفتاح AI في الإعدادات", "error");
-        const settingsModal = document.getElementById('settings-modal');
-        if(settingsModal) settingsModal.classList.add('active');
-        return;
-    }
-
-    // ============================================================
-    // 🛠️ الحل الجذري للمقابض الزرقاء
-    // ============================================================
-    // إلغاء التحديد فوراً
-    if (selection.removeAllRanges) selection.removeAllRanges();
-    else if (selection.empty) selection.empty();
-    
-    // تفعيل وضع "عدم التحديد" لمدة نصف ثانية لإجبار المتصفح على إخفاء العلامات
-    document.body.classList.add('force-deselect');
-    setTimeout(() => {
-        document.body.classList.remove('force-deselect');
-    }, 500); // زيادة الوقت لضمان الاختفاء
-    // ============================================================
-
-    // 3. تجهيز النافذة
-    const modal = document.getElementById('ai-explanation-modal');
-    const title = document.getElementById('ai-word-target');
-    const content = document.getElementById('ai-result-content');
-    
-    title.textContent = `"${selectedText}"`;
-    
-    // وضع التحميل
-    content.style.display = 'flex'; 
-    content.style.alignItems = 'center';
-    content.style.justifyContent = 'center';
-    content.innerHTML = '<div class="flex flex-col items-center gap-2"><span class="material-symbols-rounded animate-spin text-cyan-400 text-2xl">autorenew</span><span>اللّهم صَلِّ على محمد وآل محمد</span></div>';
-    
-    modal.classList.add('active');
-
-    const model = localStorage.getItem('ai_model') || 'gemini-2.5-flash';
-    const promptText = `اشرح باختصار (حوالي 40 كلمة) معنى "${selectedText}" في سياق: "${fullContext}". قم بتمييز الكلمات المفتاحية الأهم بوضعها بين نجمتين **كلمة**.`;
-
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-        });
-
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        
-        let explanation = data.candidates[0].content.parts[0].text;
-        explanation = explanation.replace(/\*\*(.*?)\*\*/g, '<span class="ai-highlight">$1</span>');
-
-        // --- بناء المحتوى (زر النسخ + النص) بشكل برمجي آمن ---
-        content.style.display = 'block'; 
-        content.innerHTML = ''; // تفريغ
-
-
-        
-        // إنشاء حاوية النص
-        const textDiv = document.createElement('div');
-        textDiv.className = "leading-loose text-justify";
-        textDiv.innerHTML = explanation;
-
-        // إضافة العناصر للنافذة
-        content.appendChild(textDiv);
-
-    } catch (e) {
-        content.style.display = 'block';
-        content.innerHTML = `<span class="text-red-400 text-sm">فشل: ${e.message}</span>`;
-    }
-}
 // ==========================================
 // 📡 مراقب حالة الاتصال (Online/Offline Monitor)
 // ==========================================
@@ -5727,7 +5532,7 @@ async function handlePdfReward() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("🚀 جاري تهيئة نظام التعلم الذكي...");
 
-    // 1. ربط زر التعلم (AI Learn Button)
+    // 1. ربط زر التعلم
     const learnBtn = document.getElementById('ai-learn-btn');
     if (learnBtn) {
         // إزالة أي مستمعين سابقين عبر استبدال العنصر (اختياري للنظافة القصوى)
