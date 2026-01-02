@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, limit, arrayUnion, increment, enableIndexedDbPersistence, deleteField } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getDatabase, ref, set, onDisconnect, onValue, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
 import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
@@ -8,28 +8,18 @@ import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from 
 import { renderAchievementsView } from './achievements.js';
 
 // ==========================================
-// 🛠️ أدوات الربط الذكي (نظام المطابقة بالتجريد - Abstract Match)
-// ==========================================
-
-/**
- * 1. دالة تنظيف وتجريد النصوص
- * الهدف: تحويل النص إلى "هيكل عظمي" نقي للمقارنة
- */
 window.normalizeTextForMatch = normalizeTextForMatch;
 function normalizeTextForMatch(text) {
-    if (!text) return "";
-    
+    if (!text) return "";    
     return text
         .replace(/\([^\)]*\)/g, "") 
         .replace(/(آ|إ|أ)/g, "ا")
         .replace(/ة/g, "ه")
         .replace(/ى/g, "ي")
         .replace(/ؤ/g, "و")
-        .replace(/ئ/g, "ي")
-        
+        .replace(/ئ/g, "ي")        
         // 3. حذف التشكيل (الفتحة، الضمة، إلخ)
-        .replace(/[\u064B-\u065F]/g, "")
-        
+        .replace(/[\u064B-\u065F]/g, "")        
         // 4. 🔥 الإجراء الأهم: حذف كل شيء ليس حرفاً عربياً (مسافات، أرقام، رموز)
         .replace(/[^\u0621-\u064A]/g, ""); 
 }
@@ -1879,68 +1869,197 @@ function handleImageUpload(e) {
     quizState.difficulty = 'موحد';
     quizState.mode = 'standard';
     quizState.contextTopic = topic;
+    
+let sealTimerInterval = null; // متغير عالمي للتحكم في العداد
+async function handleSealedTopic(topicName, allTopicQuestions) {
+    const modal = document.getElementById('unlock-modal');
+    if (!modal) return;
 
-// --- إصلاح زر ابدأ التحدي (تمت إضافة الغلاف المفقود) ---
+    const timerText = document.getElementById('unlock-timer');
+    const payBtn = document.getElementById('btn-pay-unlock');
+    
+    // إيقاف أي عداد سابق
+    if (sealTimerInterval) clearInterval(sealTimerInterval);
+
+    // 1. تحديث نص الزر (السعر 10,000)
+    payBtn.innerHTML = `
+        <span class="flex items-center gap-2">
+            <span class="material-symbols-rounded">key</span> فتح الآن
+        </span>
+        <span class="bg-black/20 px-3 py-1 rounded text-xs flex items-center gap-1">
+            10,000 <span class="material-symbols-rounded text-[10px]">monetization_on</span>
+        </span>
+    `;
+
+    // إظهار النافذة
+    modal.classList.remove('hidden');
+
+    if (!userProfile.sealedTopics) userProfile.sealedTopics = {};
+    let sealedTimestamp = userProfile.sealedTopics[topicName];
+    const now = Date.now();
+    const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+    if (!sealedTimestamp) {
+        sealedTimestamp = now;
+        userProfile.sealedTopics[topicName] = sealedTimestamp;
+        updateDoc(doc(db, "users", effectiveUserId), {
+            [`sealedTopics.${topicName}`]: sealedTimestamp
+        }).catch(console.error);
+    }
+
+    // دالة تنسيق الأرقام (تضيف صفر لليسار إذا كان الرقم مفرداً)
+    const pad = (num) => num.toString().padStart(2, '0');
+
+    // دالة التحديث المستمر
+    const updateCountdown = async () => {
+        const currentTime = Date.now();
+        const timePassed = currentTime - sealedTimestamp;
+        const timeLeft = TWO_WEEKS_MS - timePassed;
+
+        if (timeLeft <= 0) {
+            clearInterval(sealTimerInterval);
+            timerText.textContent = "00:00:00:00";
+            await unlockTopicLogic(topicName, allTopicQuestions, 0); 
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            return;
+        }
+
+        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+        // ✅ عرض الوقت بالأرقام الإنجليزية (0-9)
+        timerText.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        timerText.style.direction = "ltr"; 
+    };
+
+    updateCountdown();
+    sealTimerInterval = setInterval(updateCountdown, 1000);
+
+    // زر الدفع (التكلفة 10,000)
+    payBtn.onclick = () => {
+        if (userProfile.highScore >= 10000) {
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            clearInterval(sealTimerInterval);
+
+            window.showConfirm(
+                "فك الختم",
+                "هل تريد دفع 10,000 نقطة لإعادة فتح هذا الملف الآن؟",
+                "lock_open",
+                async () => {
+                    await unlockTopicLogic(topicName, allTopicQuestions, 10000);
+                }
+            );
+        } else {
+            toast("رصيدك غير كافٍ (تحتاج 10,000 نقطة)", "error");
+            if(window.playSound) window.playSound('lose');
+        }
+    };
+
+    const closeBtn = modal.querySelectorAll('button')[1]; 
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            clearInterval(sealTimerInterval);
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+    }
+
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+    
+    if(window.playSound) window.playSound('hint');
+}
+
+async function unlockTopicLogic(topicName, allTopicQuestions, cost) {
+    // 1. الخصم
+    if (cost > 0) {
+        userProfile.highScore -= cost;
+    }
+
+    // 2. تصفير الذاكرة لهذا الموضوع فقط
+    const topicIds = allTopicQuestions.map(q => q.id);
+    // نحتفظ فقط بالأسئلة التي لا تنتمي لهذا الموضوع
+    userProfile.seenQuestions = userProfile.seenQuestions.filter(id => !topicIds.includes(id));
+    
+    // إزالة تاريخ الختم محلياً
+    if (userProfile.sealedTopics) {
+        delete userProfile.sealedTopics[topicName];
+    }
+
+    // 3. الحفظ في السيرفر
+    try {
+        await updateDoc(doc(db, "users", effectiveUserId), {
+            highScore: userProfile.highScore,
+            seenQuestions: userProfile.seenQuestions,
+            [`sealedTopics.${topicName}`]: deleteField() // حذف حقل التاريخ من السيرفر
+        });
+
+        updateProfileUI(); // تحديث الرصيد في الواجهة
+
+        if (cost > 0) {
+            toast(`🔓 تم فتح "${topicName}" بنجاح!`, "success");
+            if(window.playSound) window.playSound('win');
+            // تشغيل اللعبة مباشرة
+            document.getElementById('ai-generate-btn').click(); 
+        } else {
+            toast(`⏳ انتهت فترة الانتظار! تم فتح "${topicName}" مجاناً.`, "success");
+            document.getElementById('ai-generate-btn').click();
+        }
+
+    } catch (e) {
+        console.error(e);
+        toast("حدث خطأ أثناء الفتح", "error");
+        // تراجع في حالة الخطأ
+        if (cost > 0) userProfile.highScore += cost;
+    }
+}
+
 bind('ai-generate-btn', 'click', async () => {
-    // 2. إعداد المتغيرات
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
     const topicValue = getEl('topic-select').value;
     let topic = cat === 'random' || !cat ? "عام" : (topicValue || cat);
-
     quizState.difficulty = 'موحد';
     quizState.mode = 'standard';
     quizState.contextTopic = topic;
-
     const btn = getEl('ai-generate-btn');
+    const originalBtnText = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
+    const resetButton = () => {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+    };
     btn.disabled = true;
-    
-    // تغيير النص حسب حالة الاتصال
     if (navigator.onLine) {
         btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> تجهيز...`;
     } else {
         btn.innerHTML = `<span class="material-symbols-rounded animate-spin">wifi_off</span> جاري البحث محلياً...`;
     }
-
     try {
-        // --- نظام الجلب المحلي المطور (JSON) ---
         let allAvailableQuestions = [];
-
         if (cat === 'random' || !cat || topic === 'random') {
-            // في الوضع العشوائي: نجلب الأسئلة من كافة الملفات الرئيسية لضمان التنوع
             const mainFiles = [
-                "infallibles_all.json",
-                "prophets.json",
-                "personalities.json",
-                "quran_nahj.json",
-                "aqida_fiqh.json",
-                "mahdi_culture.json",
-                "history_battles.json",
-                "dua_ziyarat.json"
+                "infallibles_all.json", "prophets.json", "personalities.json",
+                "quran_nahj.json", "aqida_fiqh.json", "mahdi_culture.json",
+                "history_battles.json", "dua_ziyarat.json"
             ];
-            
-            console.log("🎲 وضع عشوائي: جاري دمج الأسئلة من كافة الملفات...");
-            
             const fetchPromises = mainFiles.map(file => 
-                fetch(`./Data/Noor/${file}`)
-                    .then(res => res.ok ? res.json() : [])
-                    .catch(() => [])
+                fetch(`./Data/Noor/${file}`).then(res => res.ok ? res.json() : []).catch(() => [])
             );
-            
             const results = await Promise.all(fetchPromises);
             allAvailableQuestions = results.flat();
-            
-            // إذا كانت الملفات فارغة، نستخدم الملف الافتراضي كاحتياطي
             if (allAvailableQuestions.length === 0) {
                 const backupRes = await fetch(`./Data/Noor/dataNooR.json`);
                 if (backupRes.ok) allAvailableQuestions = await backupRes.json();
             }
         } else if (quizState.mode === 'marathon') {
-            // وضع الماراثون: يستخدم ملف dataNooR.json المخصص له
             const response = await fetch(`./Data/Noor/dataNooR.json`);
             if (response.ok) allAvailableQuestions = await response.json();
         } else {
-            // وضع الأقسام: جلب الملف المخصص للقسم المختار فقط
             const fileName = sectionFilesMap[topic] || sectionFilesMap['default'];
             const response = await fetch(`./Data/Noor/${fileName}`);
             if (response.ok) {
@@ -1948,55 +2067,58 @@ bind('ai-generate-btn', 'click', async () => {
                 allAvailableQuestions = allQuestionsInFile.filter(q => q.topic === topic);
             }
         }
-
         if (allAvailableQuestions.length === 0) {
             toast("عذراً، لا توجد أسئلة متاحة لهذا الموضوع حالياً.", "error");
-            btn.disabled = false;
-            btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
+            resetButton();
             return;
         }
-        const seenIds = userProfile.seenQuestions || [];
+        allAvailableQuestions = allAvailableQuestions.map(q => {
+            if (!q.id) {
+                let hash = 0;
+                const str = q.question || "unknown";
+                for (let i = 0; i < str.length; i++) {
+                    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                    hash |= 0;
+                }
+                q.id = `gen_id_${Math.abs(hash)}`;
+            }
+            q.id = String(q.id);
+            return q;
+        });
+        const seenIds = (userProfile.seenQuestions || []).map(String);
         let freshQuestions = allAvailableQuestions.filter(q => !seenIds.includes(q.id));
-
+        if (freshQuestions.length === 0) {
+            toast("هذا الملف مختوم حاول مع موضوع اخر", "warning");
+            resetButton();
+            handleSealedTopic(topic, allAvailableQuestions);
+            return;
+        }
         shuffleArray(freshQuestions);
-
         if (freshQuestions.length >= count) {
             quizState.questions = freshQuestions.slice(0, count);
-        } else if (freshQuestions.length > 0) {
+        } else {
             quizState.questions = freshQuestions;
             toast(`تبقى لديك ${freshQuestions.length} أسئلة جديدة فقط في هذا القسم!`, "info");
-        } else {
-            let recycledQuestions = [...allAvailableQuestions];
-            shuffleArray(recycledQuestions);
-            quizState.questions = recycledQuestions.slice(0, count);
-            toast("سيتم عرض أسئلة سابقة في هذه الجولة.", "warning");
         }
-
         if (quizState.questions.length === 0) {
-            toast("لا توجد أسئلة كافية لبدء الجولة.", "error");
-            throw new Error("No questions");
+            toast("حدث خطأ غير متوقع في تجهيز الأسئلة.", "error");
+            resetButton();
+            return;
         }
-
         if (navigator.onLine && cat === 'random') {
             toast("✅ تم تحديث البيانات للعمل بدون إنترنت", "success");
         }
-
+        resetButton();
         startQuiz();
-
     } catch (e) {
         console.error(e);
         if (e.message !== "No questions") {
             const errMsg = navigator.onLine ? "حدث خطأ في تحميل الأسئلة" : "أنت غير متصل ولا توجد أسئلة محفوظة";
             toast(errMsg, "error");
         }
+        resetButton();
     }
-
-    btn.disabled = false;
-    btn.innerHTML = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
 });
-
-
-
 
 
 bind('review-mistakes-btn', 'click', () => {
