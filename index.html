@@ -1559,6 +1559,34 @@
 
     </div>
 </div>
+<div id="unlock-modal" class="modal-overlay hidden">
+    <div class="modal-box border-2 border-amber-500/50 bg-slate-900 w-full max-w-sm">
+        <div class="text-center mb-6">
+            <span class="material-symbols-rounded text-amber-500 text-6xl mb-2">lock_clock</span>
+            <h3 class="text-xl font-bold text-white font-heading">الملف مختوم</h3>
+            <p class="text-slate-400 text-sm mt-2 leading-relaxed">
+                لقد أتممت هذا القسم سابقاً.<br>
+                يفتح مجاناً بعد: <span id="unlock-timer" class="text-green-400 font-bold font-mono">-- يوم</span>
+            </p>
+        </div>
+
+        <div class="space-y-3">
+            <button id="btn-pay-unlock" class="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-bold p-3 rounded-xl flex justify-between items-center shadow-lg group transition-all">
+                <span class="flex items-center gap-2">
+                    <span class="material-symbols-rounded">key</span> فتح الآن
+                </span>
+                <span class="bg-black/20 px-3 py-1 rounded text-xs flex items-center gap-1">
+                    1,000 <span class="material-symbols-rounded text-[10px]">monetization_on</span>
+                </span>
+            </button>
+
+            <button onclick="const m=document.getElementById('unlock-modal'); m.classList.remove('active'); setTimeout(()=>m.classList.add('hidden'), 300);" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 p-3 rounded-xl transition">
+    سأنتظر (إغلاق)
+</button>
+
+        </div>
+    </div>
+</div>
 
 <template id="option-template">
     <button class="option-btn group relative overflow-hidden w-full p-3 mb-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:border-amber-500/50 transition-all duration-200 flex items-center gap-4 text-right">
