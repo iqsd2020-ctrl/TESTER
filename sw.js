@@ -1,5 +1,5 @@
 const CONFIG = {
-    version: 'ahlulbayt-quiz-v2.4-prod', // قمت بتحديث الإصدار
+    version: 'ahlulbayt-quiz-v2.3-prod', // قمت بتحديث الإصدار
     staticAssets: [
         './',
         './index.html',
