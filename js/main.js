@@ -6,17 +6,16 @@ import { audioLibrary, AUDIO_BASE_URL } from './DataMp3.js';
 import { pdfLibrary, PDF_BASE_URL } from './DataPdf.js';
 import { topicsData, infallibles, badgesData, badgesMap, sectionFilesMap } from './data.js';
 import { renderAchievementsView } from './achievements.js';
-
-// تنظيف أي إعدادات قديمة متعلقة بالذكاء الاصطناعي (تمت إزالة الميزة نهائياً)
+import SmartAudioPlayer from './audio-player.js';
+import RewardsManager, { REWARDS, QUIZ_CONFIG, SHOP_PRICES, HELPER_COSTS, REVIVE_PRICES, FRAMES_DATA } from './rewards-manager.js';
+import SmartPdfViewer from './pdf-viewer.js';
 try {
     localStorage.removeItem('ai_api_key');
     localStorage.removeItem('ai_model');
 } catch (e) {
-    // قد يفشل localStorage في بعض البيئات (وضع التصفح الخاص)، ولا مشكلة.
 }
-
-// ==========================================
 window.normalizeTextForMatch = normalizeTextForMatch;
+// تنسيق النص للمقارنة - غير المنطق هنا لتغيير طريقة معالجة النصوص العربية
 function normalizeTextForMatch(text) {
     if (!text) return "";    
     return text
@@ -26,44 +25,23 @@ function normalizeTextForMatch(text) {
         .replace(/ى/g, "ي")
         .replace(/ؤ/g, "و")
         .replace(/ئ/g, "ي")        
-        // 3. حذف التشكيل (الفتحة، الضمة، إلخ)
         .replace(/[\u064B-\u065F]/g, "")        
-        // 4. 🔥 الإجراء الأهم: حذف كل شيء ليس حرفاً عربياً (مسافات، أرقام، رموز)
         .replace(/[^\u0621-\u064A]/g, ""); 
 }
-
-/**
- * 2. دالة البحث عن المعرف (ID)
- * تقارن الهيكل المجرد لاختيار المستخدم مع الهيكل المجرد للمكتبة
- */
+// البحث عن معرف المحتوى - غير الكود هنا لتغيير طريقة مطابقة العناوين
 function findContentId(selectedTopic, library) {
     if (!selectedTopic || !library) return null;
-
-    // أ) دعم البحث الرقمي المباشر (للمستقبل أو إذا كانت القيم أرقاماً)
     if (!isNaN(selectedTopic) && parseInt(selectedTopic) > 0) {
         return parseInt(selectedTopic);
     }
-
-    // ب) المحاولة السريعة (تطابق تام للنص كما هو)
     if (library[selectedTopic]) return library[selectedTopic];
-
-    // ج) البحث العميق (تطابق الهيكل المجرد)
-    // مثال: المستخدم اختار "سيرة النبي محمد (ص)" -> الهيكل: "سيرهالنبيمحمد"
     const userSkeleton = normalizeTextForMatch(selectedTopic);
-
-    // الدوران على كل مفاتيح المكتبة
     for (const [key, id] of Object.entries(library)) {
-        // مثال: المكتبة تحتوي "سيرة النبي محمد" -> الهيكل: "سيرهالنبيمحمد"
         const librarySkeleton = normalizeTextForMatch(key);
-        
-        // مقارنة الهيكل بالهيكل (تطابق تام بعد التجريد)
         if (librarySkeleton === userSkeleton) {
             console.log(`✅ تم التطابق (هيكل): [${selectedTopic}] == [${key}]`);
             return id;
         }
-
-        // د) شبكة أمان: الاحتواء (للحالات الصعبة جداً)
-        // إذا كان الهيكل أطول من 3 حروف، نتحقق إذا كان أحدهما جزءاً من الآخر
         if (librarySkeleton.length > 3 && userSkeleton.length > 3) {
             if (librarySkeleton.includes(userSkeleton) || userSkeleton.includes(librarySkeleton)) {
                 console.log(`✅ تم التطابق (احتواء): [${selectedTopic}] <-> [${key}]`);
@@ -71,772 +49,30 @@ function findContentId(selectedTopic, library) {
             }
         }
     }
-
-    // فشل البحث
     console.warn(`❌ لم يتم العثور على محتوى. الهيكل المطلوب: [${userSkeleton}]`);
     return null;
 }
-// ==========================================
-// 🎵 كلاس المشغل الصوتي المتقدم (SmartAudioPlayer) - نسخة مصححة
-// ==========================================
-
-class SmartAudioPlayer {
-    constructor() {
-        this.audio = new Audio();
-        this.isPlaying = false;
-        this.currentId = null;
-        
-        // ✅ تصحيح المعرفات لتتطابق مع index.html
-        this.elements = {
-            modal: document.getElementById('audio-learning-modal'), // كان خطأ
-            playBtn: document.getElementById('audio-play-pause-btn'), // كان خطأ
-            icon: document.getElementById('audio-play-icon'),
-            pauseIcon: document.getElementById('audio-pause-icon'), // إضافة أيقونة الإيقاف
-            progressBar: document.getElementById('audio-progress-area'), // المنطقة القابلة للنقر
-            progressFill: document.getElementById('audio-progress-fill'), // الشريط الملون
-            currentTime: document.getElementById('audio-current-time'),
-            duration: document.getElementById('audio-total-duration'), // كان خطأ
-            title: document.getElementById('audio-topic-title') // كان خطأ
+window.rewardsManager = new RewardsManager(async (rewardData) => {
+    if (!effectiveUserId) return;
+    try {
+        const updates = {
+            score: increment(rewardData.points)
         };
-
-        this._bindAudioEvents();
-        this._bindControlEvents();
+        if (rewardData.statKey) {
+            updates[rewardData.statKey] = increment(1);
+        }
+        await updateDoc(doc(db, "users", effectiveUserId), updates);
+        if (window.toast) toast(rewardData.msg, "success");
+        if (typeof updateProfileUI === 'function') updateProfileUI();
+    } catch (e) {
+        console.error("فشل عملية المكافأة:", e);
     }
-
-    playTrack(id, title) {
-        if (!id) {
-            if(window.toast) window.toast("لا يوجد ملف صوتي لهذا العنوان", "error");
-            return;
-        }
-
-        this.currentId = id;
-        this.accumulatedTime = 0; 
-        this.lastTime = 0; 
-        
-        const src = `${AUDIO_BASE_URL}${id}.mp3`;
-        
-        console.log(`🎵 جاري تحميل الصوت: ${src}`);
-        
-        this.audio.src = src;
-        this.audio.load();
-        
-        if(this.elements.title) this.elements.title.textContent = title;
-        
-        if(this.elements.modal) {
-            this.elements.modal.classList.remove('hidden');
-            this.elements.modal.classList.add('active'); 
-            this.elements.modal.style.display = 'flex';
-        }
-
-        this.audio.play()
-            .then(() => {
-                this.isPlaying = true;
-                this._updatePlayIcon();
-            })
-            .catch(err => {
-                console.error("Autoplay prevented:", err);
-                this.isPlaying = false;
-                this._updatePlayIcon();
-            });
-    }
-
-    togglePlay() {
-        if (this.audio.paused) {
-            this.audio.play();
-            this.isPlaying = true;
-        } else {
-            this.audio.pause();
-            this.isPlaying = false;
-        }
-        this._updatePlayIcon();
-    }
-
-    skip(seconds) {
-        this.audio.currentTime += seconds;
-    }
-    close() {
-        this.audio.pause();
-        this.audio.currentTime = 0;
-        this.isPlaying = false;
-        if(this.elements.modal) {
-            this.elements.modal.classList.remove('active'); // إزالة تأثير الظهور
-            this.elements.modal.classList.add('hidden');    // إخفاء العنصر
-            this.elements.modal.style.display = 'none';
-        }
-    }
-
-      _bindAudioEvents() {
-        this.audio.addEventListener('timeupdate', () => {
-            if (isNaN(this.audio.duration)) return;
-
-            const currentTime = this.audio.currentTime;
-            
-            // حساب الفرق الزمني
-            if (this.lastTime !== undefined) {
-                const diff = currentTime - this.lastTime;
-                // شرط: الفرق يجب أن يكون موجباً وأقل من 1.5 (لمنع الغش بتقديم الصوت)
-                if (diff > 0 && diff < 1.5) {
-                    this.accumulatedTime = (this.accumulatedTime || 0) + diff;
-                }
-            }
-            this.lastTime = currentTime;
-
-            // طباعة العداد في الكونسول للتأكد (يمكنك حذف هذا السطر لاحقاً)
-            // console.log("Time:", Math.floor(this.accumulatedTime)); 
-
-            // التحقق من مرور 60 ثانية
-            if (this.accumulatedTime >= 60) {
-                this.accumulatedTime = 0; // تصفير العداد بدلاً من طرح 60 لضمان الدقة
-                
-                // 1. الإشعار الصوتي والنصي (يظهر للجميع حتى الضيف ليتأكد أنه يعمل)
-                if(window.playSound) window.playSound('monetization_on');
-                if(window.toast) window.toast(`🎵 استمعت لدقيقة كاملة!`, "success");
-
-                // 2. إضافة النقاط (فقط للمسجلين)
-                if (effectiveUserId) {
-                    const pointsToAdd = 10;
-                    
-                    const wKey = getCurrentWeekKey();
-                    let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
-                    if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
-                    wStats.correct += pointsToAdd;
-
-                    const mKey = getCurrentMonthKey();
-                    let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
-                    if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
-                    mStats.correct += pointsToAdd;
-
-                    updateDoc(doc(db, "users", effectiveUserId), {
-                        highScore: increment(pointsToAdd),
-                        "stats.totalListenTime": increment(60),
-                        "stats.totalCorrect": increment(pointsToAdd),
-                        weeklyStats: wStats,
-                        monthlyStats: mStats
-                    }).catch(console.error);
-
-                    userProfile.highScore = (userProfile.highScore || 0) + pointsToAdd;
-                    userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + pointsToAdd;
-                    userProfile.weeklyStats = wStats;
-                    userProfile.monthlyStats = mStats;
-
-                    if (typeof updateProfileUI === 'function') updateProfileUI();
-                    
-                    // تحديث نص الإشعار ليشمل النقاط
-                    if(window.toast) window.toast(`🎵 أحسنت! كسبت ${pointsToAdd} نقاط (استماع دقيقة)`, "success");
-                }
-            }
-
-            // تحديث شريط التقدم والوقت
-            const percent = (this.audio.currentTime / this.audio.duration) * 100;
-            if(this.elements.progressFill) this.elements.progressFill.style.width = `${percent}%`;
-            
-            if(this.elements.currentTime) 
-                this.elements.currentTime.textContent = this._formatTime(this.audio.currentTime);
-            
-            if(this.elements.duration)
-                this.elements.duration.textContent = this._formatTime(this.audio.duration);
-        });
-
-        // بقية الأحداث كما هي...
-        this.audio.addEventListener('ended', () => {
-            this.isPlaying = false;
-            this._updatePlayIcon();
-            if(window.toast) window.toast("انتهى المقطع الصوتي", "success");
-        });
-        
-        this.audio.addEventListener('loadedmetadata', () => {
-             if(this.elements.duration)
-                this.elements.duration.textContent = this._formatTime(this.audio.duration);
-        });
-
-        this.audio.addEventListener('error', (e) => {
-            console.error("❌ Audio Error:", this.audio.error);
-            this.close();
-            if(window.toast) window.toast("تعذر تشغيل الملف الصوتي", "error");
-        });
-    }
-
-    _bindControlEvents() {
-        if(this.elements.playBtn) {
-            this.elements.playBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.togglePlay();
-            };
-        }
-
-        // النقر على شريط التقدم
-        if(this.elements.progressBar) {
-            this.elements.progressBar.onclick = (e) => {
-                const rect = this.elements.progressBar.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const width = rect.width;
-                const percent = x / width;
-                if (!isNaN(this.audio.duration)) {
-                    this.audio.currentTime = percent * this.audio.duration;
-                }
-            };
-        }
-
-        // ✅ تصحيح أزرار التحكم (الأسماء في HTML تختلف عن الكود القديم)
-        const btnForward = document.getElementById('audio-forward-btn'); // كان audio-forward-10
-        const btnRewind = document.getElementById('audio-rewind-btn');   // كان audio-rewind-10
-        const btnClose = document.getElementById('close-audio-btn');
-
-        if(btnForward) btnForward.onclick = () => this.skip(10);
-        if(btnRewind) btnRewind.onclick = () => this.skip(-10);
-        if(btnClose) btnClose.onclick = () => this.close();
-    }
-
-    _updatePlayIcon() {
-        // التبديل بين أيقونات التشغيل والإيقاف بناءً على HTML الموجود
-        if (this.elements.icon && this.elements.pauseIcon) {
-            if (this.isPlaying) {
-                this.elements.icon.classList.add('hidden');
-                this.elements.pauseIcon.classList.remove('hidden');
-            } else {
-                this.elements.icon.classList.remove('hidden');
-                this.elements.pauseIcon.classList.add('hidden');
-            }
-        } else if (this.elements.icon) {
-            // حل احتياطي للنص فقط
-            this.elements.icon.textContent = this.isPlaying ? 'pause' : 'play_arrow';
-        }
-    }
-
-    _formatTime(seconds) {
-        if (!seconds || isNaN(seconds)) return "00:00";
-        const m = Math.floor(seconds / 60);
-        const s = Math.floor(seconds % 60);
-        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-}
-
-// تهيئة المشغل (Singleton)
-const audioPlayer = new SmartAudioPlayer();
-// ==========================================
-// 📚 كلاس قارئ الكتب المتطور (Pro Version)
-// 🥇 حدود ذكية | 🥈 نقر مزدوج | 🥉 سحب محسن | ⭐ تحميل مسبق
-// ==========================================
-
-class SmartPdfViewer {
-    constructor() {
-        this.pdfDoc = null;
-        this.pageNum = 1;
-        this.pageRendering = false;
-        this.pageNumPending = null;
-        this.currentPdfId = null;
-        
-        // التخزين المؤقت للصفحة التالية (Preload)
-        this.nextPagePromise = null;
-
-        // متغيرات اللمس والتكبير
-        this.scale = 1;
-        this.lastScale = 1;
-        this.posX = 0;
-        this.posY = 0;
-        this.lastPosX = 0;
-        this.lastPosY = 0;
-        this.isDragging = false;
-        this.startDist = 0;
-        
-        // متغيرات السحب (Swipe) والنقر المزدوج
-        this.touchStartX = 0;
-        this.touchStartY = 0;
-        this.lastTapTime = 0; // للنقر المزدوج
-
-        this.canvas = document.getElementById('the-canvas');
-        this.zoomContainer = document.getElementById('zoom-container');
-        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-        
-        // تحسين الانتقال السلس
-        if (this.canvas) {
-            this.canvas.style.transition = "opacity 0.2s ease-out"; // إزالة transform من الانتقال لتجنب التقطيع أثناء السحب
-            this.canvas.style.opacity = "0";
-        }
-        if (this.zoomContainer) {
-            this.zoomContainer.style.transformOrigin = "center center"; // التكبير من المنتصف
-            this.zoomContainer.style.willChange = "transform";
-        }
-
-        this.elements = {
-            modal: document.getElementById('pdf-viewer-modal'),
-            loading: document.getElementById('pdf-loading'),
-            pageNum: document.getElementById('page-num'),
-            pageCount: document.getElementById('page-count'),
-            progressBar: document.getElementById('pdf-progress-bar'),
-            finishBtn: document.getElementById('pdf-finish-btn'),
-            title: document.getElementById('pdf-topic-title'),
-            autoBtn: document.getElementById('pdf-btn-auto-toggle'),
-            autoIcon: document.getElementById('pdf-auto-icon'),
-            bottomNext: document.getElementById('pdf-btn-next-bottom'),
-            bottomPrev: document.getElementById('pdf-btn-prev-bottom')
-        };
-
-        this._bindEvents();
-        this._bindGestures();
-    }
-    // ✅ دالة جديدة: التحقق هل تم استلام المكافأة من قبل؟
-    async checkRewardStatus(bookId) {
-        // إذا كان المستخدم ضيفاً، لا نفعل شيئاً (الزر يعمل بشكل طبيعي وسيطلب منه التسجيل لاحقاً)
-        if (!effectiveUserId) return;
-
-        const btn = this.elements.finishBtn;
-        
-        // 1. إعادة تعيين الزر للحالة الافتراضية (نشط) قبل الفحص
-        // هذا مهم عند الانتقال من كتاب لآخر
-        this.isRewardClaimed = false; // متغير جديد سنستخدمه لمنع التحايل
-        if(btn) {
-            btn.disabled = false;
-            btn.innerHTML = `<span>استلام المكافأة</span><span class="material-symbols-rounded">card_giftcard</span>`;
-            btn.classList.remove('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
-        }
-
-        try {
-            // 2. البحث في المجموعة الفرعية read_history
-            // المسار: users -> userId -> read_history -> bookId
-            const historyRef = doc(db, "users", effectiveUserId, "read_history", bookId);
-            const docSnap = await getDoc(historyRef);
-
-            if (docSnap.exists()) {
-                console.log(` الكتاب ${bookId} تم استلام جائزته سابقاً.`);
-                
-                // 3. تعطيل الزر وتغيير شكله
-                this.isRewardClaimed = true;
-                if(btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = `<span>تم الاستلام مسبقاً</span><span class="material-symbols-rounded">check</span>`;
-                    // إضافة ستايل "رمادي" للدلالة على التعطيل
-                    btn.classList.add('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
-                }
-            }
-
-        } catch (error) {
-            console.error("❌ خطأ في التحقق من سجل القراءة:", error);
-        }
-    }
-
-    async loadDocument(id, title) {
-        if (!id || typeof id !== 'string' || id.trim() === '') {
-            console.warn("⚠️ محاولة فتح كتاب بمعرف غير صالح:", id);
-            toast("عذراً، ملف الكتاب غير متوفر حالياً لهذا الموضوع", "error");
-            return;
-        }
-
-        this.currentPdfId = id;
-        this.checkRewardStatus(id); 
-        this.pageNum = 1;
-        this.stopAutoScroll();
-        this.resetZoom();
-
-        if (this.elements.modal) {
-            this.elements.modal.classList.remove('hidden');
-            this.elements.modal.classList.add('active');
-            this.elements.modal.style.display = 'flex';
-        }
-        
-        if(this.elements.loading) this.elements.loading.classList.remove('hidden');
-        if(this.canvas) this.canvas.style.opacity = "0";
-        if (this.elements.title) this.elements.title.textContent = title;
-        this._toggleFinishButton(false);
-
-        try {
-            const url = `${PDF_BASE_URL}${id}.pdf`;
-            console.log(`📄 جاري تحميل الكتاب: ${url}`);
-
-            const loadingTask = pdfjsLib.getDocument(url);
-            
-            this.pdfDoc = await loadingTask.promise;
-            
-            if (this.elements.pageCount) this.elements.pageCount.textContent = this.pdfDoc.numPages;
-            
-            await this.renderPage(this.pageNum);
-            
-            if(this.elements.loading) this.elements.loading.classList.add('hidden');
-
-        } catch (error) {
-            console.error('❌ فشل تحميل ملف PDF:', error);
-            
-            this.close();
-
-            let msg = "حدث خطأ أثناء تحميل الكتاب";
-            if (error.name === 'MissingPDFException' || error.status === 404) {
-                msg = "الملف قيد التجهيز سيتم رفعه قريبا";
-            } else if (error.name === 'InvalidPDFException') {
-                msg = "ملف الكتاب تالف أو غير صالح";
-            }
-            
-            toast(msg, "error");
-        }
-    }
-
-    async renderPage(num) {
-        this.pageRendering = true;
-        
-        // ومضة اختفاء سريعة
-        if (this.canvas) this.canvas.style.opacity = "0";
-        await new Promise(r => setTimeout(r, 80));
-
-        try {
-            // ⭐ 4) استخدام الصفحة المحملة مسبقاً إن وجدت
-            let page;
-            if (this.nextPagePromise && this.nextPageNum === num) {
-                page = await this.nextPagePromise;
-            } else {
-                page = await this.pdfDoc.getPage(num);
-            }
-            
-            // ... داخل دالة renderPage ...
-
-            // 1. نحصل على أبعاد الحاوية المخصصة للورقة فقط (وليس الشاشة كاملة)
-            const container = document.getElementById('pdf-canvas-container');
-            
-            // نستخدم clientWidth للحصول على العرض الداخلي (بدون الحواف)
-            const containerWidth = container ? container.clientWidth : window.innerWidth;
-            const containerHeight = container ? container.clientHeight : window.innerHeight;
-            
-            const viewportRaw = page.getViewport({ scale: 1 });
-            
-            // 2. حساب نسبة التكبير المناسبة
-            const scaleX = containerWidth / viewportRaw.width;
-            const scaleY = containerHeight / viewportRaw.height;
-            
-            let fitScale = Math.min(scaleX, scaleY);
- 
-
-            const outputScale = window.devicePixelRatio || 1;
-            const viewport = page.getViewport({ scale: fitScale });
-
-            // ... تكملة الكود (canvas.width = ...) كما هو ...
-
-
-            this.canvas.width = Math.floor(viewport.width * outputScale);
-            this.canvas.height = Math.floor(viewport.height * outputScale);
-            this.canvas.style.width = Math.floor(viewport.width) + "px";
-            this.canvas.style.height = Math.floor(viewport.height) + "px";
-
-            // حفظ الأبعاد الأصلية للحاوية لاستخدامها في حساب الحدود لاحقاً
-            this.baseWidth = viewport.width;
-            this.baseHeight = viewport.height;
-            this.containerWidth = containerWidth;
-            this.containerHeight = containerHeight;
-
-            const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
-
-            await page.render({ canvasContext: this.ctx, transform, viewport }).promise;
-            
-            if (this.canvas) this.canvas.style.opacity = "1";
-            
-            this.resetZoom();
-            this.pageRendering = false;
-
-            // ⭐ 4) البدء بتحميل الصفحة التالية في الخلفية
-            if (num < this.pdfDoc.numPages) {
-                this.nextPageNum = num + 1;
-                this.nextPagePromise = this.pdfDoc.getPage(this.nextPageNum);
-            }
-
-            if (this.pageNumPending !== null) {
-                this.renderPage(this.pageNumPending);
-                this.pageNumPending = null;
-            }
-        } catch (err) {
-            this.pageRendering = false;
-            console.error(err);
-        }
-        this._updateUI();
-    }
-
-    queueRenderPage(num) {
-        if (this.pageRendering) this.pageNumPending = num;
-        else this.renderPage(num);
-    }
-
-    prevPage() {
-        if (this.pageNum <= 1) return;
-        this.pageNum--;
-        this.queueRenderPage(this.pageNum);
-    }
-
-    nextPage() {
-        if (this.pageNum >= this.pdfDoc.numPages) {
-            this.stopAutoScroll();
-            return;
-        }
-        this.pageNum++;
-        this.queueRenderPage(this.pageNum);
-    }
-
-    // --- 🎮 التحكم بالإيماءات (Gestures) ---
-    _bindGestures() {
-        const container = document.getElementById('pdf-canvas-container');
-        if (!container) return;
-
-        container.addEventListener('touchstart', (e) => this._handleTouchStart(e), { passive: false });
-        container.addEventListener('touchmove', (e) => this._handleTouchMove(e), { passive: false });
-        container.addEventListener('touchend', (e) => this._handleTouchEnd(e), { passive: false });
-    }
-
-    _handleTouchStart(e) {
-        // 🥈 2) اكتشاف النقر المزدوج (Double Tap)
-        if (e.touches.length === 1) {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - this.lastTapTime;
-            if (tapLength < 300 && tapLength > 0) {
-                e.preventDefault(); // منع التكبير الافتراضي للمتصفح
-                this._handleDoubleTap();
-                return;
-            }
-            this.lastTapTime = currentTime;
-        }
-
-        if (e.touches.length === 2) {
-            // بداية التكبير (Pinch)
-            e.preventDefault();
-            this.startDist = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-        } else if (e.touches.length === 1) {
-            // بداية السحب (Pan/Swipe)
-            this.isDragging = true;
-            this.lastPosX = e.touches[0].pageX;
-            this.lastPosY = e.touches[0].pageY;
-            this.touchStartX = e.touches[0].pageX;
-            this.touchStartY = e.touches[0].pageY;
-        }
-    }
-
-    _handleDoubleTap() {
-        if (this.scale > 1) {
-            this.resetZoom(); // العودة للحجم الطبيعي
-        } else {
-            this.scale = 2.5; // تكبير ذكي
-            this.posX = 0;
-            this.posY = 0;
-            this._updateTransform();
-        }
-    }
-
-    _handleTouchMove(e) {
-        if (e.touches.length === 2) {
-            // منطق التكبير
-            e.preventDefault();
-            const dist = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-            
-            const delta = dist / this.startDist;
-            let newScale = this.lastScale * delta;
-            newScale = Math.min(Math.max(1, newScale), 4); // حدود التكبير
-            
-            this.scale = newScale;
-            this._updateTransform();
-
-        } else if (e.touches.length === 1 && this.scale > 1 && this.isDragging) {
-            // منطق التحريك (Pan) داخل الصورة المكبرة
-            e.preventDefault();
-            const currentX = e.touches[0].pageX;
-            const currentY = e.touches[0].pageY;
-            
-            const deltaX = currentX - this.lastPosX;
-            const deltaY = currentY - this.lastPosY;
-
-            this.posX += deltaX;
-            this.posY += deltaY;
-
-            // 🥇 1) تطبيق الحدود الذكية (منع الخروج للفراغ الأسود)
-            this._clampOffset();
-
-            this.lastPosX = currentX;
-            this.lastPosY = currentY;
-            this._updateTransform();
-        }
-    }
-
-    _handleTouchEnd(e) {
-        if (e.touches.length < 2) {
-            this.lastScale = this.scale;
-        }
-        
-        // 🥉 3) منطق السحب المحسن (Swipe)
-        // يعمل فقط إذا كان الحجم طبيعي (Scale = 1)
-        if (this.scale === 1 && e.changedTouches.length === 1) {
-            const touchEndX = e.changedTouches[0].pageX;
-            const touchEndY = e.changedTouches[0].pageY;
-            
-            const diffX = this.touchStartX - touchEndX;
-            const diffY = this.touchStartY - touchEndY;
-
-            // الشرط: حركة أفقية قوية + حركة عمودية ضعيفة (لمنع التقليب أثناء التمرير العمودي)
-            if (Math.abs(diffX) > 50 && Math.abs(diffY) < 30) {
-                this.stopAutoScroll();
-                if (diffX > 0) this.nextPage();
-                else this.prevPage();
-            }
-        }
-        
-        this.isDragging = false;
-        
-        // إعادة التمركز إذا صغرت الصورة عن الحد الطبيعي
-        if (this.scale < 1.1) {
-            this.resetZoom();
-        } else {
-            // تأكيد الحدود مرة أخيرة عند رفع الإصبع
-            this._clampOffset();
-            this._updateTransform();
-        }
-    }
-
-    // 🥇 دالة حساب الحدود الذكية (The Guard)
-    _clampOffset() {
-        // حساب العرض الحالي للصورة
-        const currentWidth = this.baseWidth * this.scale;
-        const currentHeight = this.baseHeight * this.scale;
-
-        // حساب الفائض (كم خرجت الصورة عن الشاشة)
-        // إذا كانت الصورة أكبر من الشاشة، نسمح بالحركة بمقدار الفائض فقط
-        // إذا كانت أصغر، نجبر الموقع على 0 (المنتصف)
-        
-        let maxOffsetX = 0;
-        let maxOffsetY = 0;
-
-        if (currentWidth > this.containerWidth) {
-            maxOffsetX = (currentWidth - this.containerWidth) / 2;
-        }
-        
-        if (currentHeight > this.containerHeight) {
-            maxOffsetY = (currentHeight - this.containerHeight) / 2;
-        }
-
-        // تقييد الحركة داخل هذا المجال
-        this.posX = Math.min(Math.max(this.posX, -maxOffsetX), maxOffsetX);
-        this.posY = Math.min(Math.max(this.posY, -maxOffsetY), maxOffsetY);
-    }
-
-    _updateTransform() {
-        if (this.zoomContainer) {
-            // نستخدم translate3d للأداء الأفضل
-            this.zoomContainer.style.transform = `translate3d(${this.posX}px, ${this.posY}px, 0) scale(${this.scale})`;
-        }
-    }
-
-    resetZoom() {
-        this.scale = 1;
-        this.lastScale = 1;
-        this.posX = 0;
-        this.posY = 0;
-        this._updateTransform();
-    }
-
-    // --- الوظائف الأساسية الأخرى ---
-    toggleAutoScroll() {
-        if (this.isAutoScrolling) {
-            this.stopAutoScroll();
-            if(window.toast) window.toast("تم إيقاف التقليب التلقائي");
-        } else {
-            this.startAutoScroll();
-            if(window.toast) window.toast("تم تفعيل التقليب التلقائي");
-        }
-    }
-
-    startAutoScroll() {
-        if(this.isAutoScrolling) return;
-        this.isAutoScrolling = true;
-        this.updateAutoIcon();
-        this.autoScrollInterval = setInterval(() => {
-            if (this.pageNum < this.pdfDoc.numPages) this.nextPage();
-            else this.stopAutoScroll();
-        }, 5000);
-    }
-
-    stopAutoScroll() {
-        this.isAutoScrolling = false;
-        if (this.autoScrollInterval) {
-            clearInterval(this.autoScrollInterval);
-            this.autoScrollInterval = null;
-        }
-        this.updateAutoIcon();
-    }
-
-    updateAutoIcon() {
-        if (this.elements.autoIcon && this.elements.autoBtn) {
-            this.elements.autoIcon.textContent = this.isAutoScrolling ? 'pause' : 'play_arrow';
-            if(this.isAutoScrolling) {
-                this.elements.autoBtn.classList.add('text-amber-500', 'border-amber-500', 'bg-amber-500/10');
-                this.elements.autoBtn.classList.remove('text-slate-300', 'bg-slate-800', 'border-slate-600');
-            } else {
-                this.elements.autoBtn.classList.remove('text-amber-500', 'border-amber-500', 'bg-amber-500/10');
-                this.elements.autoBtn.classList.add('text-slate-300', 'bg-slate-800', 'border-slate-600');
-            }
-        }
-    }
-
-        close() {
-        this.stopAutoScroll();
-        
-        if (this.elements.modal) {
-            this.elements.modal.classList.remove('active');            
-            this.elements.modal.classList.add('hidden');
-            this.elements.modal.style.display = 'none';
-        }
-        this.pdfDoc = null;
-        if (this.ctx && this.canvas) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-    }
-
-
-    _updateUI() {
-        if (this.elements.pageNum) this.elements.pageNum.textContent = this.pageNum;
-        if (this.elements.progressBar && this.pdfDoc) {
-            const percent = (this.pageNum / this.pdfDoc.numPages) * 100;
-            this.elements.progressBar.style.width = `${percent}%`;
-        }
-        if (this.pdfDoc && this.pageNum === this.pdfDoc.numPages) this._toggleFinishButton(true);
-        else this._toggleFinishButton(false);
-    }
-
-    _toggleFinishButton(show) {
-        if (!this.elements.finishBtn) return;
-        if (show) {
-            this.elements.finishBtn.style.opacity = "1";
-            this.elements.finishBtn.style.pointerEvents = "auto";
-            this.elements.finishBtn.classList.remove('translate-y-4');
-        } else {
-            this.elements.finishBtn.style.opacity = "0";
-            this.elements.finishBtn.style.pointerEvents = "none";
-            this.elements.finishBtn.classList.add('translate-y-4');
-        }
-    }
-
-        _bindEvents() {
-        // 1. ربط زر الإغلاق العلوي (X)
-        const btnClose = document.getElementById('close-pdf-btn');
-        if (btnClose) {
-            btnClose.onclick = (e) => {
-                e.preventDefault(); // منع أي سلوك افتراضي
-                this.close();
-            };
-        } else {
-            console.warn("⚠️ زر إغلاق الكتاب (close-pdf-btn) غير موجود في HTML");
-        }
-        if(this.elements.bottomPrev) this.elements.bottomPrev.onclick = () => { this.stopAutoScroll(); this.prevPage(); };
-        if(this.elements.bottomNext) this.elements.bottomNext.onclick = () => { this.stopAutoScroll(); this.nextPage(); };
-        
-        // 4. زر التشغيل التلقائي
-        if(this.elements.autoBtn) this.elements.autoBtn.onclick = () => this.toggleAutoScroll();
-    }
-}
-
-// تهيئة القارئ
-const pdfViewer = new SmartPdfViewer();
-
-// --- متغيرات نظام التعلم ---
+});
+window.audioPlayer = new SmartAudioPlayer(() => {
+window.rewardsManager.trigger('AUDIO_LISTEN');});
 let currentLearnAudioId = null;
 let currentLearnPdfId = null;
 let currentLearnTopic = "";
-
 const firebaseConfig = {
   apiKey: "AIzaSyC6FoHbL8CDTPX1MNaNWyDIA-6xheX0t4s",
   authDomain: "ahl-albayet.firebaseapp.com",
@@ -846,12 +82,11 @@ const firebaseConfig = {
   appId: "1:160722124006:web:1c52066fe8dbbbb8f80f27",
   measurementId: "G-9XJ425S41C"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const pdfViewer = new SmartPdfViewer(db, () => effectiveUserId);
 const rtdb = getDatabase(app); 
-// 👇 كود تفعيل قاعدة البيانات لتعمل بدون إنترنت
 enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
         console.log('Persistence failed: Multiple tabs open');
@@ -859,13 +94,10 @@ enableIndexedDbPersistence(db).catch((err) => {
         console.log('Persistence is not available');
     }
 });
-
-
 let currentUser = null;
 let effectiveUserId = null;
 let userProfile = null;
 let dbTopicCounts = {};
-
 let quizState = { 
     questions: [], idx: 0, score: 0, correctCount: 0, active: false, 
     lives: 3,
@@ -873,29 +105,20 @@ let quizState = {
     history: [], streak: 0, usedHelpers: false, fastAnswers: 0, enrichmentEnabled: true,
     startTime: 0, difficulty: 'موحد', contextTopic: '', typeWriterInterval: null
 };
-
 let helpers = { fifty: false, hint: false, skip: false };
 window.rewardQueue = [];
 const ENRICHMENT_FREQUENCY = 0;
 let transitionDelay = 2000;
 let isMuted = false;
-// تم إزالة مؤقت واجهة المسابقة بالكامل (لا يوجد عداد وقت للأسئلة)
-let timerInterval = null; // (باقٍ فقط لتجنب أي أخطاء في حال وجود مراجع قديمة)
+let timerInterval = null;
 let audioContext = null; 
 let marathonInterval = null;
 let currentSelectionMode = null; 
-
-// --- إصلاح تسجيل الدخول مع الحفاظ على قواعد الأمان ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // 1. الاتصال آمن وموجود (سواء كان مجهولاً أو حقيقياً)
         currentUser = user;
-        
-        // 2. نفحص: هل هذا المستخدم قام بتسجيل الدخول فعلياً بحسابه في التطبيق؟
         const savedId = localStorage.getItem('ahlulbaytQuiz_UserId_v2.7');
-
         if (savedId) {
-            // نعم، لديه حساب محفوظ -> نرسله للصفحة الرئيسية فوراً
             effectiveUserId = savedId;
             await loadProfile(effectiveUserId);
              setupPresenceSystem(); 
@@ -903,101 +126,32 @@ onAuthStateChanged(auth, async (user) => {
             hide('login-area');
             navToHome();
         } else {
-            // لا، هو متصل بالسيرفر لكنه لم يسجل دخول ببياناته -> نعرض له شاشة الدخول
-            // (هنا الاتصال مفتوح، لذا لن يظهر خطأ عند محاولة الدخول)
             hide('auth-loading');
             show('login-area');
             show('login-view');
         }
     } else {
-        // 3. لا يوجد اتصال إطلاقاً -> نقوم بإنشاء اتصال "خفي" (Anonymous) فوراً
-        // هذا ضروري لكي تسمح قواعد Firebase بقراءة البيانات عند محاولة الدخول
         signInAnonymously(auth).catch((error) => {
             console.error("Anonymous auth failed", error);
             getEl('auth-loading').innerHTML = `<p class="text-red-500">فشل الاتصال بالسيرفر. تأكد من الإنترنت.</p>`;
         });
     }
 });
-
-const framesData = [
-    { id: 'default', name: 'بدون إطار', price: 0, cssClass: '' },
-    
-    // --- المجموعة الكلاسيكية (تم الاحتفاظ بها) ---
-    { id: 'gold', name: 'الإطار الذهبي', price: 1500, cssClass: 'frame-gold' },
-    { id: 'fire', name: 'الإطار المشتعل', price: 3000, cssClass: 'frame-fire' },
-    { id: 'floral', name: 'إطار الربيع', price: 1000, cssClass: 'frame-floral' },
-    { id: 'diamond', name: 'الإطار الماسي', price: 5000, cssClass: 'frame-diamond' },
-    { id: 'neon', name: 'إطار النيون', price: 2500, cssClass: 'frame-neon' },
-    { id: 'sun', name: 'شمس الولاية', price: 4000, cssClass: 'frame-sun' },
-    { id: 'eagle', name: 'جناح النسر', price: 3500, cssClass: 'frame-eagle' },
-    { id: 'star', name: 'نجمة الصباح', price: 2000, cssClass: 'frame-star' },
-    { id: 'tech', name: 'السايبر الرقمي', price: 3000, cssClass: 'frame-tech' },
-    { id: 'energy', name: 'طاقة البرق', price: 2800, cssClass: 'frame-energy' },
-    { id: 'ruby', name: 'ياقوت أحمر', price: 2200, cssClass: 'frame-ruby' },
-    { id: 'nature', name: 'غصن الزيتون', price: 1200, cssClass: 'frame-nature' },
-    { id: 'hex', name: 'درع سداسي', price: 1800, cssClass: 'frame-hex' },
-    { id: 'ghost', name: 'الطيف الأبيض', price: 4500, cssClass: 'frame-ghost' },
-
-    // --- الإطارات التي تم إصلاحها (Fixes) ---
-    { id: 'galaxy', name: 'مجرة الفلك', price: 6000, cssClass: 'frame-galaxy-fixed' }, // تم الإصلاح
-    { id: 'dark_matter', name: 'المادة المظلمة', price: 7000, cssClass: 'frame-dark-matter-fixed' }, // تم الإصلاح
-    { id: 'rgb', name: 'ألوان الطيف', price: 6500, cssClass: 'frame-rgb-fixed' }, // تم الإصلاح
-
-    // --- مجموعة الروحانيات والنور (جديد) ---
-    { id: 'nur_ala_nur', name: 'نور على نور', price: 5500, cssClass: 'frame-nur' },
-    { id: 'angelic_wing', name: 'الجناح الملائكي', price: 4800, cssClass: 'frame-angelic' },
-    { id: 'crescent_moon', name: 'هلال العيد', price: 3200, cssClass: 'frame-crescent' },
-    { id: 'kufic_gold', name: 'زخرفة كوفية', price: 4200, cssClass: 'frame-kufic' },
-    { id: 'heaven_gate', name: 'أبواب الجنان', price: 8000, cssClass: 'frame-heaven' },
-
-    // --- مجموعة العناصر الطبيعية الخارقة (جديد) ---
-    { id: 'blizzard', name: 'عاصفة الجليد', price: 3800, cssClass: 'frame-blizzard' },
-    { id: 'thunder_storm', name: 'الصاعقة', price: 4500, cssClass: 'frame-thunder' },
-    { id: 'ocean_depth', name: 'عمق المحيط', price: 3600, cssClass: 'frame-ocean' },
-    { id: 'sand_storm', name: 'عاصفة الصحراء', price: 2900, cssClass: 'frame-sand' },
-    { id: 'emerald_flow', name: 'الزمرد السائل', price: 5200, cssClass: 'frame-emerald' },
-
-    // --- مجموعة السايبر والمستقبل (جديد) ---
-    { id: 'glitch_art', name: 'الخلل الرقمي', price: 4000, cssClass: 'frame-glitch' },
-    { id: 'scanner', name: 'الماسح الضوئي', price: 3300, cssClass: 'frame-scanner' },
-    { id: 'hud_circle', name: 'النظام الذكي', price: 3700, cssClass: 'frame-hud' },
-    { id: 'cyber_pulse', name: 'نبض السايبر', price: 3200, cssClass: 'frame-cyber-pulse' },
-    { id: 'matrix', name: 'المصفوفة', price: 3500, cssClass: 'frame-matrix' },
-
-    // --- مجموعة الجواهر والأحجار الكريمة (جديد) ---
-    { id: 'amethyst', name: 'الجمشت البنفسجي', price: 4600, cssClass: 'frame-amethyst' },
-    { id: 'sapphire_ring', name: 'خاتم الياقوت', price: 4900, cssClass: 'frame-sapphire' },
-    { id: 'pearl_shell', name: 'اللؤلؤة المكنونة', price: 5500, cssClass: 'frame-pearl' },
-    
-    // --- مجموعة الأساطير والخيال (جديد) ---
-    { id: 'phoenix', name: 'ريشة العنقاء', price: 9000, cssClass: 'frame-phoenix' },
-    { id: 'dragon_breath', name: 'أنفاس التنين', price: 8500, cssClass: 'frame-dragon-breath' },
-    { id: 'mystic_aura', name: 'الهالة الصوفية', price: 6200, cssClass: 'frame-mystic' },
-    { id: 'time_portal', name: 'بوابة الزمن', price: 7500, cssClass: 'frame-time' },
-    { id: 'infinity', name: 'إطار اللانهاية', price: 10000, cssClass: 'frame-infinity' }
-];
-
-// دالة تسجيل حالة التواجد في RTDB (مصححة)
+const framesData = FRAMES_DATA;
+// نظام التواجد (أونلاين) - غير الإعدادات هنا للتحكم في حالة المستخدم
 function setupPresenceSystem() {
     if (!currentUser || !effectiveUserId) return;
-
     const statusRef = ref(rtdb, `status/${effectiveUserId}`);
     const isOnlineRef = ref(rtdb, '.info/connected');
-
     onValue(isOnlineRef, (snapshot) => {
-        // إذا لم يكن متصلاً، لا نفعل شيئاً
         if (snapshot.val() === false) {
             return;
         }
-
-        // 1. عندما يقطع المستخدم الاتصال (يغلق التطبيق)، اجعل حالته offline
-        // هذا الأمر يُرسل للسيرفر الآن، ولكنه ينفذ لاحقاً عند انقطاع الاتصال
         onDisconnect(statusRef).set({
             state: 'offline',
             last_changed: rtdbTimestamp(),
             username: userProfile.username
         }).then(() => {
-            // 2. مادام الاتصال موجوداً الآن، اجعل الحالة online
             set(statusRef, {
                 state: 'online',
                 last_changed: rtdbTimestamp(),
@@ -1006,13 +160,15 @@ function setupPresenceSystem() {
         });
     });
 }
-
-
+// جلب عنصر - دالة مساعدة للوصول لعناصر HTML بواسطة ID
 const getEl = (id) => document.getElementById(id);
+// إظهار عنصر - دالة مساعدة لإظهار العناصر المخفية
 const show = (id) => getEl(id)?.classList.remove('hidden');
+// إخفاء عنصر - دالة مساعدة لإخفاء العناصر من الواجهة
 const hide = (id) => getEl(id)?.classList.add('hidden');
+// إظهار التنبيهات - غير الألوان أو المدة هنا لتغيير شكل رسائل النجاح والخطأ
 const toast = (msg, type='success') => { const t=getEl('toast-notification'); t.textContent=msg; t.className = type==='error'?'bg-red-900 border-red-500':'bg-green-900 border-green-500'; t.classList.add('show'); t.classList.remove('hidden'); setTimeout(()=>{t.classList.remove('show');t.classList.add('hidden')},5000); };
-
+// إنشاء صوت - غير التردد أو النوع هنا لتغيير نغمات التطبيق
 function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     if (isMuted) return;
     if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1027,21 +183,16 @@ function createOscillator(freq, type, duration = 0.1, volume = 0.5) {
     gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
     oscillator.stop(audioContext.currentTime + duration);
 }
-// --- دوال واجهة المستخدم للمهام ---
-
-// 1. فتح النافذة وتحديث البيانات
+// فتح نافذة المهام - غير هنا لتغيير شكل أو محتوى نافذة المهام
 function openQuestModal() {
     const modal = document.getElementById('quest-modal');
     modal.classList.remove('quest-hidden');
-    // تأخير بسيط لتفعيل الأنيميشن
     setTimeout(() => {
         modal.classList.add('active');
     }, 10);
-    
-    renderQuestList(); // تحديث القائمة عند الفتح
+    renderQuestList();
 }
-
-// 2. إغلاق النافذة
+// التحكم في وظيفة closeQuestModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function closeQuestModal() {
     const modal = document.getElementById('quest-modal');
     modal.classList.remove('active');
@@ -1049,95 +200,66 @@ function closeQuestModal() {
         modal.classList.add('quest-hidden');
     }, 300);
 }
-// دالة توجيه المهام الذكية (مصححة حسب ملف data.js)
+// التحكم في وظيفة executeQuestAction - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function executeQuestAction(taskId) {
-    // 1. إغلاق نافذة المهام
     closeQuestModal();
-
-    // 2. التعامل مع كل مهمة
     switch(taskId) {
         case 1: // المعصومين
             if(document.getElementById('category-select')) {
-                // ✅ المفتاح الدقيق كما هو في ملف data.js
                 const catKey = "المعصومون (عليهم السلام)"; 
-                
-                // ضبط القائمة المنسدلة
                 document.getElementById('category-select').value = catKey;
-
-                // جلب المواضيع الفرعية من المتغير المستورد topicsData
                 let subTopics = [];
                 if (typeof topicsData !== 'undefined' && topicsData[catKey]) {
                     subTopics = topicsData[catKey];
                 }
-                
-                // اختيار موضوع عشوائي
                 if (subTopics.length > 0) {
                     const randomTopic = subTopics[Math.floor(Math.random() * subTopics.length)];
                     document.getElementById('topic-select').value = randomTopic;
-                    
-                    // تحديث النص الظاهر
                     const txtTop = document.getElementById('txt-topic-display');
                     if(txtTop) txtTop.textContent = randomTopic;
                 } else {
-                    // احتياط في حال الفشل
                     document.getElementById('topic-select').value = ''; 
                 }
-                
-                // تحديث نص القسم الرئيسي
                 const txtCat = document.getElementById('txt-category-display');
                 if(txtCat) txtCat.textContent = "المعصومين (ع)";
-                
-                // بدء اللعب
                 const startBtn = document.getElementById('ai-generate-btn');
                 if(startBtn) startBtn.click();
             }
             break;
-
         case 4: // المهدوية
             if(document.getElementById('category-select')) {
-                // ✅ المفتاح الدقيق كما هو في ملف data.js
                 const catKey = "الثقافة المهدوية";
                 document.getElementById('category-select').value = catKey;
-                
                 let subTopics = [];
                 if (typeof topicsData !== 'undefined' && topicsData[catKey]) {
                     subTopics = topicsData[catKey];
                 }
-                
                 if (subTopics.length > 0) {
                     const randomTopic = subTopics[Math.floor(Math.random() * subTopics.length)];
                     document.getElementById('topic-select').value = randomTopic;
-                    
                     const txtTop = document.getElementById('txt-topic-display');
                     if(txtTop) txtTop.textContent = randomTopic;
                 } else {
                     document.getElementById('topic-select').value = '';
                 }
-                
                 const txtCat = document.getElementById('txt-category-display');
                 if(txtCat) txtCat.textContent = "الثقافة المهدوية";
-                
                 const startBtn = document.getElementById('ai-generate-btn');
                 if(startBtn) startBtn.click();
             }
             break;
-
         case 2: // المساعدات -> عشوائي شامل
             if(document.getElementById('category-select')) {
                 document.getElementById('category-select').value = 'random';
                 document.getElementById('topic-select').value = ''; 
-                
                 const txtCat = document.getElementById('txt-category-display');
                 if(txtCat) txtCat.textContent = "عشوائي شامل";
-                
                 const txtTop = document.getElementById('txt-topic-display');
                 if(txtTop) txtTop.textContent = "-- اختر الموضوع --"; 
-
                 const startBtn = document.getElementById('ai-generate-btn');
                 if(startBtn) startBtn.click();
             }
             break;
-
         case 3: // الماراثون
             const marathonBtn = document.getElementById('btn-marathon-start');
             if(marathonBtn && !marathonBtn.disabled) {
@@ -1146,7 +268,6 @@ async function executeQuestAction(taskId) {
                 toast("ماراثون النور غير متاح حالياً", "info");
             }
             break;
-
         case 5: // المتجر
             openBag();
             setTimeout(() => {
@@ -1154,28 +275,22 @@ async function executeQuestAction(taskId) {
                 if(shopTab) switchBagTab('shop');
             }, 100);
             break;
-            
         default:
             toast("انتقل للقسم المخصص لإنجاز المهمة");
     }
 }
-
+// التحكم في وظيفة renderQuestList - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderQuestList() {
     const listContainer = document.getElementById('quest-list-container');
     if (!listContainer) return;
-    
     listContainer.innerHTML = '';
-    // تنسيق الحاوية لتكون عمودية
     listContainer.className = 'flex flex-col gap-1 py-1'; 
-
     if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
     const template = document.getElementById('quest-item-template');
     let allCompleted = true;
-
     userProfile.dailyQuests.tasks.forEach(task => {
         const isCompleted = task.current >= task.target;
         if (!isCompleted) allCompleted = false;
-
         const clone = template.content.cloneNode(true);
         const rootItem = clone.querySelector('.quest-item');
         const descEl = clone.querySelector('.quest-desc');
@@ -1183,95 +298,58 @@ function renderQuestList() {
         const progressBar = clone.querySelector('.quest-progress-bar');
         const actionContainer = clone.querySelector('.quest-action');
         const iconEl = clone.querySelector('.quest-icon');
-
-        // تعبئة النصوص
         descEl.textContent = task.desc;
         progressTextEl.textContent = `${task.current}/${task.target}`;
-        
-        // حساب النسبة المئوية
         const percent = Math.min(100, (task.current / task.target) * 100);
-        
-        // --- تحديد لون السائل ---
-        let colorClass = 'liquid-red'; // افتراضي (أحمر)
-        if (percent >= 100) colorClass = 'liquid-green'; // مكتمل (أخضر)
-        else if (percent >= 60) colorClass = 'liquid-cyan'; // متقدم (أزرق)
-        else if (percent >= 30) colorClass = 'liquid-gold'; // متوسط (ذهبي)
-        
-        // تطبيق الكلاسات (هام جداً: نمسح القديم ونضع الجديد)
+        let colorClass = 'liquid-red';
+        if (percent >= 100) colorClass = 'liquid-green';
+        else if (percent >= 60) colorClass = 'liquid-cyan';
+        else if (percent >= 30) colorClass = 'liquid-gold';
         progressBar.className = `quest-progress-bar liquid-fill ${colorClass}`;
-
-        // تحديد الأيقونات
         if(task.id===1) iconEl.textContent='mosque';
         else if(task.id===2) iconEl.textContent='lightbulb';
         else if(task.id===3) iconEl.textContent='local_fire_department';
         else if(task.id===4) iconEl.textContent='history_edu';
         else if(task.id===5) iconEl.textContent='shopping_bag';
-
-        // حالات التفاعل
         if (task.claimed) {
-            // تم الاستلام
             actionContainer.innerHTML = `<div class="flex flex-col items-center leading-none"><span class="material-symbols-rounded text-green-500 text-lg mb-0.5 shadow-green-500/50 drop-shadow-lg">check_circle</span><span class="text-[8px] text-green-400 font-bold">منجز</span></div>`;
             progressBar.style.width = '100%';
             rootItem.classList.add('opacity-60', 'grayscale-[0.5]');
         } else if (isCompleted) {
-            // جاهز للاستلام
             actionContainer.innerHTML = `
                 <button class="w-8 h-8 rounded-full bg-amber-400 hover:bg-amber-300 text-black shadow-[0_0_10px_rgba(251,191,36,0.6)] flex items-center justify-center animate-bounce"
                     onclick="event.stopPropagation(); claimSingleReward(${task.id})">
                     <span class="material-symbols-rounded text-lg">redeem</span>
                 </button>`;
-            // تأخير بسيط للأنيميشن
             setTimeout(() => { progressBar.style.width = '100%'; }, 50);
         } else {
-            // قيد التقدم
             rootItem.onclick = (e) => { if(e.target.tagName !== 'BUTTON') executeQuestAction(task.id); };
-            
             actionContainer.innerHTML = `
     <span class="material-symbols-rounded text-lg bg-gradient-to-t from-cyan-400 to-blue-500 bg-clip-text text-transparent animate-pulse group-hover:-translate-x-1 transition-all duration-300">
         chevron_left
     </span>`;
-
-            
-            // تطبيق العرض (Width) بعد قليل لتعمل حركة الانسياب
             setTimeout(() => { progressBar.style.width = `${percent}%`; }, 100);
         }
-
         listContainer.appendChild(clone);
     });
-    
-    // إظهار زر الجائزة الكبرى إن وجد
     const grandPrizeArea = document.getElementById('grand-prize-area');
     if (grandPrizeArea) {
         if (allCompleted && !userProfile.dailyQuests.grandPrizeClaimed) grandPrizeArea.classList.remove('hidden');
         else grandPrizeArea.classList.add('hidden');
     }
 }
-
-
-// --- تفعيل الأزرار (Event Listeners) ---
-// يجب التأكد من تحميل الصفحة قبل ربط العناصر
 document.addEventListener('DOMContentLoaded', () => {
-    
     const openBtn = document.getElementById('btn-open-quests');
     const closeBtn = document.getElementById('close-quest-btn');
     const grandBtn = document.getElementById('claim-grand-prize-btn');
-
     if(openBtn) openBtn.addEventListener('click', openQuestModal);
     if(closeBtn) closeBtn.addEventListener('click', closeQuestModal);
-    
-    // ربط زر الجائزة الكبرى
     if(grandBtn) grandBtn.addEventListener('click', claimGrandPrize);
 });
-// ==========================================
-// 🎁 نظام المهام اليومية: دوال الاستلام (Logic)
-// ==========================================
-
+// التحكم في وظيفة claimSingleReward - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function claimSingleReward(taskId) {
-    // 1. العثور على المهمة
     const task = userProfile.dailyQuests.tasks.find(t => t.id === taskId);
     if (!task) return;
-
-    // 2. التحقق من الأهلية
     if (task.current < task.target) {
         toast("المهمة لم تكتمل بعد!", "error");
         return;
@@ -1280,39 +358,27 @@ async function claimSingleReward(taskId) {
         toast("تم استلام هذه الجائزة مسبقاً", "info");
         return;
     }
-
-    // 3. التنفيذ (مكافأة 100 نقطة)
     const REWARD_AMOUNT = 100;
-    
-    // أ. تحديث محلي
     task.claimed = true;
     userProfile.highScore += REWARD_AMOUNT;
-
-    // ب. حفظ في السيرفر
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             "dailyQuests.tasks": userProfile.dailyQuests.tasks,
             highScore: userProfile.highScore
         });
-
-        // ج. مؤثرات النجاح
-        playSound('monetization_on'); // صوت النقود إذا وجد أو win
+        playSound('monetization_on');
         toast(`🎉 تم استلام ${REWARD_AMOUNT} نقطة!`);
-        
-        // د. تحديث الواجهة
         renderQuestList();
-        updateProfileUI(); // لتحديث عداد النقاط العلوي
-        
+        updateProfileUI();
     } catch (e) {
         console.error("Reward Claim Error", e);
         toast("خطأ في الاتصال، حاول مجدداً", "error");
-        task.claimed = false; // تراجع في حال الخطأ
+        task.claimed = false;
         userProfile.highScore -= REWARD_AMOUNT;
     }
 }
-
+// التحكم في وظيفة claimGrandPrize - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function claimGrandPrize() {
-    // 1. التحقق من اكتمال جميع المهام
     const allDone = userProfile.dailyQuests.tasks.every(t => t.current >= t.target);
     if (!allDone) {
         toast("يجب إكمال جميع المهام أولاً!", "error");
@@ -1322,81 +388,49 @@ async function claimGrandPrize() {
         toast("لقد استلمت الجائزة الكبرى لهذا اليوم!", "info");
         return;
     }
-
-    // 2. جائزة اكمال المهام اليومية
-    const BONUS_CORRECT = 100; // إضافة 100 إجابة صحيحة
-    const BONUS_LIVES = 3;     // جوائز إضافية (قلوب)
-    const BONUS_HINT = 5;      // جوائز إضافية (تلميح)
-
-    // 3. تجهيز الإحصائيات الأسبوعية والشهرية (لضمان ظهور الزيادة في المتصدرين)
+    const BONUS_CORRECT = 100;
+    const BONUS_LIVES = 3;
+    const BONUS_HINT = 5;
     const wKey = getCurrentWeekKey();
     let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
     if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
     wStats.correct += BONUS_CORRECT;
-
     const mKey = getCurrentMonthKey();
     let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
     if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
     mStats.correct += BONUS_CORRECT;
-
-    // 4. التحديث المحلي
     userProfile.dailyQuests.grandPrizeClaimed = true;
-    
-    // تحديث عدادات الإجابات الصحيحة محلياً
     userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + BONUS_CORRECT;
     userProfile.weeklyStats = wStats;
     userProfile.monthlyStats = mStats;
-
-    // تحديث المخزون
     userProfile.inventory.lives += BONUS_LIVES;
     userProfile.inventory.helpers.hint += BONUS_HINT;
-
-    // 5. الحفظ في السيرفر
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             "dailyQuests.grandPrizeClaimed": true,
-            
-            // إضافة 100 للعدد الكلي للإجابات الصحيحة
             "stats.totalCorrect": increment(BONUS_CORRECT),
-            
-            // تحديث إحصائيات الأسبوع والشهر (للمتصدرين)
             weeklyStats: wStats,
             monthlyStats: mStats,
-
-            // تحديث المخزون
             "inventory.lives": userProfile.inventory.lives,
             "inventory.helpers.hint": userProfile.inventory.helpers.hint
         });
-
-        // 6. الاحتفال
-        launchConfetti(); // قصاصات ورقية
-        playSound('applause'); // تصفيق
-        
-        // 6. الاحتفال ورسالة التفاصيل الكاملة
-        launchConfetti(); // قصاصات ورقية
-        playSound('applause'); // تصفيق
-        
-        // نص الرسالة المفصل
+        launchConfetti();
+        playSound('applause');
+        launchConfetti();
+        playSound('applause');
         const rewardDetails = `تم إضافة: ${BONUS_CORRECT} إجابة صحيحة، ${BONUS_LIVES} قلوب، و ${BONUS_HINT} تلميح لرصيدك!`;
-
-        // عرض رسالة منبثقة بالتفاصيل
         toast(` ${rewardDetails}`, "success");
-        
-        // حفظ إشعار محلي بالتفاصيل
         addLocalNotification('مكافئة اكمال المهام اليومية✨ ', rewardDetails, 'military_tech');
-
         renderQuestList();
         updateProfileUI();
-
     } catch (e) {
         console.error("Grand Prize Error", e);
         toast("خطأ في استلام الجائزة", "error");
-        // تراجع في حال الخطأ
         userProfile.dailyQuests.grandPrizeClaimed = false;
         userProfile.stats.totalCorrect -= BONUS_CORRECT;
     }
 }
-
+// التحكم في وظيفة updateEnrichmentUI - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateEnrichmentUI() {
     const btn = getEl('toggle-enrichment-btn');
     if(quizState.enrichmentEnabled) {
@@ -1413,7 +447,7 @@ bind('toggle-enrichment-btn', 'click', () => {
     quizState.enrichmentEnabled = !quizState.enrichmentEnabled;
     updateEnrichmentUI();
 });
-
+// التحكم في وظيفة playSound - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function playSound(type) { 
     if(isMuted) return; 
     try{ 
@@ -1423,8 +457,7 @@ function playSound(type) {
         else if(type==='streak') createOscillator(261, 'sine', 0.15, 0.5); 
     }catch(e){ isMuted = true; getEl('mute-toggle').checked = false; }
 }
-
-
+// التحكم في وظيفة handleLogin - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function handleLogin(){
     const u=getEl('login-username-input').value.trim();
     const p=getEl('login-password-input').value.trim();
@@ -1455,7 +488,7 @@ async function handleLogin(){
         btn.innerHTML=oldHtml;
     }
 }
-
+// التحكم في وظيفة handleReg - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function handleReg() {
     const u = getEl('reg-username-input').value.trim();
     const p = getEl('reg-password-input').value.trim();
@@ -1485,6 +518,7 @@ async function handleReg() {
         toast("تم إنشاء الحساب");
     } catch(e) { console.error(e); err.textContent = "خطأ"; getEl('register-btn').disabled = false; }
 }
+// التحكم في وظيفة fetchSystemCounts - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function fetchSystemCounts() {
     try {
         const docRef = doc(db, "system", "counts");
@@ -1496,77 +530,51 @@ async function fetchSystemCounts() {
         console.log("Counts not found, using defaults");
     }
 }
-// --- دالة مركزية لتحديث تقدم المهام ---
+// التحكم في وظيفة updateQuestProgress - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateQuestProgress(questId, amount = 1) {
-    // 1. التحقق من وجود بيانات المهام
     if (!userProfile.dailyQuests || !userProfile.dailyQuests.tasks) return;
-
-    // 2. البحث عن المهمة المطلوبة
     const taskIndex = userProfile.dailyQuests.tasks.findIndex(t => t.id === questId);
     if (taskIndex === -1) return;
-
     const task = userProfile.dailyQuests.tasks[taskIndex];
-
-    // 3. إذا كانت المهمة مكتملة مسبقاً، لا تفعل شيئاً
     if (task.current >= task.target) return;
-
-    // 4. زيادة العداد
     task.current += amount;
-    
-    // منع العداد من تجاوز الهدف
     if (task.current > task.target) task.current = task.target;
-
-    // 5. حفظ التحديث في السيرفر
     if (effectiveUserId) {
         updateDoc(doc(db, "users", effectiveUserId), { 
             dailyQuests: userProfile.dailyQuests 
         }).catch(err => console.log("Quest Update Error", err));
     }
-    
-    // 6. تحديث الواجهة (الشارة الحمراء على الزر)
     updateProfileUI(); 
 }
-
-// --- تهيئة نظام المهام اليومية ---
+// التحكم في وظيفة initDailyQuests - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function initDailyQuests() {
-    const today = new Date().toLocaleDateString('en-CA'); // تاريخ اليوم بصيغة ثابتة YYYY-MM-DD
-    
-    // 1. إذا لم يكن لدى المستخدم سجل مهام أصلاً، أو إذا كان التاريخ مختلفاً (يوم جديد)
+    const today = new Date().toLocaleDateString('en-CA');
     if (!userProfile.dailyQuests || userProfile.dailyQuests.date !== today) {
         userProfile.dailyQuests = {
             date: today,
-            grandPrizeClaimed: false, // هل استلم الجائزة الكبرى؟
+            grandPrizeClaimed: false,
             tasks: [
-                // المعرف 1: حل 50 سؤال في المعصومين
                 { id: 1, current: 0, target: 50, claimed: false, desc: "حل 50 سؤال في قسم المعصومين" },
-                // المعرف 2: استعمال 5 مساعدات
                 { id: 2, current: 0, target: 5, claimed: false, desc: "استخدم 5 وسائل مساعدة" },
-                // المعرف 3: حل 10 أسئلة ماراثون (النور)
                 { id: 3, current: 0, target: 10, claimed: false, desc: "أكمل 10 أسئلة في تحدي النور" },
-                // المعرف 4: حل 20 سؤال مهدوي
                 { id: 4, current: 0, target: 20, claimed: false, desc: "حل 20 سؤال عن الثقافة المهدوية" },
-                // المعرف 5: شراء عنصر من المتجر
                 { id: 5, current: 0, target: 1, claimed: false, desc: "اشترِ أي عنصر من المتجر" }
             ]
         };
-        // حفظ التهيئة الجديدة في السيرفر فوراً
         if(effectiveUserId) {
             updateDoc(doc(db, "users", effectiveUserId), { dailyQuests: userProfile.dailyQuests })
             .catch(err => console.log("Quest Init Error", err));
         }
     }
 }
-
+// تحميل ملف المستخدم - غير هنا لتغيير البيانات التي يتم جلبها عند الدخول
 async function loadProfile(uid) {
     try {
-        // تحميل أعداد الأسئلة الحقيقية بالتوازي مع تحميل البروفايل
         fetchSystemCounts(); 
-
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
             const rawData = snap.data();
             const { cleanData, wasFixed } = sanitizeUserData(rawData);
-
             if (wasFixed) {
                 console.log("Found corrupted data for user, auto-fixing...");
                 await updateDoc(doc(db, "users", uid), cleanData);
@@ -1574,7 +582,6 @@ async function loadProfile(uid) {
             } else {
                 userProfile = rawData; 
             }
-
         } else {
             userProfile = { 
                 username: "ضيف", highScore: 0, badges: ['beginner'], favorites: [], wrongQuestionsBank: [], customAvatar: null,
@@ -1586,19 +593,16 @@ async function loadProfile(uid) {
         updateProfileUI();
     } catch(e) { console.error("Error loading profile:", e); }
 }
-
+// التحكم في وظيفة getAvatarHTML - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function getAvatarHTML(imgUrl, frameId, sizeClass = "w-10 h-10") {
     const frameObj = framesData.find(f => f.id === frameId) || framesData[0];
     const frameClass = frameObj.cssClass;
-    
     let imgContent;
     if (imgUrl) {
         imgContent = `<img src="${imgUrl}" class="w-full h-full object-cover rounded-full">`;
     } else {
-        // أيقونة افتراضية
         imgContent = `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center border border-slate-600"><span class="material-symbols-rounded text-slate-200" style="font-size: 1.2em;">account_circle</span></div>`;
     }
-
     return `
         <div class="avatar-wrapper ${sizeClass}">
             ${imgContent}
@@ -1606,43 +610,27 @@ function getAvatarHTML(imgUrl, frameId, sizeClass = "w-10 h-10") {
         </div>
     `;
 }
-
+// تحديث واجهة الملف الشخصي - غير هنا لتغيير العناصر المعروضة في البروفايل
 function updateProfileUI() {
-    // تحديث الاسم (مع التحقق من وجود العنصر)
     const nameEl = getEl('username-display');
     if (nameEl) nameEl.textContent = userProfile.username;
-
-    // حركة العداد للشريط السفلي
     const scoreEl = getEl('header-score');
     if (scoreEl) {
         const currentDisplayed = parseInt(scoreEl.textContent.replace(/[^\d]/g, '').replace(/[\u0660-\u0669]/g, d => "0123456789"[d.charCodeAt(0) - 1632])) || 0;
         const targetScore = userProfile.highScore || 0;
-        
         if(currentDisplayed !== targetScore) {
             animateValue(scoreEl, currentDisplayed, targetScore, 2000);
         } else {
             scoreEl.textContent = formatNumberAr(targetScore, true);
         }
     }
-
-    // --- تحديث الأفاتار في الشريط السفلي (مع الإطار) ---
     const btn = getEl('user-profile-btn');
     if (btn) {
-        // تنظيف محتوى الزر بالكامل (نحذف الأيقونات القديمة والصور)
         btn.innerHTML = ''; 
-
-        // جلب الإطار الحالي
         const currentFrame = userProfile.equippedFrame || 'default';
-        
-        // استخدام دالة بناء الإطار (نمرر w-full h-full لملء الزر)
-        // ملاحظة: getAvatarHTML موجودة في الكود لديك وتدعم الإطارات
         const avatarHtml = getAvatarHTML(userProfile.customAvatar, currentFrame, "w-full h-full");
-        
-        // حقن الكود الجديد
         btn.innerHTML = avatarHtml;
     }
-
-    // زر مراجعة الأخطاء في الشاشة الرئيسية
     if(userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         show('review-mistakes-btn');
         const reviewText = getEl('review-mistakes-text');
@@ -1650,44 +638,33 @@ function updateProfileUI() {
     } else {
         hide('review-mistakes-btn');
     }
-        // --- تحديث زر المهام اليومية ---
     const questContainer = document.getElementById('daily-quest-container');
     const questBadge = document.getElementById('quest-notification-badge');
-
     if (questContainer && userProfile.dailyQuests) {
-        // إذا لم يتم استلام الجائزة الكبرى، أظهر الزر
         if (!userProfile.dailyQuests.grandPrizeClaimed) {
             questContainer.classList.remove('hidden');
-            
-            // تحديث الشارة (Badge) بعدد المهام المتبقية
-            // نحسب المهام التي لم يكتمل عدادها بعد
             const remainingTasks = userProfile.dailyQuests.tasks.filter(t => t.current < t.target).length;
-            
             if (remainingTasks > 0) {
                 questBadge.style.display = 'flex';
                 questBadge.textContent = remainingTasks;
-                questBadge.classList.add('pulse-red'); // وميض
+                questBadge.classList.add('pulse-red');
             } else {
-                // إذا اكتملت كل المهام ولم تستلم الجائزة الكبرى بعد
                 questBadge.style.display = 'flex';
                 questBadge.textContent = "🎁";
                 questBadge.classList.add('pulse-red');
             }
         } else {
-            // إذا استلم الجائزة الكبرى، أخفِ الزر
             questContainer.classList.add('hidden');
         }
     }
-
 }
-
+// الانتقال للرئيسية - غير هنا لتغيير الصفحة التي يراها المستخدم أولاً
 function navToHome() {
     manageAudioSystem('stop_quiz');
     if (quizState.typeWriterInterval) {
         clearInterval(quizState.typeWriterInterval);
         quizState.typeWriterInterval = null;
     }
-
     const savedDelay = localStorage.getItem('transitionDelay');
     if (savedDelay) {
         const delayVal = parseInt(savedDelay);
@@ -1695,41 +672,28 @@ function navToHome() {
         getEl('delay-slider').value = delayVal;
         getEl('delay-val').textContent = formatNumberAr(delayVal);
     }
-    
     show('bottom-nav');
     quizState.active = false;
-    
     hide('login-area'); hide('auth-loading'); hide('quiz-proper'); hide('results-area');
     hide('achievements-view'); hide('leaderboard-view');
     show('welcome-area');
-    
     initDropdowns();
-    
-    // تم حذف مؤقت المسابقة، لذا لا توجد حالة/زر للمؤقت.
-
     setTimeout(checkWhatsNew, 1500); 
     checkMarathonStatus();
-     
-
-    
     checkAndShowDailyReward(); 
 }
-
-
+// التحكم في وظيفة openSelectionModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function openSelectionModal(mode) {
     currentSelectionMode = mode;
     const modal = document.getElementById('selection-modal');
     const container = document.getElementById('selection-list-container');
     const title = document.getElementById('selection-title');
-    
     container.innerHTML = '';
     modal.classList.add('active');
-
     if (mode === 'category') {
         title.textContent = 'اختر القسم الرئيسي';
         renderSelectionItem(' عشوائي شامل', 'random', container);
         Object.keys(topicsData).forEach(key => renderSelectionItem(key, key, container));
-
     } else if (mode === 'topic') {
         title.textContent = 'اختر الموضوع الفرعي';
         const selectedCat = document.getElementById('category-select').value;
@@ -1739,34 +703,28 @@ function openSelectionModal(mode) {
             const subs = topicsData[selectedCat];
             if (subs) subs.forEach(sub => renderSelectionItem(sub, sub, container));
         }
-
     } else if (mode === 'count') {
         title.textContent = 'عدد الأسئلة';
         [5, 10, 15, 20].forEach(c => renderSelectionItem(`${c} أسئلة`, c, container));
-
     }
 }
-
-
+// التحكم في وظيفة initDropdowns - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function initDropdowns() {
     const btnCat = document.getElementById('btn-category-trigger');
     const btnTop = document.getElementById('btn-topic-trigger');
     const btnCount = document.getElementById('btn-count-trigger');
-    
     if(btnCat) btnCat.onclick = () => openSelectionModal('category');
     if(btnTop) btnTop.onclick = () => {
         if (!btnTop.disabled) openSelectionModal('topic');
         else toast("يرجى اختيار القسم الرئيسي أولاً", "error");
     };
     if(btnCount) btnCount.onclick = () => openSelectionModal('count');
-   
 }
-
+// التحكم في وظيفة renderSelectionItem - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderSelectionItem(text,value,container){const tpl=document.getElementById('selection-item-template');const clone=tpl.content.cloneNode(true);const div=clone.querySelector('.selection-item');const txtEl=clone.querySelector('.item-text');const verIcon=clone.querySelector('.verified-icon');const progSec=clone.querySelector('.progress-section');const progTxt=clone.querySelector('.progress-text');const progBar=clone.querySelector('.progress-bar');const shine=clone.querySelector('.shine-effect');txtEl.textContent=text;div.onclick=()=>handleSelection(text,value);if(currentSelectionMode==='category'||currentSelectionMode==='topic'){let current=0,max=0;if(currentSelectionMode==='topic'){current=(userProfile.stats&&userProfile.stats.topicCorrect&&userProfile.stats.topicCorrect[text])||0;max=(dbTopicCounts&&dbTopicCounts[text])||0}else if(currentSelectionMode==='category'&&value!=='random'){const sub=topicsData[text]||[];let realTotal=0;sub.forEach(s=>{realTotal+=((dbTopicCounts&&dbTopicCounts[s])||0);current+=((userProfile.stats&&userProfile.stats.topicCorrect&&userProfile.stats.topicCorrect[s])||0)});max=realTotal}if(value!=='random'&&max>0){progSec.classList.remove('hidden');const pct=Math.min(100,Math.floor((current/max)*100));progTxt.textContent=`${formatNumberAr(max)} / ${formatNumberAr(current)}`;progBar.style.width=`${pct}%`;if(pct>=100){progBar.classList.remove('bg-amber-500');progBar.classList.add('bg-green-500','shadow-[0_0_5px_rgba(34,197,94,0.5)]');progTxt.classList.remove('text-amber-500');progTxt.classList.add('text-green-400','font-bold');verIcon.classList.remove('hidden');shine.classList.remove('hidden')}else if(pct<30){progBar.classList.remove('bg-amber-500');progBar.classList.add('bg-slate-600')}}}container.appendChild(clone)}
-
+// التحكم في وظيفة handleSelection - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function handleSelection(text, value) {
     const modal = document.getElementById('selection-modal');
-    
     if (currentSelectionMode === 'category') {
         document.getElementById('category-select').value = value;
         document.getElementById('txt-category-display').textContent = text;
@@ -1783,105 +741,70 @@ function handleSelection(text, value) {
             btnTop.disabled = false;
             btnTop.style.opacity = "1";
         }
-
     } else if (currentSelectionMode === 'topic') {
         document.getElementById('topic-select').value = value;
         document.getElementById('txt-topic-display').textContent = text;
-
     } else if (currentSelectionMode === 'count') {
         document.getElementById('ai-question-count').value = value;
         document.getElementById('txt-count-display').textContent = text;
-
     }
     modal.classList.remove('active');
 }
-
-
-// استبدل الدالة القديمة بهذه الدالة المحسنة
+// التحكم في وظيفة handleImageUpload - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-
-    // التحقق المبدئي (نقبل حتى 5 ميجا لأننا سنضغطها بشدة)
     if (file.size > 5 * 1024 * 1024) { 
         toast("حجم الصورة الأصلي كبير جداً", "error"); 
         return; 
     }
-
     const reader = new FileReader();
     reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-
-            // 1. تقليل الأبعاد إلى 110 بكسل (كافية للأفاتار)
             const maxSize = 110; 
             let width = img.width;
             let height = img.height;
-
             if (width > height) {
                 if (width > maxSize) { height *= maxSize / width; width = maxSize; }
             } else {
                 if (height > maxSize) { width *= maxSize / height; height = maxSize; }
             }
-
             canvas.width = width;
             canvas.height = height;
-
-            // رسم الصورة
             ctx.drawImage(img, 0, 0, width, height);
-
-            // 2. التحويل إلى WebP مع جودة منخفضة (أفضل ضغط ممكن)
-            // إذا لم يدعم المتصفح WebP سيعود تلقائياً لـ JPEG
             let dataUrl = canvas.toDataURL('image/webp', 0.3);
-            
-            // في حالة عدم دعم WebP، نعود لـ JPEG بضغط عالٍ
             if (dataUrl.indexOf('image/webp') === -1) {
                 dataUrl = canvas.toDataURL('image/jpeg', 0.3);
             }
-
-            // تحديث الواجهة
             getEl('profile-img-preview').src = dataUrl;
             show('profile-img-preview');
             hide('profile-icon-preview');
             show('delete-custom-avatar');
-            
-            // حفظ النتيجة المضغوطة جداً
             userProfile.tempCustomAvatar = dataUrl; 
-            
-            // (اختياري) طباعة الحجم الجديد في الكونسول للتأكد
             console.log(`New size: ${Math.round(dataUrl.length / 1024)} KB`);
         };
         img.src = event.target.result;
     };
     reader.readAsDataURL(file);
 }
-
-
-
-    // 2. إعداد المتغيرات
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
     const topicValue = getEl('topic-select').value;
     let topic = cat === 'random' || !cat ? "عام" : (topicValue || cat);
-
     quizState.difficulty = 'موحد';
     quizState.mode = 'standard';
     quizState.contextTopic = topic;
-    
-let sealTimerInterval = null; // متغير عالمي للتحكم في العداد
+let sealTimerInterval = null;
+// التحكم في وظيفة handleSealedTopic - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function handleSealedTopic(topicName, allTopicQuestions) {
     const modal = document.getElementById('unlock-modal');
     if (!modal) return;
-
     const timerText = document.getElementById('unlock-timer');
     const payBtn = document.getElementById('btn-pay-unlock');
-    
-    // إيقاف أي عداد سابق
     if (sealTimerInterval) clearInterval(sealTimerInterval);
-
-    // 1. تحديث نص الزر (السعر 10,000)
     payBtn.innerHTML = `
         <span class="flex items-center gap-2">
             <span class="material-symbols-rounded">key</span> فتح الآن
@@ -1890,15 +813,11 @@ async function handleSealedTopic(topicName, allTopicQuestions) {
             10,000 <span class="material-symbols-rounded text-[10px]">monetization_on</span>
         </span>
     `;
-
-    // إظهار النافذة
     modal.classList.remove('hidden');
-
     if (!userProfile.sealedTopics) userProfile.sealedTopics = {};
     let sealedTimestamp = userProfile.sealedTopics[topicName];
     const now = Date.now();
     const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
-
     if (!sealedTimestamp) {
         sealedTimestamp = now;
         userProfile.sealedTopics[topicName] = sealedTimestamp;
@@ -1906,16 +825,13 @@ async function handleSealedTopic(topicName, allTopicQuestions) {
             [`sealedTopics.${topicName}`]: sealedTimestamp
         }).catch(console.error);
     }
-
-    // دالة تنسيق الأرقام (تضيف صفر لليسار إذا كان الرقم مفرداً)
+// التحكم في وظيفة pad - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
     const pad = (num) => num.toString().padStart(2, '0');
-
-    // دالة التحديث المستمر
+// التحكم في وظيفة updateCountdown - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
     const updateCountdown = async () => {
         const currentTime = Date.now();
         const timePassed = currentTime - sealedTimestamp;
         const timeLeft = TWO_WEEKS_MS - timePassed;
-
         if (timeLeft <= 0) {
             clearInterval(sealTimerInterval);
             timerText.textContent = "00:00:00:00";
@@ -1924,33 +840,26 @@ async function handleSealedTopic(topicName, allTopicQuestions) {
             setTimeout(() => modal.classList.add('hidden'), 300);
             return;
         }
-
         const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
         const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-        // ✅ عرض الوقت بالأرقام الإنجليزية (0-9)
         timerText.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
         timerText.style.direction = "ltr"; 
     };
-
     updateCountdown();
     sealTimerInterval = setInterval(updateCountdown, 1000);
-
-    // زر الدفع (التكلفة 10,000)
     payBtn.onclick = () => {
         if (userProfile.highScore >= 10000) {
             modal.classList.remove('active');
             setTimeout(() => modal.classList.add('hidden'), 300);
             clearInterval(sealTimerInterval);
-
             window.showConfirm(
                 "فك الختم",
                 "هل تريد دفع 10,000 نقطة لإعادة فتح هذا الملف الآن؟",
                 "lock_open",
                 async () => {
-                    await unlockTopicLogic(topicName, allTopicQuestions, 10000);
+                    await unlockTopicLogic(topicName, allTopicQuestions, SHOP_PRICES.UNLOCK_TOPIC);
                 }
             );
         } else {
@@ -1958,7 +867,6 @@ async function handleSealedTopic(topicName, allTopicQuestions) {
             if(window.playSound) window.playSound('lose');
         }
     };
-
     const closeBtn = modal.querySelectorAll('button')[1]; 
     if (closeBtn) {
         closeBtn.onclick = () => {
@@ -1967,58 +875,42 @@ async function handleSealedTopic(topicName, allTopicQuestions) {
             setTimeout(() => modal.classList.add('hidden'), 300);
         };
     }
-
     setTimeout(() => {
         modal.classList.add('active');
     }, 10);
-    
     if(window.playSound) window.playSound('hint');
 }
-
+// التحكم في وظيفة unlockTopicLogic - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function unlockTopicLogic(topicName, allTopicQuestions, cost) {
-    // 1. الخصم
     if (cost > 0) {
         userProfile.highScore -= cost;
     }
-
-    // 2. تصفير الذاكرة لهذا الموضوع فقط
     const topicIds = allTopicQuestions.map(q => q.id);
-    // نحتفظ فقط بالأسئلة التي لا تنتمي لهذا الموضوع
     userProfile.seenQuestions = userProfile.seenQuestions.filter(id => !topicIds.includes(id));
-    
-    // إزالة تاريخ الختم محلياً
     if (userProfile.sealedTopics) {
         delete userProfile.sealedTopics[topicName];
     }
-
-    // 3. الحفظ في السيرفر
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             highScore: userProfile.highScore,
             seenQuestions: userProfile.seenQuestions,
-            [`sealedTopics.${topicName}`]: deleteField() // حذف حقل التاريخ من السيرفر
+            [`sealedTopics.${topicName}`]: deleteField()
         });
-
-        updateProfileUI(); // تحديث الرصيد في الواجهة
-
+        updateProfileUI();
         if (cost > 0) {
             toast(`🔓 تم فتح "${topicName}" بنجاح!`, "success");
             if(window.playSound) window.playSound('win');
-            // تشغيل اللعبة مباشرة
             document.getElementById('ai-generate-btn').click(); 
         } else {
             toast(`⏳ انتهت فترة الانتظار! تم فتح "${topicName}" مجاناً.`, "success");
             document.getElementById('ai-generate-btn').click();
         }
-
     } catch (e) {
         console.error(e);
         toast("حدث خطأ أثناء الفتح", "error");
-        // تراجع في حالة الخطأ
         if (cost > 0) userProfile.highScore += cost;
     }
 }
-
 bind('ai-generate-btn', 'click', async () => {
     const cat = getEl('category-select').value;
     const count = parseInt(getEl('ai-question-count').value);
@@ -2029,6 +921,7 @@ bind('ai-generate-btn', 'click', async () => {
     quizState.contextTopic = topic;
     const btn = getEl('ai-generate-btn');
     const originalBtnText = `<span class="text-lg">ابدأ التحدي</span> <span class="material-symbols-rounded">menu_book</span>`;
+// التحكم في وظيفة resetButton - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
     const resetButton = () => {
         btn.disabled = false;
         btn.innerHTML = originalBtnText;
@@ -2119,8 +1012,6 @@ bind('ai-generate-btn', 'click', async () => {
         resetButton();
     }
 });
-
-
 bind('review-mistakes-btn', 'click', () => {
     if(userProfile.wrongQuestionsBank.length === 0) return;
     quizState.contextTopic = "مراجعة الأخطاء";
@@ -2131,53 +1022,37 @@ bind('review-mistakes-btn', 'click', () => {
     quizState.questions = qs.slice(0, 20);
     startQuiz();
 });
-
 bind('quit-quiz-btn', 'click', () => {
     window.showConfirm(
         "مغادرة المسابقة",
         "هل تريد الانسحاب؟ سيتم احتساب النقاط والإجابات الصحيحة الحالية.",
         "save_as",
         async () => {
-            // التحقق من وجود تقدم يستحق الحفظ
             if (quizState.score > 0 || quizState.correctCount > 0) {
                 try {
                     const userRef = doc(db, "users", effectiveUserId);
                     const currentTopic = quizState.contextTopic;
                     const safeCorrect = quizState.correctCount || 0;
-                    
-                    // 1. تجهيز تحديثات السيرفر
                     const updates = {
                         highScore: increment(quizState.score),
                         "stats.quizzesPlayed": increment(1),
-                        "stats.totalCorrect": increment(safeCorrect), // ✅ حفظ عدد الإجابات الصحيحة
-                        "stats.totalQuestions": increment(quizState.idx) // ✅ حفظ عدد الأسئلة التي مرت
+                        "stats.totalCorrect": increment(safeCorrect),
+                        "stats.totalQuestions": increment(quizState.idx)
                     };
-
-                    // 2. حفظ إحصائيات الموضوع (إذا لم يكن عاماً)
                     if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
-                        // استخدام increment لزيادة رصيد الموضوع المحدد
                         updates[`stats.topicCorrect.${currentTopic}`] = increment(safeCorrect);
                     }
-
-                    // 3. تحديث الإحصائيات الأسبوعية (للوحة الشرف)
                     const wKey = getCurrentWeekKey();
                     let newWeekly = userProfile.weeklyStats || { key: wKey, correct: 0 };
-                    // إذا بدأ أسبوع جديد، نصفر العداد
                     if (newWeekly.key !== wKey) newWeekly = { key: wKey, correct: 0 };
                     newWeekly.correct += safeCorrect;
                     updates.weeklyStats = newWeekly;
-
-                    // 4. تحديث الإحصائيات الشهرية
                     const mKey = getCurrentMonthKey();
                     let newMonthly = userProfile.monthlyStats || { key: mKey, correct: 0 };
                     if (newMonthly.key !== mKey) newMonthly = { key: mKey, correct: 0 };
                     newMonthly.correct += safeCorrect;
                     updates.monthlyStats = newMonthly;
-
-                    // تنفيذ التحديث في السيرفر
                     await updateDoc(userRef, updates);
-
-                    // 5. تحديث الملف الشخصي المحلي فوراً (لعدم الحاجة لإعادة التحميل)
                     userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
                     if(userProfile.stats) {
                         userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + safeCorrect;
@@ -2188,7 +1063,6 @@ bind('quit-quiz-btn', 'click', () => {
                     }
                     userProfile.weeklyStats = newWeekly;
                     userProfile.monthlyStats = newMonthly;
-
                     toast(`تم حفظ التقدم: ${quizState.score} نقطة و ${safeCorrect} إجابة صحيحة`, "success");
                 } catch (e) {
                     console.error("Error saving partial score:", e);
@@ -2198,45 +1072,34 @@ bind('quit-quiz-btn', 'click', () => {
         }
     );
 });
-
-// (تم حذف زر/منطق مؤقت المسابقة بالكامل)
-
+// التحكم في وظيفة renderLives - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderLives() {
     const el = getEl('lives-display');
-    
-    // رسم القلوب
     el.innerHTML = `
         <div class="flex items-center gap-1 transition-all duration-300">
             <span class="material-symbols-rounded text-red-500 text-2xl drop-shadow-sm ${quizState.lives <= 1 ? 'animate-pulse' : ''}">favorite</span>
             <span class="text-red-400 font-bold text-xl font-heading pt-1" dir="ltr">x${formatNumberAr(quizState.lives)}</span>
         </div>
     `;
-
-    // --- منطق نبض الخطر (Red Vignette) ---
     const vignette = getEl('low-health-vignette');
     if (vignette) {
         if (quizState.active && quizState.lives === 1) {
-            // حالة الخطر: قلب واحد متبقي
             vignette.classList.add('animate-danger-pulse');
-            vignette.style.opacity = "1"; // تأكيد الظهور
+            vignette.style.opacity = "1";
         } else {
-            // حالة الأمان: إخفاء التأثير
             vignette.classList.remove('animate-danger-pulse');
             vignette.style.opacity = "0";
         }
     }
 }
-
-
+// التحكم في وظيفة startMarathon - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function startMarathon() {
     const btn = getEl('btn-marathon-confirm');
-    
     if (userProfile.lastMarathonDate) {
         const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
         const now = Date.now();
         const diff = now - lastPlayed;
         const twentyFourHours = 1 * 60 * 60 * 1000;
-        
         if (diff < twentyFourHours) {
             toast("⛔️ لا يمكنك لعب النور إلا مرة واحدة كل 24 ساعة.", "error");
             getEl('marathon-rules-modal').classList.remove('active');
@@ -2244,28 +1107,20 @@ async function startMarathon() {
             return;
         }
     }
-
     btn.disabled = true; 
     btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري التحقق...`;
-
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             lastMarathonDate: serverTimestamp()
         });
-        
         userProfile.lastMarathonDate = { toMillis: () => Date.now() };
-
         const cacheBuster = Date.now();
         const response = await fetch(`https://raw.githubusercontent.com/iqsd2020-ctrl/New/refs/heads/main/Data/Noor/dataNooR.json?v=${cacheBuster}`);
-        
         if (!response.ok) throw new Error("فشل تحميل ملف أسئلة (أكمل النور)");
-        
         let rawData = await response.json();
-
         const seenIds = userProfile.seenMarathonIds || [];
         let freshQs = [];
         let usedQs = [];
-
         rawData.forEach((q, index) => {
             if (q.question && Array.isArray(q.options) && typeof q.correctAnswer === 'number') {
                 const questionObj = {
@@ -2276,7 +1131,6 @@ async function startMarathon() {
                     topic: q.topic || "(أكمل النور)",
                     explanation: q.explanation || ""
                 };
-
                 if (seenIds.includes(questionObj.id)) {
                     usedQs.push(questionObj);
                 } else {
@@ -2284,38 +1138,23 @@ async function startMarathon() {
                 }
             }
         });
-        // ✅ ضع هذا الكود الجديد مكانه:
-        
-        // 1. خلط القوائم لضمان التنوع
         shuffleArray(freshQs);
         shuffleArray(usedQs);
-
-        // 2. منطق اللعب حتى نهاية الملف
         if (freshQs.length > 0) {
-            // الحالة الأولى: المستخدم لم يختم الملف بعد
-            // نضع الأسئلة الجديدة فقط، وتنتهي اللعبة عند انتهائها
             quizState.questions = freshQs;
             toast(`🚀 انطلاق! متبقي ${freshQs.length} سؤال لختم هذا الملف.`, "info");
         } else {
-            // الحالة الثانية: المستخدم ختم الملف سابقاً
-            // نضع جميع الأسئلة (المراجعة) وتنتهي اللعبة بنهاية الملف
             quizState.questions = usedQs;
             toast("🌟 رائع! أنت ختمت هذا الملف. بدأت جولة مراجعة شاملة.", "success");
         }
-
-        // 3. حماية من الملفات الفارغة
         if (quizState.questions.length === 0) {
             toast("عذراً، لا توجد أسئلة في الملف!", "error");
             throw new Error("Empty questions list");
         }
-
-
         quizState.mode = 'marathon'; 
         quizState.contextTopic = "(أكمل النور)";
-
         getEl('marathon-rules-modal').classList.remove('active'); 
         startQuiz();
-
     } catch(e) {
         console.error(e);
         toast("حدث خطأ أثناء الاتصال بالسيرفر", "error");
@@ -2324,65 +1163,47 @@ async function startMarathon() {
         btn.innerHTML = `بدء التحدي الآن!`;
     }
 }
-
+// التحكم في وظيفة startQuiz - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function startQuiz() {
     window.history.pushState({ view: 'playing' }, "", "");
-
     manageAudioSystem('start_quiz');
     hide('bottom-nav');
-    
     quizState.idx = 0; quizState.score = 0; quizState.correctCount = 0; quizState.active = true; 
     quizState.history = []; quizState.streak = 0; 
-    
     const extraLives = (userProfile.inventory && userProfile.inventory.lives) ? userProfile.inventory.lives : 0;
     quizState.lives = 3 + extraLives;
-
     helpers = { fifty: false, hint: false, skip: false };
     quizState.usedHelpers = false; 
     quizState.hasUsedHelperInSession = false; 
     quizState.fastAnswers = 0; 
     quizState.enrichmentEnabled = true;
-
     quizState.marathonCorrectStreak = 0; 
-
-    // تم حذف مؤقت الأسئلة نهائياً في جميع الأوضاع
-
     hide('welcome-area'); show('quiz-proper');
     getEl('quiz-topic-display').textContent = quizState.contextTopic || 'مسابقة متنوعة';
-    
     getEl('ai-question-count').disabled = false;
     getEl('ai-generate-btn').disabled = false;
     getEl('btn-marathon-start').disabled = false;
-    
     updateHelpersUI();
     updateStreakUI();
     updateEnrichmentUI(); 
     renderLives();
     renderQuestion();
 }
-
-
+// التحكم في وظيفة renderQuestion - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderQuestion() {
     quizState.processingAnswer = false;
     quizState.usedHelpers = false; 
     updateHelpersUI(); 
-
     quizState.active = true; 
     const q = quizState.questions[quizState.idx];
-    
     getEl('quiz-topic-display').textContent = q.topic || quizState.contextTopic;
-
-    // كتابة نص السؤال
     typeWriter('question-text', q.question);
-    
-
     if (quizState.mode === 'marathon') {
         getEl('question-counter-text').textContent = `${quizState.idx+1}`;
         const dots = getEl('progress-dots'); 
         dots.innerHTML = '<span class="text-xs text-slate-500 font-mono tracking-widest">🪙 (أكمل النور)</span>';
     } else {
        getEl('question-counter-text').textContent = `${formatNumberAr(quizState.idx+1)}/${formatNumberAr(quizState.questions.length)}`;
-
         const dots = getEl('progress-dots'); dots.innerHTML = '';
         for(let i=0; i<quizState.questions.length; i++) {
             let cls = "w-2 h-2 rounded-full bg-slate-700";
@@ -2391,34 +1212,21 @@ function renderQuestion() {
             dots.innerHTML += `<div class="${cls}"></div>`;
         }
     }
-
     getEl('live-score-text').textContent = formatNumberAr(quizState.score);
-
      const box = getEl('options-container');
     box.innerHTML = ''; 
-
-    // ============================================================
-    // 🔥 الحل النهائي: تنسيق الشبكة عبر الجافاسكربت مباشرة 🔥
-    // (يضمن العمل 100% بتطبيق التنسيق على العناصر مباشرة)
-    // ============================================================
     if (quizState.mode === 'marathon') {
-        // 1. إعداد الشبكة (Grid) يدوياً
         box.style.display = 'grid';
-        box.style.gridTemplateColumns = 'repeat(2, 1fr)'; // عمودين متساويين
-        box.style.gap = '10px'; // مسافة بين المربعات
-        
-        // 2. إزالة تأثيرات القائمة العمودية
+        box.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        box.style.gap = '10px';
         box.classList.remove('space-y-1', 'space-y-2', 'space-y-3');
     } else {
-        // العودة للوضع الطبيعي (القائمة)
-        box.style.display = 'block'; // إلغاء الشبكة
+        box.style.display = 'block';
         box.style.gridTemplateColumns = 'none';
         box.style.gap = '0';
         box.classList.add('space-y-1');
     }
-    // 1. جلب القالب من HTML
     const template = document.getElementById('option-template');
-
     q.options.forEach((o, i) => {
         const clone = template.content.cloneNode(true);
         const btn = clone.querySelector('button');
@@ -2427,25 +1235,23 @@ function renderQuestion() {
         charEl.textContent = formatNumberAr(i + 1);
         textEl.textContent = o;
         if (quizState.mode === 'marathon') {
-            // نلغي تنسيق القائمة ونحول الزر لنمط عمودي مضغوط
             btn.classList.remove('flex', 'items-center', 'gap-4', 'text-right', 'p-3');
             btn.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'text-center', 'p-2');
             btn.style.setProperty('height', '135px', 'important');      
             btn.style.setProperty('min-height', '135px', 'important');
             charEl.classList.remove('w-10', 'h-10');
-            charEl.classList.add('w-8', 'h-8', 'mb-2', 'text-sm'); // تصغير الرقم
-            textEl.classList.add('text-sm'); // تصغير الخط
+            charEl.classList.add('w-8', 'h-8', 'mb-2', 'text-sm');
+            textEl.classList.add('text-sm');
         }
         btn.onclick = () => selectAnswer(i, btn);
         btn.classList.add('grid-pop');
         btn.style.animationDelay = `${i * 0.1}s`; 
         box.appendChild(clone);
     });
-    
     getEl('feedback-text').textContent = '';
     quizState.startTime = Date.now(); 
 }
-
+// التحكم في وظيفة nextQuestion - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function nextQuestion() {
     quizState.idx++;
     if(quizState.idx < quizState.questions.length) {
@@ -2454,30 +1260,24 @@ function nextQuestion() {
         endQuiz();
     }
 }
-
+// التحكم في وظيفة updateStreakUI - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateStreakUI() {
     const icon = getEl('streak-icon');
     const txt = getEl('streak-count');
-
-    // --- التعديل: إخفاء الستريك تماماً إذا لم يكن الوضع ماراثون ---
     if (quizState.mode !== 'marathon') {
         icon.classList.remove('active');
-        icon.classList.add('opacity-0'); // إخفاء
-        txt.classList.add('opacity-0');  // إخفاء
+        icon.classList.add('opacity-0');
+        txt.classList.add('opacity-0');
         return; 
     }
-    // -----------------------------------------------------------
-
     const s = quizState.streak;
     txt.textContent = 'x' + formatNumberAr(s); 
-    
     icon.classList.remove('text-orange-500', 'text-yellow-400', 'text-red-500', 'text-purple-500', 'animate-pulse');
     txt.classList.remove('text-orange-400', 'text-yellow-300', 'text-red-400', 'text-purple-400');
-    
     if(s > 1) {
-        icon.classList.remove('opacity-0'); // إظهار
+        icon.classList.remove('opacity-0');
         icon.classList.add('active');
-        txt.classList.remove('opacity-0'); // إظهار
+        txt.classList.remove('opacity-0');
         if (s >= 15) { icon.classList.add('text-purple-500', 'animate-pulse'); txt.classList.add('text-purple-400'); } 
         else if (s >= 10) { icon.classList.add('text-red-500'); txt.classList.add('text-red-400'); } 
         else if (s >= 5) { icon.classList.add('text-yellow-400'); txt.classList.add('text-yellow-300'); } 
@@ -2488,16 +1288,13 @@ function updateStreakUI() {
         icon.classList.add('text-orange-500');
     }
 }
-
-// دالة عرض المعلومة الإثرائية (نسخة نظيفة بدون مفضلة)
+// التحكم في وظيفة showEnrichment - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showEnrichment(text) {
-    // 1. تحديث الإحصائيات (مهم للأوسمة)
     if (userProfile && userProfile.stats) {
         if (!userProfile.stats.enrichmentCount) userProfile.stats.enrichmentCount = 0;
         userProfile.stats.enrichmentCount++;
         if (!userProfile.stats.explanationsViewed) userProfile.stats.explanationsViewed = 0;
         userProfile.stats.explanationsViewed++;
-        
         if (typeof effectiveUserId !== 'undefined' && effectiveUserId) {
             updateDoc(doc(db, "users", effectiveUserId), {
                 "stats.enrichmentCount": userProfile.stats.enrichmentCount,
@@ -2505,83 +1302,52 @@ function showEnrichment(text) {
             }).catch(console.error);
         }
     }
-
-    // 2. وضع النص
     const contentEl = document.getElementById('enrichment-content');
     if(contentEl) contentEl.textContent = text;
-    
-    // 3. إظهار النافذة
     const modal = document.getElementById('enrichment-modal');
     if(modal) {
         modal.classList.remove('hidden');
         requestAnimationFrame(() => modal.classList.add('active'));
-        
         if(typeof playSound === 'function') playSound('hint');
-
-        // 4. منطق الإغلاق (ضغطة واحدة في أي مكان)
+// التحكم في وظيفة closeHandler - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
         const closeHandler = () => {
             modal.classList.remove('active');
             setTimeout(() => modal.classList.add('hidden'), 300);
-            
-            // الانتقال للسؤال التالي
             if(typeof nextQuestion === 'function') nextQuestion(); 
         };
-
-        // تفعيل النقر بعد نصف ثانية (لمنع الإغلاق بالخطأ فور الظهور)
         setTimeout(() => {
             modal.addEventListener('click', closeHandler, { once: true });
         }, 500);
     }
 }
-
-// جعل الدالة متاحة عالمياً
 window.showEnrichment = showEnrichment;
-
-// دالة الحفظ الفعلي في قاعدة البيانات
+// التحكم في وظيفة toggleEnrichFav - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function toggleEnrichFav(btn) {
-    // منع إغلاق النافذة عند الضغط
     window.event.stopPropagation();
-    
     const contentText = getEl('enrichment-content').textContent;
     const icon = btn.querySelector('span');
     const isActive = btn.classList.contains('active');
-
     if (!isActive) {
-        // --- عملية الحفظ ---
-        
-        // نقوم بتغليف المعلومة كأنها "سؤال" لتتناسب مع نظام المفضلة الحالي
         const enrichObj = {
-            question: contentText,          // نص المعلومة
-            options: ["معلومة إثرائية"],    // خانة وهمية
+            question: contentText,
+            options: ["معلومة إثرائية"],
             correctAnswer: 0,
-            type: 'enrichment',             // علامة لنميزها لاحقاً
+            type: 'enrichment',
             savedAt: Date.now()
         };
-
-        // إضافة للقائمة المحلية
         userProfile.favorites.push(enrichObj);
-        
-        // تحديث الزر
         btn.classList.add('active');
         icon.textContent = 'favorite';
         toast("تم حفظ المعلومة في المفضلة ❤️");
-
     } else {
-        // --- عملية الحذف ---
-        
-        // البحث عن العنصر لحذفه
         const index = userProfile.favorites.findIndex(f => f.question === contentText && f.type === 'enrichment');
         if (index > -1) {
             userProfile.favorites.splice(index, 1);
         }
-
-        // تحديث الزر
         btn.classList.remove('active');
         icon.textContent = 'favorite_border';
         toast("تمت الإزالة من المفضلة");
     }
-
-    // الحفظ في السيرفر (Firebase)
     if (effectiveUserId) {
         try {
             await updateDoc(doc(db, "users", effectiveUserId), {
@@ -2593,32 +1359,22 @@ async function toggleEnrichFav(btn) {
         }
     }
 }
-
-// ==========================================
-// ✅ دالة اختيار الإجابة (التصميم المصحح للوضع الليلي)
-// ==========================================
+// التحكم في وظيفة selectAnswer - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function selectAnswer(idx, btn) {
     if(!quizState.active || quizState.processingAnswer) return;
     quizState.processingAnswer = true; 
-
     const answerTime = Date.now() - quizState.startTime;
     const q = quizState.questions[quizState.idx];
     const isCorrect = idx === q.correctAnswer;
     const btns = document.querySelectorAll('.option-btn');
-    
-    // تقليل شفافية الخيارات الأخرى للتركيز على ما تم اختياره
     btns.forEach(b => {
         b.classList.add('pointer-events-none');
         if(b !== btn) b.classList.add('opacity-50'); 
     });
-    
     const qBankIdx = userProfile.wrongQuestionsBank.findIndex(x => x.question === q.question);
-
-    // --- منطق الماراثون ---
     if (quizState.mode === 'marathon') {
         if (!quizState.tempMarathonIds) quizState.tempMarathonIds = [];
         if (q.id) quizState.tempMarathonIds.push(q.id);
-
         if (quizState.tempMarathonIds.length >= 5) {
             const batchIds = [...quizState.tempMarathonIds];
             quizState.tempMarathonIds = []; 
@@ -2629,22 +1385,18 @@ function selectAnswer(idx, btn) {
             userProfile.seenMarathonIds = [...new Set([...userProfile.seenMarathonIds, ...batchIds])];
         }
     }
-
     if(isCorrect) {
-        // --- حالة الإجابة الصحيحة ---
-        if (answerTime <= 5000) { quizState.fastAnswers++; }
+        if (answerTime <= QUIZ_CONFIG.FAST_ANSWER_THRESHOLD) { quizState.fastAnswers++; }
         if (quizState.mode === 'marathon') userProfile.stats.marathonCorrectTotal = (userProfile.stats.marathonCorrectTotal || 0) + 1;
         if (quizState.contextTopic === "مراجعة الأخطاء") userProfile.stats.reviewedMistakesCount = (userProfile.stats.reviewedMistakesCount || 0) + 1;
-
-        let basePoints = 1;
+let basePoints = QUIZ_CONFIG.CORRECT_ANSWER_POINTS;
         let multiplier = 1;
         let multiplierText = "";
-
         if (quizState.mode === 'marathon') {
             quizState.streak++;
             if(quizState.streak > userProfile.stats.maxStreak) { userProfile.stats.maxStreak = quizState.streak; }
             quizState.marathonCorrectStreak = (quizState.marathonCorrectStreak || 0) + 1;
-            if(quizState.marathonCorrectStreak === 15) {
+            if(quizState.marathonCorrectStreak === QUIZ_CONFIG.LIVES_REWARD_STREAK) {
                 userProfile.inventory.lives++;
                 updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
                 toast("🎉 إنجاز رائع! حصلت على قلب إضافي", "success");
@@ -2652,97 +1404,68 @@ function selectAnswer(idx, btn) {
                 renderLives();
                 quizState.marathonCorrectStreak = 0;
             }
-            if (quizState.streak >= 15) { multiplier = 4; multiplierText = "x4 🪙"; }
-            else if (quizState.streak >= 9) { multiplier = 3; multiplierText = "x3 ✨"; }
-            else if (quizState.streak >= 5) { multiplier = 2; multiplierText = "x2🔸"; }
+            for (const m of QUIZ_CONFIG.STREAK_MULTIPLIERS) {
+                if (quizState.streak >= m.threshold) {
+                    multiplier = m.multiplier;
+                    multiplierText = m.text;
+                    break;
+                }
+            }
             if(quizState.streak >= 5) playSound('streak'); else playSound('win');
         } else {
             quizState.streak = 0;
             playSound('win');
         }
-
         let pointsAdded = Math.floor(basePoints * multiplier);
-
-        // ✅ [تعديل التصميم] للإجابة الصحيحة
         if(btn) {
-            // 1. الخلفية: خضراء داكنة (900) وشفافة قليلاً لتناسب الوضع الليلي
-            // 2. الحدود: خضراء مضيئة (500)
-            // 3. ظل: توهج خفيف
             btn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
-            
-            // تعديل دائرة الرقم (أ، ب، ج)
             if(btn.firstElementChild) {
                  btn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white shrink-0 transition-colors duration-300 font-bold';
             }
-            
-            // تعديل النص ليكون أبيض واضح
             if(btn.children[1]) {
                  btn.children[1].className = 'text-white font-bold flex-1 relative z-10 transition-colors duration-300';
             }
-
             showFloatingFeedback(btn, `+${pointsAdded}`, 'text-emerald-400');
         }
-
         quizState.score += pointsAdded;
         quizState.correctCount++;
-        
-        // تحديث المهام
         if (quizState.mode === 'marathon') updateQuestProgress(3, 1);
         const questTopic = q.topic || quizState.contextTopic;
         if (questTopic && (questTopic.includes('المعصومين') || questTopic.includes('أهل البيت') || questTopic.includes('الإمام') || questTopic.includes('النبي'))) updateQuestProgress(1, 1);
         if (questTopic && (questTopic.includes('مهدي') || questTopic.includes('حجة') || questTopic.includes('منتظر') || questTopic.includes('قائم') || questTopic.includes('الظهور') || questTopic.includes('السفراء') || questTopic.includes('الغيبة') || questTopic.includes('دولة العدل'))) updateQuestProgress(4, 1);
-
         const scoreEl = getEl('live-score-text');
         scoreEl.textContent = formatNumberAr(quizState.score);
         scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop');
-
         if(qBankIdx > -1) userProfile.wrongQuestionsBank.splice(qBankIdx, 1);
         const currentTopic = q.topic || quizState.contextTopic;
         if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
             userProfile.stats.topicCorrect[currentTopic] = (userProfile.stats.topicCorrect[currentTopic] || 0) + 1;
         }
-
         getEl('feedback-text').innerHTML = `<span class="text-green-400">إجابة صحيحة! (+${formatNumberAr(pointsAdded)})</span> ${multiplierText ? `<span class="text-amber-400 text-xs bg-slate-800 px-2 py-1 rounded-full border border-amber-500/30">${multiplierText}</span>` : ''}`;
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 flex justify-center items-center gap-2";
-
         if(q.explanation && quizState.enrichmentEnabled) {
             setTimeout(() => showEnrichment(q.explanation), transitionDelay);
             return;
         }
         setTimeout(nextQuestion, transitionDelay);
-
     } else {
-        // --- حالة الإجابة الخاطئة ---
         quizState.marathonCorrectStreak = 0;
         quizState.fastAnswers = 0;
-
-        // ✅ [تعديل التصميم] للإجابة الخاطئة
         if(btn) {
-            // خلفية حمراء داكنة (900)
             btn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-red-500 bg-red-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
-            
-            // تعديل دائرة الرقم
             if(btn.firstElementChild) {
                  btn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shrink-0 transition-colors duration-300 font-bold';
             }
-            
-            // تعديل النص
             if(btn.children[1]) {
                  btn.children[1].className = 'text-white font-bold flex-1 relative z-10 transition-colors duration-300';
             }
-
             const deductDisplay = (quizState.score >= 2) ? 2 : quizState.score;
             showFloatingFeedback(btn, `-${deductDisplay}`, 'text-red-400');
         }
-
-        // ✅ [تعديل التصميم] كشف الإجابة الصحيحة (بنفس الستايل الداكن)
         if(q.correctAnswer >= 0 && q.correctAnswer < btns.length) {
             const correctBtn = btns[q.correctAnswer];
-            correctBtn.classList.remove('opacity-50', 'pointer-events-none'); // جعلها واضحة
-            
-            // تطبيق الستايل الأخضر الداكن عليها
+            correctBtn.classList.remove('opacity-50', 'pointer-events-none');
             correctBtn.className = 'w-full flex items-center justify-start text-right p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/80 transition-all duration-300 group relative overflow-hidden gap-3 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
-            
             if(correctBtn.firstElementChild) {
                  correctBtn.firstElementChild.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white shrink-0 font-bold';
             }
@@ -2750,8 +1473,6 @@ function selectAnswer(idx, btn) {
                  correctBtn.children[1].className = 'text-white font-bold flex-1 relative z-10';
             }
         }
-
-        // بقية منطق الخسارة
         if (quizState.mode === 'marathon') {
             if (quizState.streak >= 10) { quizState.streak = 5; toast("تم تفعيل حماية الستريك! انخفض إلى 5 بدلاً من 0", "info"); }
             else if (quizState.streak >= 5) { quizState.streak = 2; }
@@ -2759,17 +1480,14 @@ function selectAnswer(idx, btn) {
         } else {
             quizState.streak = 0;
         }
-
         if(quizState.lives > 3) {
             userProfile.inventory.lives = Math.max(0, userProfile.inventory.lives - 1);
             updateDoc(doc(db, "users", effectiveUserId), { "inventory.lives": userProfile.inventory.lives });
         }
         quizState.lives--;
-
-        const deductionTarget = 2;
+        const deductionTarget = QUIZ_CONFIG.WRONG_ANSWER_DEDUCTION;
         let deductedFromRound = 0;
         let deductedFromBalance = 0;
-
         if (quizState.score >= deductionTarget) {
             quizState.score -= deductionTarget;
             deductedFromRound = deductionTarget;
@@ -2777,7 +1495,6 @@ function selectAnswer(idx, btn) {
             deductedFromRound = quizState.score;
             quizState.score = 0;
             const remainingToDeduct = deductionTarget - deductedFromRound;
-
             if (userProfile.highScore >= remainingToDeduct) {
                 userProfile.highScore -= remainingToDeduct;
                 deductedFromBalance = remainingToDeduct;
@@ -2785,39 +1502,31 @@ function selectAnswer(idx, btn) {
                 deductedFromBalance = userProfile.highScore;
                 userProfile.highScore = 0;
             }
-
             if (deductedFromBalance > 0) {
                 updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
                 updateProfileUI();
             }
         }
-
         getEl('live-score-text').textContent = formatNumberAr(quizState.score);
-
         renderLives();
         playSound('lose');
         getEl('quiz-proper').classList.add('shake'); setTimeout(()=>getEl('quiz-proper').classList.remove('shake'),500);
         if(qBankIdx === -1) userProfile.wrongQuestionsBank.push(q);
-
         if (quizState.lives <= 0) {
             getEl('feedback-text').innerHTML = 'نفدت المحاولات! <span class="material-symbols-rounded align-middle text-sm">heart_broken</span>';
             getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-500";
             setTimeout(showReviveModal, transitionDelay);
             return;
         }
-
         const totalDeducted = deductedFromRound + deductedFromBalance;
         const deductionText = totalDeducted > 0 ? `(-${formatNumberAr(totalDeducted)})` : `(+${formatNumberAr(0)})`;
-
         getEl('feedback-text').textContent = `إجابة خاطئة ${deductionText}`;
         getEl('feedback-text').className = "text-center mt-2 font-bold h-6 text-red-400";
-
         updateStreakUI();
         quizState.history.push({ q: q.question, options: q.options, correct: q.correctAnswer, user: idx, isCorrect, topic: q.topic || quizState.contextTopic, fast: (isCorrect && answerTime <= 5000) });
         setTimeout(nextQuestion, transitionDelay);
     }
 }
-
 bind('helper-report', 'click', async () => {
     const q = quizState.questions[quizState.idx];
     const reportData = {
@@ -2836,22 +1545,18 @@ bind('helper-report', 'click', async () => {
         toast("❌ فشل إرسال الإبلاغ. الرجاء المحاولة لاحقاً.", "error");
     }
 });
-
 bind('share-text-button', 'click', () => {
     if (!userProfile.stats.shareCount) userProfile.stats.shareCount = 0;
     userProfile.stats.shareCount++;
-    
     if (effectiveUserId) {
         updateDoc(doc(db, "users", effectiveUserId), {
             "stats.shareCount": userProfile.stats.shareCount
         }).catch(console.error);
     }
-
     const score = formatNumberAr(quizState.score);
     const correct = formatNumberAr(quizState.correctCount);
     const total = formatNumberAr(quizState.questions.length);
     const accuracy = formatNumberAr(Math.round((quizState.correctCount / quizState.questions.length) * 100));
-    
     const message = `🕌 من وحي أهل البيت (ع) 🌟\n` + `لقد حصلت على ${score} نقطة في: ${quizState.contextTopic}!\n` + `✅ الإجابات الصحيحة: ${correct}/${total} (${accuracy}%)\n` + `هل يمكنك تحدي رقمي؟\n` + `#مسابقة_أهل_البيت #ثقافة_شيعية`;
     if (navigator.share) {
         navigator.share({ title: 'تحدي المعرفة - من وحي أهل البيت (ع)', text: message }).then(() => toast('تمت مشاركة النتيجة بنجاح!'));
@@ -2859,60 +1564,45 @@ bind('share-text-button', 'click', () => {
         navigator.clipboard.writeText(message).then(() => { toast('تم نسخ النتيجة إلى الحافظة! شاركها مع أصدقائك.'); });
     }
 });
-
+// التحكم في وظيفة getCurrentWeekKey - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function getCurrentWeekKey() {
     const d = new Date();
-    const day = d.getDay(); // 0 (الأحد) - 6 (السبت)
-    // حساب العودة لآخر يوم جمعة
+    const day = d.getDay();
     const diff = (day + 2) % 7; 
-    
     const lastFriday = new Date(d);
     lastFriday.setDate(d.getDate() - diff);
-    
-    // التعديل: استخدام التاريخ المحلي يدوياً لمنع مشاكل التوقيت العالمي UTC
     const year = lastFriday.getFullYear();
     const month = String(lastFriday.getMonth() + 1).padStart(2, '0');
     const dayOfMonth = String(lastFriday.getDate()).padStart(2, '0');
-    
     return `${year}-${month}-${dayOfMonth}`;
 }
-
+// التحكم في وظيفة endQuiz - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function endQuiz() {
     hide('quiz-proper'); 
     show('results-area');
-    
     const safeCorrectCount = Number(quizState.correctCount) || 0;
     const safeTotalQuestions = Number(quizState.questions.length) || 0;
     const accuracy = safeTotalQuestions > 0 ? Math.round((safeCorrectCount / safeTotalQuestions) * 100) : 0;
-
     animateValue(getEl('card-score'), 0, quizState.score, 500);
- 
     getEl('card-username').textContent = userProfile.username;
     getEl('card-difficulty').textContent = quizState.difficulty;
-    
     getEl('card-correct-count').innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm align-middle">check_circle</span> ${formatNumberAr(safeCorrectCount)}`;
     getEl('card-wrong-count').innerHTML = `<span class="material-symbols-rounded text-red-400 text-sm align-middle">cancel</span> ${formatNumberAr(safeTotalQuestions - safeCorrectCount)}`;
-
     let msg = "حاول مرة أخرى";
     if(accuracy === 100) { 
         msg = "أداء مبهر! درجة كاملة"; 
         playSound('applause'); 
     } else if(accuracy >= 80) msg = "أداء ممتاز!";
     else if(accuracy >= 50) msg = "جيد جداً";
-    
     getEl('final-message').textContent = msg;
-
     const stats = userProfile.stats || {};
-    
     const oldTotalCorrect = Number(stats.totalCorrect) || 0;
     const oldTotalQs = Number(stats.totalQuestions) || 0;
     const oldBestScore = Number(stats.bestRoundScore) || 0;
     const oldQuizzesPlayed = Number(stats.quizzesPlayed) || 0;
-    
     const currentTodayStr = new Date().toISOString().split('T')[0];
     let lastPlayedDates = Array.isArray(stats.lastPlayedDates) ? stats.lastPlayedDates.filter(d => d !== currentTodayStr).slice(-6) : [];
     if(!lastPlayedDates.includes(currentTodayStr)) lastPlayedDates.push(currentTodayStr);
-
     const now = new Date();
     const currentHour = now.getHours();
     const isFriday = now.getDay() === 5;
@@ -2920,7 +1610,6 @@ async function endQuiz() {
     const isMorning = (currentHour >= 5 && currentHour < 9);
     const isAfternoon = (currentHour >= 15 && currentHour < 18);
     const isPerfect = safeCorrectCount === safeTotalQuestions && safeTotalQuestions > 0;
-
     if (quizState.mode === 'marathon') {
         const currentMarathonScore = quizState.score;
         const maxMarathon = stats.maxMarathonScore || 0;
@@ -2928,7 +1617,6 @@ async function endQuiz() {
             stats.maxMarathonScore = currentMarathonScore;
         }
     }
-
     const newStats = {
         quizzesPlayed: oldQuizzesPlayed + 1,
         totalCorrect: oldTotalCorrect + safeCorrectCount,
@@ -2954,43 +1642,32 @@ async function endQuiz() {
         strategicWins: (stats.strategicWins || 0) + (quizState.hasUsedHelperInSession && safeCorrectCount > 0 ? 1 : 0),
         maxMarathonScore: stats.maxMarathonScore || 0
     };
-
     const currentTopic = quizState.contextTopic;
     if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
         const oldTopicScore = Number(newStats.topicCorrect[currentTopic]) || 0;
         newStats.topicCorrect[currentTopic] = oldTopicScore + safeCorrectCount;
     }
-
     const currentWeekKey = getCurrentWeekKey();
     let weeklyStats = userProfile.weeklyStats || { key: '', correct: 0 };
     if (weeklyStats.key !== currentWeekKey) { weeklyStats = { key: currentWeekKey, correct: 0 }; }
     weeklyStats.correct += safeCorrectCount;
-
     const currentMonthKey = getCurrentMonthKey();
     let monthlyStats = userProfile.monthlyStats || { key: '', correct: 0 };
-    
-    // التحقق من تصفير الشهر وحفظ الفائز
     if (monthlyStats.key && monthlyStats.key !== currentMonthKey) {
-        // هذا يعني أننا في شهر جديد، والبيانات القديمة تخص الشهر الماضي
         try {
             saveMonthlyWinner(monthlyStats.key);
         } catch(e) { console.error("Error saving monthly winner:", e); }
-        
         monthlyStats = { key: currentMonthKey, correct: 0 };
     } else if (!monthlyStats.key) {
         monthlyStats.key = currentMonthKey;
     }
-    
     monthlyStats.correct += safeCorrectCount;
-
     const playedIds = quizState.questions.filter(q => q.id).map(q => q.id);
     const oldSeen = Array.isArray(userProfile.seenQuestions) ? userProfile.seenQuestions : [];
     let updatedSeenQuestions = [...new Set([...oldSeen, ...playedIds])]; 
     if (updatedSeenQuestions.length > 2000) { updatedSeenQuestions = updatedSeenQuestions.slice(-1000); }
-
     let updatedWrongQuestionsBank = Array.isArray(userProfile.wrongQuestionsBank) ? userProfile.wrongQuestionsBank : [];
     if (updatedWrongQuestionsBank.length > 15) updatedWrongQuestionsBank = updatedWrongQuestionsBank.slice(-15);
-
     let updatedSeenMarathon = userProfile.seenMarathonIds || [];
     if (quizState.mode === 'marathon') {
         const playedMarathonIds = quizState.questions
@@ -2998,7 +1675,6 @@ async function endQuiz() {
             .map(q => q.id);
         updatedSeenMarathon = [...new Set([...updatedSeenMarathon, ...playedMarathonIds])];
     }
-
     const firestoreUpdates = {
         highScore: increment(quizState.score), 
         stats: newStats, 
@@ -3008,10 +1684,8 @@ async function endQuiz() {
         seenQuestions: updatedSeenQuestions,
         seenMarathonIds: updatedSeenMarathon
     };
-
     try {
         await updateDoc(doc(db, "users", effectiveUserId), firestoreUpdates);
-        
         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
         userProfile.stats = newStats;
         userProfile.weeklyStats = weeklyStats;
@@ -3019,14 +1693,11 @@ async function endQuiz() {
         userProfile.wrongQuestionsBank = updatedWrongQuestionsBank;
         userProfile.seenQuestions = updatedSeenQuestions;
         userProfile.seenMarathonIds = updatedSeenMarathon;
-        
         updateProfileUI(); 
-
         setTimeout(async () => {
             const gotBadge = await checkAndUnlockBadges();
             if (!gotBadge) { showMotivator(); }
         }, 1000);
-
     } catch(e) {
         console.error("Error saving quiz results:", e);
         toast("تم حفظ النقاط محلياً مؤقتاً لضعف الاتصال", "info");
@@ -3036,26 +1707,18 @@ async function endQuiz() {
         userProfile.seenMarathonIds = updatedSeenMarathon;
         updateProfileUI();
     }
-
     addLocalNotification('نهاية جولة', `أتممت جولة في "${quizState.contextTopic}". النتيجة: ${quizState.score} نقطة.`, 'sports_score');
     renderReviewArea();
 }
-
-
+// التحكم في وظيفة renderReviewArea - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderReviewArea(){const box=getEl('review-items-container');box.innerHTML='';show('review-area');getEl('review-area').querySelector('h3').textContent="مراجعة الاسئلة ذات الاجابة الخطأ";const tpl=document.getElementById('review-card-template');quizState.history.forEach((h,i)=>{const clone=tpl.content.cloneNode(true);const div=clone.querySelector('.review-item');const qEl=clone.querySelector('.rev-q');const optsBox=clone.querySelector('.rev-opts');const ansEl=clone.querySelector('.rev-ans');div.classList.add(h.isCorrect?'bg-green-900/20':'bg-red-900/20',h.isCorrect?'border-green-800':'border-red-800');qEl.innerHTML=`<span class="material-symbols-rounded ${h.isCorrect?'text-green-400':'text-red-500'} align-middle text-lg">${h.isCorrect?'check_circle':'cancel'}</span> ${formatNumberAr(i+1)}. ${h.q}`;h.options.forEach((o,idx)=>{const sp=document.createElement('span');let cls='block mr-2 text-slate-400';if(idx===h.correct)cls='block mr-2 text-green-400 font-bold';if(idx===h.user)cls=h.isCorrect?'block mr-2 text-green-300 font-bold underline':'block mr-2 text-red-400 line-through';sp.className=cls;sp.textContent=`- ${o}`;optsBox.appendChild(sp)});if(!h.isCorrect){ansEl.textContent=`الصحيح كان: ${h.options[h.correct]}`;ansEl.classList.remove('hidden')}box.appendChild(clone)})}
-
-
+// التحكم في وظيفة updateHelpersUI - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateHelpersUI() {
     const helperIds = ['helper-fifty-fifty', 'helper-hint', 'helper-skip'];
-    const isUsed = quizState.usedHelpers; // هل تم استخدام مساعدة في هذا السؤال؟
-
+    const isUsed = quizState.usedHelpers;
     helperIds.forEach(id => {
         const btn = getEl(id);
-        
-        // إذا تم استخدام مساعدة، نعطل كل الأزرار
-        // إذا لم يتم، نفعلها
         btn.disabled = isUsed; 
-        
         if (isUsed) {
             btn.classList.add('opacity-30', 'cursor-not-allowed', 'grayscale');
             btn.classList.remove('hover:text-amber-400');
@@ -3063,12 +1726,9 @@ function updateHelpersUI() {
             btn.classList.remove('opacity-30', 'cursor-not-allowed', 'grayscale');
             btn.classList.add('hover:text-amber-400');
         }
-
-        // إزالة أي شارة قديمة وإعادة رسمها
-        const typeKey = id.replace('helper-', '').replace('-fifty', ''); // fifty, hint, skip
+        const typeKey = id.replace('helper-', '').replace('-fifty', '');
         const oldBadge = btn.querySelector('.count-badge');
         if(oldBadge) oldBadge.remove();
-
         const count = userProfile.inventory.helpers[typeKey === 'fifty-fifty' ? 'fifty' : typeKey] || 0;
         if(count > 0) {
             const badge = document.createElement('span');
@@ -3078,34 +1738,26 @@ function updateHelpersUI() {
             btn.appendChild(badge);
         }
     });
-    
-    // زر الإبلاغ يبقى مفعلاً دائماً
     getEl('helper-report').disabled = false;
 }
-
+// التحكم في وظيفة useHelper - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function useHelper(type, cost, actionCallback) {
     if(!quizState.active) return;
-
     if (quizState.usedHelpers) {
-        toast("عذراً، يسمح بمساعدة واحدة فقط لكل سؤال! 🚫", "error");
+        toast("عذراً، يسمح بمساعدة واحدة فقط لكل سؤال!", "error");
         playSound('lose');
         return;
     }
-
     const hasInventory = userProfile.inventory.helpers[type] > 0;
     if (!hasInventory && quizState.score < cost) {
         toast(`رصيدك غير كافٍ! تحتاج ${cost} نقطة.`, "error");
         return;
     }
-
     quizState.usedHelpers = true;
     quizState.hasUsedHelperInSession = true;
     actionCallback(); 
-        // المهمة 2: استخدام 5 مساعدات (ID: 2)
     updateQuestProgress(2, 1);
-
     updateHelpersUI(); 
-    
     if(hasInventory) {
         userProfile.inventory.helpers[type]--;
         toast(`تم استخدام ${type} من الحقيبة`);
@@ -3116,10 +1768,8 @@ async function useHelper(type, cost, actionCallback) {
         toast(`تم خصم ${cost} نقطة`);
     }
 }
-
-
 bind('helper-fifty-fifty', 'click', () => {
-    useHelper('fifty', 4, () => {
+    useHelper('fifty', HELPER_COSTS.FIFTY, () => {
         const q = quizState.questions[quizState.idx];
         const opts = document.querySelectorAll('.option-btn');
         let removed = 0;
@@ -3128,9 +1778,8 @@ bind('helper-fifty-fifty', 'click', () => {
         });
     });
 });
-
 bind('helper-hint', 'click', () => {
-    useHelper('hint', 3, () => {
+    useHelper('hint', HELPER_COSTS.HINT, () => {
         const q = quizState.questions[quizState.idx];
         const opts = document.querySelectorAll('.option-btn');
         let removed = 0;
@@ -3139,13 +1788,11 @@ bind('helper-hint', 'click', () => {
         });
     });
 });
-
 bind('helper-skip', 'click', () => {
-    useHelper('skip', 1, () => {
+    useHelper('skip', HELPER_COSTS.SKIP, () => {
         nextQuestion();
     });
 });
-
 bind('action-fav', 'click', async () => {
     const q = quizState.questions[quizState.idx];
     const isAlreadyFavorite = userProfile.favorites.some(fav => fav.question === q.question);
@@ -3155,125 +1802,74 @@ bind('action-fav', 'click', async () => {
         toast("تم الحفظ في المفضلة");
     } else { toast("السؤال موجود بالفعل في المفضلة", "error"); }
 });
-
-/* =========================================
-   Step 2: Smart Navigation Logic
-   ========================================= */
-
+// التحكم في وظيفة toggleMenu - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function toggleMenu(open) { 
     const m = getEl('side-menu'); 
     const o = getEl('side-menu-overlay'); 
-    
     if(open) { 
         m.classList.add('open'); 
         o.classList.add('open');
-        // تسجيل فتح القائمة في السجل
         window.history.pushState({menuOpen: true}, ""); 
     } else { 
         m.classList.remove('open'); 
         o.classList.remove('open');
-        // ملاحظة: لا نقوم بـ back() هنا يدوياً لتجنب التعارض مع زر الرجوع
     } 
 }
-
 bind('menu-btn', 'click', () => toggleMenu(true));
-
-
-
+// التحكم في وظيفة openModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 const openModal = (id) => { 
     toggleMenu(false); 
-    
-    // منطق التراكم (Stacking):
-    // نغلق النوافذ الأخرى فقط إذا لم تكن النافذة الجديدة هي "بروفايل اللاعب"
-    // هذا يسمح لبروفايل اللاعب أن يفتح فوق المتصدرين
     if (id !== 'player-profile-modal') {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); 
     }
-
     const modal = getEl(id);
     if(modal) {
         modal.classList.add('active');
-        // تسجيل النافذة في السجل
         window.history.pushState({modalOpen: id}, ""); 
     }
 };
-
-// ==========================================
-// ✅ إصلاح أزرار الإغلاق (Global Close Handler)
-// ==========================================
 document.addEventListener('click', (e) => {
-    // التحقق مما إذا كان العنصر المضغوط هو زر إغلاق (أو داخله)
     const closeBtn = e.target.closest('.close-modal');
-
     if (closeBtn) {
         e.preventDefault();
         e.stopPropagation();
-
-        // 1. الإغلاق البصري الفوري (لحل مشكلة عدم الاستجابة)
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-        
-        // إغلاق القائمة الجانبية إذا كانت مفتوحة
         toggleMenu(false);
-
-        // تشغيل صوت النقر (إذا كان مفعلاً)
         if(typeof playSound === 'function') playSound('click');
-
-        // 2. معالجة زر الرجوع في المتصفح (History)
-        // نعود للخلف خطوة فقط إذا كان هناك سجل مفتوح، لتجنب الخروج من الموقع
         if (window.history.state && (window.history.state.modalOpen || window.history.state.menuOpen)) {
             window.history.back();
         }
     }
 });
-
-// مستمع لزر الرجوع في الهاتف لضمان إغلاق النوافذ
 window.addEventListener('popstate', () => {
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
     toggleMenu(false);
 });
-
-
 bind('nav-home', 'click', () => { toggleMenu(false); navToHome(); });
-
-
 bind('nav-badges','click',()=>{openModal('badges-modal');const container=getEl('badges-list');container.className='badges-list-container';container.innerHTML='';const tpl=document.getElementById('badge-card-template');const sorted=sortBadgesSmartly();sorted.forEach(b=>{const p=getBadgeProgress(b);const clone=tpl.content.cloneNode(true);const card=clone.querySelector('.badge-card');const iconBox=clone.querySelector('.badge-icon-box');const img=clone.querySelector('.badge-img');const name=clone.querySelector('.badge-name');const tier=clone.querySelector('.badge-tier');const desc=clone.querySelector('.badge-desc');const progTxt=clone.querySelector('.badge-progress-text');const rewards=clone.querySelector('.badge-rewards');const bar=clone.querySelector('.badge-bar');let iconCls='text-slate-600 opacity-50',glow='',tTxt='',bCol='#ef4444';if(p.tier==='bronze'||(p.percent>0&&p.tier==='locked')){iconCls='text-red-500 drop-shadow-sm';tTxt='مستوى برونزي';bCol='#ef4444'}else if(p.tier==='silver'){iconCls='text-slate-100 drop-shadow-md';glow='shadow-[0_0_10px_rgba(255,255,255,0.3)]';tTxt='مستوى فضي';bCol='#f8fafc'}else if(p.tier==='gold'){iconCls='text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]';tTxt='مستوى ذهبي 👑';bCol='#fbbf24';card.classList.add('border-amber-500/50')}else if(p.tier==='diamond'){iconCls='text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse';tTxt='مستوى ماسي 💎';bCol='#22d3ee'}else if(p.tier==='legendary'){iconCls='text-red-600 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse-slow';tTxt='مستوى أسطوري 🔥';bCol='#ef4444'}let rewHtml='';if(p.activeLevel.rewards&&!p.isMaxed){let rList=[];if(p.activeLevel.rewards.score)rList.push(`<span class="text-amber-400">${formatNumberAr(p.activeLevel.rewards.score)} <span class="material-symbols-rounded text-[9px]">monetization_on</span></span>`);if(p.activeLevel.rewards.lives)rList.push(`<span class="text-red-500">+${p.activeLevel.rewards.lives} <span class="material-symbols-rounded text-[9px]">favorite</span></span>`);if(p.activeLevel.rewards.hint)rList.push(`<span class="text-yellow-400">+${p.activeLevel.rewards.hint} <span class="material-symbols-rounded text-[9px]">lightbulb</span></span>`);rewHtml=`<div class="flex gap-2 text-[9px] font-bold bg-black/20 px-2 py-0.5 rounded-full">${rList.join('<span class="text-slate-600">|</span>')}</div>`}else if(p.isMaxed){rewHtml='<span class="text-[9px] text-green-400 font-bold">تم الختم</span>'}img.src=b.image;name.textContent=b.name;tier.textContent=tTxt||'غير مكتسب';tier.className+=` ${iconCls}`;desc.textContent=b.desc;progTxt.textContent=`${formatNumberAr(p.current)} / ${formatNumberAr(p.max)}`;rewards.innerHTML=rewHtml;bar.style.width=`${p.percent}%`;bar.style.background=bCol;if(glow)iconBox.classList.add(glow);iconBox.className+=` ${iconCls}`;let cCls=p.percent>0?'active-target':'locked';if(p.isMaxed)cCls='unlocked';if(p.tier==='diamond')cCls+=' diamond';if(p.tier==='legendary')cCls+=' legendary';card.classList.add(...cCls.split(' '));container.appendChild(clone)})});
-
-// إلغاء المتغير القديم وتثبيت الوضع على الشهري
 let currentLeaderboardMode = 'monthly';
-
-// في ملف main.js - استبدل دالة loadLeaderboard بالكامل
-
-// 1. دالة تحميل لوحة المتصدرين (مع جلب البيانات الحية لبطل الشهر)
+// التحكم في وظيفة loadLeaderboard - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function loadLeaderboard() {
     const container = getEl('leaderboard-list');
     const loading = getEl('leaderboard-loading');
-    
-    // عرض التحميل
     if (loading) loading.classList.remove('hidden');
     if (container) {
         container.classList.add('hidden');
         container.innerHTML = '';
     }
     renderSkeleton('leaderboard', 6);
-
     try {
         const currentMonthKey = getCurrentMonthKey();
         const lastMonthKey = getLastMonthKey();
-
-        // --- جلب بطل الشهر الماضي ---
         const winnerDoc = await getDoc(doc(db, "winners", lastMonthKey));
         let lastMonthWinner = null;
-
         if (winnerDoc.exists()) {
             const savedWinnerData = winnerDoc.data();
-            
-            // محاولة جلب البيانات الحية (الصورة والإطار الحاليين)
             try {
                 if (savedWinnerData.userId) {
                     const liveUserDoc = await getDoc(doc(db, "users", savedWinnerData.userId));
                     if (liveUserDoc.exists()) {
                         const liveData = liveUserDoc.data();
-                        // دمج البيانات: السكور من السجل القديم، والصورة والإطار من السجل الحي
                         lastMonthWinner = {
                             ...savedWinnerData,
                             username: liveData.username || savedWinnerData.username,
@@ -3281,7 +1877,7 @@ async function loadLeaderboard() {
                             equippedFrame: liveData.equippedFrame || 'default'
                         };
                     } else {
-                        lastMonthWinner = savedWinnerData; // المستخدم غير موجود، نستخدم البيانات القديمة
+                        lastMonthWinner = savedWinnerData;
                     }
                 } else {
                     lastMonthWinner = savedWinnerData;
@@ -3291,22 +1887,14 @@ async function loadLeaderboard() {
                 lastMonthWinner = savedWinnerData;
             }
         }
-
-        // --- جلب المتصدرين لهذا الشهر ---
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", currentMonthKey), orderBy("monthlyStats.correct", "desc"), limit(20));
         const s = await getDocs(q);
-
-        // إخفاء التحميل وإظهار القائمة
         if (loading) loading.classList.add('hidden');
         if (container) container.classList.remove('hidden');
-        container.innerHTML = ''; // تنظيف الهيكل العظمي (Skeleton)
-
-        // رسم بطل الشهر الماضي (إذا وجد)
+        container.innerHTML = '';
         if (lastMonthWinner) {
             renderLastMonthWinner(lastMonthWinner, container);
         }
-
-        // رسم بقية القائمة
         if (s.empty) {
             const emptyMsg = document.createElement('div');
             emptyMsg.className = "text-center text-slate-400 py-10 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 mt-4";
@@ -3318,7 +1906,6 @@ async function loadLeaderboard() {
         } else {
             const statusUpdates = {};
             const statusRef = ref(rtdb, 'status');
-            // جلب حالة الاتصال مرة واحدة
             onValue(statusRef, (snapshot) => {
                  snapshot.forEach((child) => {
                      statusUpdates[child.key] = child.val();
@@ -3331,22 +1918,16 @@ async function loadLeaderboard() {
         if (container) container.innerHTML = `<div class="text-center text-red-400 mt-4">خطأ في التحميل، تأكد من الاتصال</div>`;
     }
 }
-
-// دالة رسم بطاقة بطل الشهر (تصميم مضغوط + لون بنفسجي ملكي مميز)
+// التحكم في وظيفة renderLastMonthWinner - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderLastMonthWinner(winner, container) {
     const avatarHtml = getAvatarHTML(winner.customAvatar, winner.equippedFrame || 'default', "w-full h-full");
-
     const winnerHtml = `
         <div class="last-month-winner-card relative overflow-hidden rounded-xl border border-purple-500/50 bg-gradient-to-br from-indigo-950 via-purple-900/60 to-indigo-950 p-2 mb-4 shadow-[0_4px_15px_rgba(168,85,247,0.25)] animate-fade-in group">
-            
             <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.15),transparent_70%)]"></div>
-            
             <div class="absolute -bottom-4 -left-4 rotate-12 opacity-10">
                 <span class="material-symbols-rounded text-6xl text-purple-200">military_tech</span>
             </div>
-
             <div class="relative z-10 flex items-center gap-2">
-                
                 <div class="relative shrink-0">
                     <div class="w-12 h-12 rounded-full border border-purple-300/50 shadow-md flex items-center justify-center bg-black/40 ring-1 ring-amber-500/20">
                         ${avatarHtml}
@@ -3355,35 +1936,26 @@ function renderLastMonthWinner(winner, container) {
                         <span class="material-symbols-rounded text-white text-[10px]">star</span>
                     </div>
                 </div>
-
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                    
                     <div class="flex justify-between items-center mb-1 px-1">
                         <h3 class="text-xs font-bold text-white truncate font-heading leading-none drop-shadow-md">${winner.username}</h3>
                         <span class="text-[8px] font-bold text-purple-200 bg-purple-500/20 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase tracking-wide">بطل الشهر الماضي</span>
                     </div>
-
                     <div class="relative flex items-center justify-center gap-1 bg-black/30 rounded py-0.5 border border-purple-500/20 w-full shadow-inner">
                         <span class="material-symbols-rounded text-amber-400 text-sm">workspace_premium</span>
-                        
                         <span class="text-lg font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 font-mono leading-none pt-0.5">
                             ${formatNumberAr(winner.score)}
                         </span>
-                        
                         <span class="text-[8px] text-purple-200/60 self-end mb-0.5">نقطة</span>
                     </div>
-
                 </div>
             </div>
-            
             <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"></div>
         </div>
     `;
-    
     container.insertAdjacentHTML('afterbegin', winnerHtml);
 }
-
-
+// التحكم في وظيفة getLastMonthKey - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function getLastMonthKey() {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -3391,126 +1963,87 @@ function getLastMonthKey() {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
 }
-
 let leaderboardTimerInterval = null;
-
+// التحكم في وظيفة startLeaderboardResetTimer - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function startLeaderboardResetTimer() {
     const timerContainer = document.getElementById('leaderboard-reset-timer');
     const timerDisplay = document.getElementById('reset-timer-display');
     if (!timerContainer || !timerDisplay) return;
-
     if (leaderboardTimerInterval) clearInterval(leaderboardTimerInterval);
-
+// التحكم في وظيفة updateTimer - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
     const updateTimer = () => {
         const now = new Date();
         const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         const diff = nextMonth - now;
-
-        // التحقق إذا كان متبقي أقل من أسبوع (7 أيام * 24 ساعة * 60 دقيقة * 60 ثانية * 1000 مللي ثانية)
         const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
-        
         if (diff <= oneWeekInMs) {
             timerContainer.classList.remove('hidden');
-            
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
             const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-            // التنسيق المطلوب: days:hours:minutes:seconds
             timerDisplay.textContent = `${days}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         } else {
             timerContainer.classList.add('hidden');
         }
     };
-
     updateTimer();
     leaderboardTimerInterval = setInterval(updateTimer, 1000);
 }
+// التحكم في وظيفة renderLeaderboardList - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderLeaderboardList(docs, container, statusUpdates) {
-    // 1. جلب القالب
     const template = document.getElementById('leaderboard-row-template');
     let r = 1;
-    
     docs.forEach(doc => {
         const data = doc.data();
         const userId = doc.id;
         const correctCount = (data.monthlyStats && data.monthlyStats.correct) ? data.monthlyStats.correct : 0;
-
-        // 2. استنساخ القالب
         const clone = template.content.cloneNode(true);
         const row = clone.querySelector('.leaderboard-row');
-        
-        // ماسكات العناصر
         const rankEl = clone.querySelector('.rank-icon');
         const avatarBox = clone.querySelector('.player-avatar-container');
         const nameEl = clone.querySelector('.player-name');
         const scoreEl = clone.querySelector('.player-score');
         const statusDot = clone.querySelector('.status-dot');
         const statusText = clone.querySelector('.status-text');
-
-        // 3. تعبئة البيانات الأساسية
         nameEl.textContent = data.username;
         scoreEl.textContent = formatNumberAr(correctCount);
-
         const nameLen = (data.username || "").length;
         if (nameLen > 25) nameEl.classList.add('text-[10px]', 'leading-tight'); 
         else if (nameLen > 18) nameEl.classList.add('text-xs'); 
         else nameEl.classList.add('text-lg');
-
-        // ==========================================
-        // 🔙 العودة للكود الأصلي (بدون حركة) 🔙
-        // ==========================================
-        
-        // تنظيف الستايل
         row.style.cssText = ''; 
-
-        // 1. تعيين الكلاسات الأساسية
         row.className = `leaderboard-row flex justify-between items-center p-3 mb-3 rounded-xl border-2 transition transform hover:scale-[1.01] cursor-pointer group relative`;
 row.style.setProperty('border-width', '0.3px', 'important');
         let medalHtml = `<span class="text-slate-500 font-mono font-bold text-sm w-6 text-center">#${formatNumberAr(r)}</span>`;
-
-        // 2. منطق الألوان الأصلي
         if (r <= 3) {
-            // === الثلاثة الأوائل (تدرج لوني ثابت وأنيق) ===
             row.style.setProperty('background-image', 'linear-gradient(to right, #322d07, #000)', 'important');
             row.style.setProperty('background-color', 'transparent', 'important');
-
             if (r === 1) {
-                // الأول
                 medalHtml = '<span class="material-symbols-rounded text-amber-400">emoji_events</span>'; 
-                row.style.setProperty('border-color', '#fbbf24', 'important'); // Amber-400
+                row.style.setProperty('border-color', '#fbbf24', 'important');
                 row.style.setProperty('box-shadow', '0 0 15px rgba(251, 191, 36, 0.3)', 'important');
             } 
             else if (r === 2) {
-                // الثاني
                 medalHtml = '<span class="material-symbols-rounded text-slate-300">military_tech</span>';
-                row.style.setProperty('border-color', '#cbd5e1', 'important'); // Slate-300
+                row.style.setProperty('border-color', '#cbd5e1', 'important');
                 row.style.setProperty('box-shadow', '0 0 10px rgba(203, 213, 225, 0.3)', 'important');
             }
             else if (r === 3) {
-                // الثالث
                 medalHtml = '<span class="material-symbols-rounded text-orange-700">military_tech</span>';
-                row.style.setProperty('border-color', '#c2410c', 'important'); // Orange-700
+                row.style.setProperty('border-color', '#c2410c', 'important');
                 row.style.setProperty('box-shadow', '0 0 10px rgba(194, 65, 12, 0.3)', 'important');
             }
-
         } else {
-            // === باقي المتنافسين ===
             row.style.setProperty('background-image', 'none', 'important');
             row.style.setProperty('background-color', '#0f172a', 'important'); 
             row.style.setProperty('border-color', '#1e293b', 'important');
         }
-
         rankEl.innerHTML = medalHtml;
-
-        // إكمال باقي الكود (الأفاتار والحالة) كما هو...
         const pFrame = data.equippedFrame || 'default';
         avatarBox.innerHTML = getAvatarHTML(data.customAvatar, pFrame, "w-10 h-10");
-
         const userStatus = statusUpdates[userId];
         const isOnline = userStatus && userStatus.state === 'online';
-        
         if (isOnline) {
             statusDot.className = "status-dot w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse inline-block";
             statusText.className = "status-text text-[9px] text-green-400 font-bold leading-none pt-0.5";
@@ -3521,7 +2054,6 @@ row.style.setProperty('border-width', '0.3px', 'important');
             if (timeDiff > 86400000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 86400000))} يوم`;
             else if (timeDiff > 3600000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 3600000))} ساعة`;
             else if (timeDiff > 60000) timeAgo = `منذ ${formatNumberAr(Math.floor(timeDiff / 60000))} دقيقة`;
-
             statusDot.className = "status-dot w-2 h-2 rounded-full bg-slate-500 opacity-50 inline-block";
             statusText.className = "status-text text-[9px] text-slate-500 opacity-80 leading-none pt-0.5";
             statusText.textContent = timeAgo;
@@ -3530,52 +2062,32 @@ row.style.setProperty('border-width', '0.3px', 'important');
             statusText.className = "status-text text-[9px] text-slate-600 opacity-50 leading-none pt-0.5";
             statusText.textContent = "غير متاح";
         }
-
         row.onclick = () => showPlayerProfile(data);
         container.appendChild(clone);
         r++;
     });
 }
-
-
+// التحكم في وظيفة showPlayerProfile - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showPlayerProfile(data){getEl('popup-player-name').textContent=data.username;getEl('popup-player-score').textContent=`${formatNumberAr(data.highScore)} نقطة`;if(data.customAvatar){getEl('popup-player-img').src=data.customAvatar;show('popup-player-img');hide('popup-player-icon')}else{hide('popup-player-img');show('popup-player-icon')}const bContainer=getEl('popup-player-badges');bContainer.innerHTML='';bContainer.className='grid grid-cols-3 gap-4 justify-items-center max-h-60 overflow-y-auto p-4 scrollbar-thin';let descBox=document.getElementById('profile-badge-desc-box');if(!descBox){descBox=document.createElement('div');descBox.id='profile-badge-desc-box';descBox.className='mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 text-center min-h-[4rem] flex items-center justify-center w-full';bContainer.parentNode.appendChild(descBox)}descBox.innerHTML='<p class="text-xs text-slate-500 animate-pulse">اضغط على أي وسام لمعرفة قصته</p>';if(data.badges&&data.badges.length>0){const bestBadges={};data.badges.forEach(bid=>{if(bid==='beginner')return;const[baseId,lvlPart]=bid.split('_lvl');const level=parseInt(lvlPart)||1;if(!bestBadges[baseId]||level>bestBadges[baseId].level){bestBadges[baseId]={id:bid,baseId:baseId,level:level}}});const finalBadges=Object.values(bestBadges);if(finalBadges.length===0){bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لم يحصل هذا اللاعب على أوسمة خاصة بعد.</span>'}else{const tpl=document.getElementById('mini-badge-template');finalBadges.forEach(item=>{const bObj=badgesMap[item.baseId];if(bObj){let tierName='برونزي',glowStyle='',tierColorHex='#b45309';if(item.level===2){tierName='فضي';glowStyle='box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';tierColorHex='#cbd5e1'}else if(item.level===3){tierName='ذهبي';glowStyle='box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: #fbbf24;';tierColorHex='#fbbf24'}else if(item.level===4){tierName='ماسي';glowStyle='box-shadow: 0 0 15px rgba(34, 211, 238, 0.8); border-color: #22d3ee;';tierColorHex='#22d3ee'}else if(item.level===5){tierName='أسطوري';glowStyle='box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';tierColorHex='#ef4444'}else{glowStyle='box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;'}const clone=tpl.content.cloneNode(true);const ring=clone.querySelector('.badge-ring');const img=clone.querySelector('.badge-img');const name=clone.querySelector('.badge-name');const tier=clone.querySelector('.badge-tier');const root=clone.querySelector('.mini-badge');img.src=bObj.image;name.textContent=bObj.name;tier.textContent=`(${tierName})`;tier.style.color=tierColorHex;ring.style.cssText=glowStyle;root.onclick=()=>{const allRings=bContainer.querySelectorAll('.badge-ring');allRings.forEach(r=>r.style.transform='scale(1)');ring.style.transform='scale(1.15)';descBox.innerHTML=`<div class="fade-in"><strong class="text-amber-400 text-xs block mb-1 border-b border-amber-500/20 pb-1 mx-auto w-fit">${bObj.name}</strong><p class="text-xs text-slate-200 leading-relaxed"><span class="text-green-400 font-bold">"${bObj.desc}"</span></p></div>`;playSound('click')};bContainer.appendChild(clone)}})}}else{bContainer.innerHTML='<span class="col-span-3 text-xs text-slate-500 py-6">لا توجد أوسمة مكتسبة.</span>'}openModal('player-profile-modal')}
-
 bind('nav-favs','click',()=>{openModal('fav-modal');const l=getEl('fav-list');l.innerHTML='';if(!userProfile.favorites||userProfile.favorites.length===0){l.innerHTML='<div class="flex flex-col items-center justify-center py-10 opacity-50"><span class="material-symbols-rounded text-4xl mb-2">favorite_border</span><p class="text-xs">لا توجد أسئلة مفضلة</p></div>';return}const tpl=document.getElementById('fav-item-template');userProfile.favorites.forEach((f,i)=>{const clone=tpl.content.cloneNode(true);clone.querySelector('.fav-q').textContent=f.question;clone.querySelector('.fav-a').textContent=`الإجابة: ${f.options[f.correctAnswer]}`;const btn=clone.querySelector('.fav-del-btn');btn.onclick=async()=>{userProfile.favorites.splice(i,1);try{await updateDoc(doc(db,"users",effectiveUserId),{favorites:userProfile.favorites});toast("تم الحذف");getEl('nav-favs').click()}catch(e){toast("خطأ","error")}};l.appendChild(clone)})});
-
 bind('nav-mistakes', 'click', () => { toggleMenu(false); getEl('review-mistakes-btn').click(); });
 bind('nav-settings', 'click', () => openModal('settings-modal'));
-// التغيير يحدث عند ترك الزر لتقليل الوميض
-// --- تحسين منطق تغيير حجم الخط وحفظه ---
-
-// --- كود التحكم بحجم الخط (المحسن) ---
-
-// 1. عند تحميل التطبيق: استعادة الحجم وتحديث الرقم
 const savedFontSize = localStorage.getItem('app_font_size');
 if (savedFontSize) {
     document.documentElement.style.setProperty('--base-size', savedFontSize + 'px');
     const slider = getEl('font-size-slider');
     const numDisplay = getEl('font-size-number');
-    
     if (slider) slider.value = savedFontSize;
-    if (numDisplay) numDisplay.textContent = savedFontSize; // تحديث الرقم عند التحميل
+    if (numDisplay) numDisplay.textContent = savedFontSize;
 }
-
-// 2. عند تحريك الشريط (تحديث فوري للنص والرقم)
 bind('font-size-slider', 'input', (e) => {
     const newVal = e.target.value;
-    
-    // تطبيق الحجم
     document.documentElement.style.setProperty('--base-size', newVal + 'px');
-    
-    // تحديث الرقم الظاهر للمستخدم
     const numDisplay = getEl('font-size-number');
     if (numDisplay) numDisplay.textContent = newVal;
-    
-    // حفظ في الذاكرة
     localStorage.setItem('app_font_size', newVal);
 });
-
-
+// التحكم في وظيفة handleLogout - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 const handleLogout = () => { 
     window.showConfirm(
         "تسجيل الخروج",
@@ -3587,11 +2099,8 @@ const handleLogout = () => {
         }
     );
 };
-
-
 bind('logout-btn', 'click', handleLogout);
 bind('logout-btn-menu', 'click', handleLogout);
-
 bind('clear-cache-btn', 'click', () => { 
     window.showConfirm(
         "مسح البيانات",
@@ -3603,31 +2112,19 @@ bind('clear-cache-btn', 'click', () => {
         }
     );
 });
-
 bind('nav-about', 'click', () => openModal('about-modal'));
-
 bind('user-profile-btn', 'click', () => {
     openModal('user-modal'); 
-    
-    // 1. تعبئة البيانات الأساسية
     getEl('edit-username').value = userProfile.username;
-    
-    // 2. عرض تاريخ الانضمام
     let joinDateStr = "غير معروف";
     if (userProfile.createdAt) {
         const dateObj = userProfile.createdAt.toDate ? userProfile.createdAt.toDate() : new Date(userProfile.createdAt);
         joinDateStr = dateObj.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
     }
     getEl('profile-join-date').textContent = `انضم في: ${joinDateStr}`;
-
-    // 3. عرض الصورة الشخصية + الإطار (التعديل الجديد) 🌟
     const avatarContainer = document.querySelector('#user-modal .relative.w-24.h-24');
-    
-    // أ) تنظيف أي إطار قديم لمنع التكرار
     const oldFrame = avatarContainer.querySelector('.avatar-frame-overlay');
     if (oldFrame) oldFrame.remove();
-
-    // ب) عرض الصورة أو الأيقونة
     if(userProfile.customAvatar) {
          getEl('profile-img-preview').src = userProfile.customAvatar;
          show('profile-img-preview');
@@ -3638,36 +2135,27 @@ bind('user-profile-btn', 'click', () => {
          show('profile-icon-preview');
          hide('delete-custom-avatar');
     }
-
-    // ج) إضافة الإطار المختار (إن وجد)
     const currentFrameId = userProfile.equippedFrame || 'default';
     if (currentFrameId !== 'default') {
         const frameObj = framesData.find(f => f.id === currentFrameId);
         if (frameObj) {
             const frameDiv = document.createElement('div');
-            // نضيف pointer-events-none لضمان إمكانية الضغط على زر تغيير الصورة
             frameDiv.className = `avatar-frame-overlay ${frameObj.cssClass}`;
             frameDiv.style.pointerEvents = 'none'; 
             avatarContainer.appendChild(frameDiv);
         }
     }
-    
-    // 4. عرض الإحصائيات
     const stats = userProfile.stats || {};
     const totalQ = stats.totalQuestions || 0;
     const totalC = stats.totalCorrect || 0;
     const accuracy = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
-
     getEl('profile-stat-score').textContent = formatNumberAr(userProfile.highScore);
     getEl('profile-stat-played').textContent = formatNumberAr(stats.quizzesPlayed || 0);
     getEl('profile-stat-correct').textContent = formatNumberAr(totalC);
     getEl('profile-stat-accuracy').textContent = `%${formatNumberAr(accuracy)}`;
-
-    // 5. عرض الأوسمة
     const badgesContainer = getEl('profile-badges-display');
     badgesContainer.innerHTML = '';
     badgesContainer.className = 'grid grid-cols-3 gap-4 justify-items-center bg-slate-900/50 p-4 rounded-xl border border-slate-800 min-h-[100px] max-h-[300px] overflow-y-auto';
-
     if (userProfile.badges && userProfile.badges.length > 0) {
         const bestBadges = {};
         userProfile.badges.forEach(bid => {
@@ -3678,9 +2166,7 @@ bind('user-profile-btn', 'click', () => {
                 bestBadges[baseId] = { id: bid, baseId: baseId, level: level };
             }
         });
-
         const finalBadges = Object.values(bestBadges);
-
         if (finalBadges.length === 0) {
             badgesContainer.className = 'flex justify-center items-center bg-slate-900/50 p-4 rounded-xl border border-slate-800 min-h-[80px]';
             badgesContainer.innerHTML = '<span class="text-xs text-slate-500">لم تحصل على أوسمة خاصة بعد</span>';
@@ -3691,7 +2177,6 @@ bind('user-profile-btn', 'click', () => {
                     let tierName = 'برونزي';
                     let glowStyle = 'box-shadow: 0 0 10px rgba(180, 83, 9, 0.4); border-color: #b45309;';
                     let tierColorHex = '#b45309';
-
                     if(item.level === 2) { 
                         tierName = 'فضي'; 
                         glowStyle = 'box-shadow: 0 0 12px rgba(203, 213, 225, 0.6); border-color: #cbd5e1;';
@@ -3709,7 +2194,6 @@ bind('user-profile-btn', 'click', () => {
                         glowStyle = 'box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); border-color: #ef4444; animation: pulse-slow 2s infinite;';
                         tierColorHex = '#ef4444';
                     }
-
                     const badgeDiv = document.createElement('div');
                     badgeDiv.className = 'flex flex-col items-center gap-2 group cursor-pointer';
                     badgeDiv.innerHTML = `
@@ -3730,22 +2214,15 @@ bind('user-profile-btn', 'click', () => {
         badgesContainer.innerHTML = '<span class="text-xs text-slate-500">لا توجد أوسمة</span>';
     }
 });
-
-
 bind('save-user-btn', 'click', async () => { 
     const n = getEl('edit-username').value.trim();
-    
     const updates = {};
     let change = false;
-
-    // 1. معالجة تغيير الاسم
     if(n && n !== userProfile.username) { 
         updates.username = n; 
         userProfile.username = n; 
         change = true; 
     }
-
-    // 2. معالجة الصورة الرمزية
     if (userProfile.tempCustomAvatar) {
         updates.customAvatar = userProfile.tempCustomAvatar;
         userProfile.customAvatar = userProfile.tempCustomAvatar;
@@ -3757,20 +2234,15 @@ bind('save-user-btn', 'click', async () => {
         change = true;
         userProfile.deleteCustom = false;
     }
-
-    // تنفيذ الحفظ
     if(change) {
         const btn = getEl('save-user-btn');
         btn.disabled = true;
         btn.textContent = "جاري الحفظ...";
-
         try {
             await updateDoc(doc(db,"users",effectiveUserId), updates);
             updateProfileUI(); 
-            
             if (updates.customAvatar) addLocalNotification('تحديث الملف', 'تم تغيير الصورة الشخصية', 'account_circle');
             if (updates.username) addLocalNotification('تحديث الملف', `تم تغيير الاسم إلى ${updates.username}`, 'badge');
-
             toast("✅ تم حفظ التغييرات بنجاح");
         } catch(e) {
             console.error(e);
@@ -3783,8 +2255,6 @@ bind('save-user-btn', 'click', async () => {
         toast("لم تقم بأي تغييرات");
     }
 });
-
-
 bind('avatar-upload', 'change', handleImageUpload);
 bind('delete-custom-avatar', 'click', () => {
     userProfile.tempCustomAvatar = null;
@@ -3793,31 +2263,23 @@ bind('delete-custom-avatar', 'click', () => {
     show('profile-icon-preview');
     hide('delete-custom-avatar');
 });
-
 bind('restart-button', 'click', navToHome);
-
-
+// التحكم في وظيفة getCurrentMonthKey - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function getCurrentMonthKey() {
     const d = new Date();
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
 }
-
+// التحكم في وظيفة saveMonthlyWinner - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function saveMonthlyWinner(monthKey) {
     try {
-        // 1. أولاً: نتحقق هل تم تسجيل فائز لهذا الشهر مسبقاً؟
         const winnerDocRef = doc(db, "winners", monthKey);
         const winnerDocSnap = await getDoc(winnerDocRef);
-
-        // إذا كان المستند موجوداً، لا تفعل شيئاً وتوقف فوراً
-        // هذا يمنع استبدال البطل الحقيقي بشخص آخر لاحقاً
         if (winnerDocSnap.exists()) {
             console.log(`🏆 فائز شهر ${monthKey} مسجل مسبقاً، لن يتم الاستبدال.`);
             return;
         }
-
-        // 2. إذا لم يكن مسجلاً، نقوم بالبحث عنه وحفظه (الكود الأصلي)
         const q = query(collection(db, "users"), where("monthlyStats.key", "==", monthKey), orderBy("monthlyStats.correct", "desc"), limit(1));
         const s = await getDocs(q);
         if (!s.empty) {
@@ -3826,7 +2288,7 @@ async function saveMonthlyWinner(monthKey) {
             await setDoc(winnerDocRef, {
                 userId: winnerId,
                 username: winnerData.username || "لاعب مجهول",
-                photoURL: winnerData.photoURL || "", // حقل احتياطي
+                photoURL: winnerData.photoURL || "",
                 score: winnerData.monthlyStats.correct,
                 monthKey: monthKey,
                 timestamp: serverTimestamp()
@@ -3837,74 +2299,45 @@ async function saveMonthlyWinner(monthKey) {
         console.error("Failed to save monthly winner:", e);
     }
 }
-
-// ==========================================
-// 🛍️ نظام المتجر والحقيبة الجديد (Zero-Flicker)
-// ==========================================
-
 let isBagSystemInitialized = false;
-
+// التحكم في وظيفة openBag - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function openBag() {
     toggleMenu(false);
-    
-    // 1. التهيئة لمرة واحدة فقط (بناء الهيكل)
     if (!isBagSystemInitialized) {
         initBagSystem();
         isBagSystemInitialized = true;
     }
-
-    // 2. تحديث الحالة فقط (سريع جداً ولا يسبب وميض)
     updateBagState();
-    
-    // 3. فتح النافذة
     openModal('bag-modal');
 }
-
-// دالة البناء الأولي (تعمل مرة واحدة فقط عند فتح التطبيق لأول مرة)
+// التحكم في وظيفة initBagSystem - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function initBagSystem() {
-    // --- أ) بناء قسم الحقيبة (Inventory) ---
-    // سنقوم بإنشاء بطاقة لكل إطار موجود في اللعبة، لكن سنخفي غير المملوك منها بالـ CSS
     const invContainer = getEl('inventory-view');
-    // تنظيف الحاوية لضمان عدم التكرار
     const existingList = getEl('inv-frames-grid-new');
     if (existingList) existingList.remove();
-
-    // إنشاء الشبكة
     const invGrid = document.createElement('div');
     invGrid.id = 'inv-frames-grid-new';
     invGrid.className = 'game-store-grid';
-
-    // عنوان القسم
     const invHeader = document.createElement('h4');
     invHeader.className = "text-sm text-slate-400 mb-3 font-bold mt-4 border-t border-slate-700 pt-4";
     invHeader.textContent = "إطاراتي (اضغط للتجهيز)";
     invContainer.appendChild(invHeader);
-
-    // إضافة كل الإطارات الممكنة للشبكة
     framesData.forEach(f => {
         const card = createGameItemCard(f, 'inventory');
         invGrid.appendChild(card);
     });
     invContainer.appendChild(invGrid);
-
-
-    // --- ب) بناء قسم المتجر (Shop) ---
     const shopContainer = getEl('shop-view');
     const existingShopGrid = getEl('shop-frames-grid-new');
     if (existingShopGrid) existingShopGrid.remove();
-
     const shopGrid = document.createElement('div');
     shopGrid.id = 'shop-frames-grid-new';
-    shopGrid.className = 'game-store-grid'; // نفس كلاس الشبكة
-    // نستخدم grid-cols-2 للمتجر ليكون العرض أكبر قليلاً إذا أردت، أو نتركه موحد
+    shopGrid.className = 'game-store-grid';
     shopGrid.style.gridTemplateColumns = "repeat(2, 1fr)"; 
-
     const shopHeader = document.createElement('h4');
     shopHeader.className = "text-amber-400 text-sm font-bold mt-6 mb-3 flex items-center gap-1";
     shopHeader.innerHTML = `<span class="material-symbols-rounded">image</span> إطارات الأفاتار`;
     shopContainer.appendChild(shopHeader);
-
-    // إضافة الإطارات (ما عدا الافتراضي) للمتجر
     framesData.forEach(f => {
         if (f.id === 'default') return;
         const card = createGameItemCard(f, 'shop');
@@ -3912,58 +2345,42 @@ function initBagSystem() {
     });
     shopContainer.appendChild(shopGrid);
 }
-
+// التحكم في وظيفة createGameItemCard - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function createGameItemCard(fData,type){const tpl=document.getElementById('game-item-template');const clone=tpl.content.cloneNode(true);const btn=clone.querySelector('button');const prev=clone.querySelector('.item-preview');const name=clone.querySelector('.item-name');const act=clone.querySelector('.item-action');btn.id=`btn-${type}-${fData.id}`;prev.innerHTML=getAvatarHTML(userProfile.customAvatar,fData.id,"w-full h-full");name.textContent=fData.name;if(type==='shop'){act.innerHTML=`<span class="game-item-price text-[10px] bg-black/40 px-2 py-1 rounded text-amber-400 font-bold flex items-center gap-1 border border-white/5">${formatNumberAr(fData.price)} <span class="material-symbols-rounded text-[10px]">monetization_on</span></span>`}else{act.innerHTML='<div class="equip-badge hidden bg-green-500/20 p-1 rounded-full"><span class="material-symbols-rounded text-green-400 text-sm">check</span></div>'}btn.onclick=()=>{if(type==='inventory'){equipFrame(fData.id)}else{if(!btn.classList.contains('owned')){window.buyShopItem('frame',fData.price,fData.id)}}};return btn}
-
-
-// دالة التحديث (تعمل عند كل فتح للحقيبة أو شراء)
+// التحكم في وظيفة updateBagState - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateBagState() {
-    // 1. تحديث النصوص (الرصيد والعدادات)
     getEl('bag-user-score').textContent = formatNumberAr(userProfile.highScore);
     const inv = userProfile.inventory;
     getEl('inv-lives-count').textContent = formatNumberAr(inv.lives || 0);       
     getEl('inv-fifty-count').textContent = formatNumberAr(inv.helpers.fifty || 0); 
     getEl('inv-hint-count').textContent = formatNumberAr(inv.helpers.hint || 0);   
     getEl('inv-skip-count').textContent = formatNumberAr(inv.helpers.skip || 0);
-
     const ownedFrames = userProfile.inventory.frames || ['default'];
     const currentFrame = userProfile.equippedFrame;
-
-    // 2. تحديث عناصر الحقيبة (Inventory)
     framesData.forEach(f => {
         const btn = document.getElementById(`btn-inventory-${f.id}`);
         if (!btn) return;
-
-        // أ) هل أملك هذا الإطار؟
         if (ownedFrames.includes(f.id)) {
-            btn.classList.remove('game-item-hidden'); // إظهار
+            btn.classList.remove('game-item-hidden');
         } else {
-            btn.classList.add('game-item-hidden'); // إخفاء
+            btn.classList.add('game-item-hidden');
         }
-
-        // ب) هل هو مجهز؟
         if (f.id === currentFrame) {
             btn.classList.add('equipped');
         } else {
             btn.classList.remove('equipped');
         }
-        
-        // تحديث صورة الأفاتار داخل الزر (في حال غير المستخدم صورته)
         const avatarContainer = btn.querySelector('.avatar-wrapper');
         if(avatarContainer) {
              avatarContainer.outerHTML = getAvatarHTML(userProfile.customAvatar, f.id, "w-10 h-10");
         }
     });
-
-    // 3. تحديث عناصر المتجر (Shop)
     framesData.forEach(f => {
         if (f.id === 'default') return;
         const btn = document.getElementById(`btn-shop-${f.id}`);
         if (!btn) return;
-
         if (ownedFrames.includes(f.id)) {
             btn.classList.add('owned');
-            // إخفاء السعر وإظهار "مملوك"
             const priceTag = btn.querySelector('.game-item-price');
             if(priceTag) {
                 priceTag.style.background = 'transparent';
@@ -3975,17 +2392,12 @@ function updateBagState() {
         }
     });
 }
-
-
-
-
-// دالة التبديل بين التبويبات
+// التحكم في وظيفة switchBagTab - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function switchBagTab(tab) {
     const tInv = getEl('tab-inventory');
     const tShop = getEl('tab-shop');
     const vInv = getEl('inventory-view');
     const vShop = getEl('shop-view');
-
     if(tab === 'inventory') {
         tInv.classList.add('bg-amber-500', 'text-black'); tInv.classList.remove('bg-slate-700', 'text-slate-300');
         tShop.classList.remove('bg-amber-500', 'text-black'); tShop.classList.add('bg-slate-700', 'text-slate-300');
@@ -3996,13 +2408,11 @@ function switchBagTab(tab) {
         hide('inventory-view'); show('shop-view');
     }
 }
-
-// دالة تجهيز الإطار
+// التحكم في وظيفة equipFrame - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function equipFrame(frameId) {
     userProfile.equippedFrame = frameId;
     updateProfileUI();
      updateBagState();  
-    
     try {
         await updateDoc(doc(db, "users", effectiveUserId), {
             equippedFrame: frameId
@@ -4014,22 +2424,18 @@ async function equipFrame(frameId) {
         toast("فشل حفظ التغيير", "error");
     }
 }
-
 window.buyShopItem = async function(type, cost, id=null) {
     if(userProfile.highScore < cost) {
         toast("رصيدك غير كافٍ!", "error");
         playSound('lose');
         return;
     }
-
     window.showConfirm(
         "تأكيد الشراء", 
         `هل تريد دفع ${cost} نقطة؟`, 
         "shopping_cart", 
         async () => {
             userProfile.highScore -= cost;
-            
-            // ✅ التصحيح: جعلنا هذا الشرط هو الأول (if بدلاً من else if)
             if (type === 'frame') { 
                 if(!userProfile.inventory.frames) userProfile.inventory.frames = [];
                 userProfile.inventory.frames.push(id);
@@ -4047,12 +2453,9 @@ window.buyShopItem = async function(type, cost, id=null) {
                 userProfile.inventory.helpers.skip++;
                 toast("تم شراء تخطي");
             }
-
             if(!userProfile.stats) userProfile.stats = {};
             userProfile.stats.itemsBought = (userProfile.stats.itemsBought || 0) + 1;
-            
             updateQuestProgress(5, 1);
-
                try {
                 await updateDoc(doc(db, "users", effectiveUserId), {
                     highScore: userProfile.highScore,
@@ -4060,20 +2463,13 @@ window.buyShopItem = async function(type, cost, id=null) {
                     "stats.itemsBought": userProfile.stats.itemsBought
                 });
                 playSound('win');
-                
-                // ✅ التغيير هنا: نستخدم دالة التحديث الجديدة
                 updateBagState(); 
-                
                 updateProfileUI(); 
-                 
-                // إزالة ذكر الثيم من الإشعار
                 let itemName = type === 'frame' ? 'إطار أفاتار' : 'عنصر';
                 addLocalNotification('عملية شراء 🛒', `تم شراء ${itemName} مقابل ${cost} نقطة`, 'shopping_bag');
-
                 setTimeout(async () => {
                     await checkAndUnlockBadges();
                 }, 500);
-
             } catch(e) {
                 console.error(e);
                 toast("خطأ في الاتصال", "error");
@@ -4081,28 +2477,19 @@ window.buyShopItem = async function(type, cost, id=null) {
         }
     );
 };
-
-
-// ربط أزرار الحقيبة
 bind('tab-inventory', 'click', () => switchBagTab('inventory'));
 bind('tab-shop', 'click', () => switchBagTab('shop'));
-
-// دالة التأكيد الموحدة
 window.showConfirm = function(title, msg, icon, yesCallback) {
     const modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-msg').textContent = msg;
     document.getElementById('confirm-icon').textContent = icon || 'help';
-
-    // استنساخ الأزرار لإزالة الأحداث السابقة (لتجنب التكرار)
     const yesBtn = document.getElementById('btn-confirm-yes');
     const newYesBtn = yesBtn.cloneNode(true);
     yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-
     const noBtn = document.getElementById('btn-confirm-no');
     const newNoBtn = noBtn.cloneNode(true);
     noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-
     newYesBtn.onclick = () => {
         modal.classList.remove('active');
         if(yesCallback) yesCallback();
@@ -4110,46 +2497,33 @@ window.showConfirm = function(title, msg, icon, yesCallback) {
     newNoBtn.onclick = () => {
         modal.classList.remove('active');
     };
-
     modal.classList.add('active');
 };
-
-
+// التحكم في وظيفة bind - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function bind(id, ev, fn) { const el = getEl(id); if(el) el.addEventListener(ev, fn); }
+// التحكم في وظيفة shuffleArray - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
-
-
-
+// التحكم في وظيفة launchConfetti - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function launchConfetti() { const canvas = getEl('confetti-canvas'); const ctx = canvas.getContext('2d'); canvas.width = window.innerWidth; canvas.height = window.innerHeight; let particles = []; for(let i=0; i<100; i++) particles.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height-canvas.height, c:['#fbbf24','#f59e0b','#ffffff'][Math.floor(Math.random()*3)], s:Math.random()*5+2, v:Math.random()*5+2}); function draw() { ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p => { ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.s,0,Math.PI*2); ctx.fill(); p.y+=p.v; if(p.y>canvas.height) p.y=-10; }); requestAnimationFrame(draw); } draw(); setTimeout(()=>canvas.width=0, 5000); }
-
 bind('login-btn', 'click', handleLogin);
 bind('register-btn', 'click', handleReg);
 bind('show-register-btn', 'click', () => { hide('login-view'); show('register-view'); getEl('login-error-message').textContent=''; });
 bind('show-login-btn', 'click', () => { hide('register-view'); show('login-view'); getEl('register-error-message').textContent=''; });
-
 bind('btn-marathon-start', 'click', () => { 
-    // --- التحقق من بنك الأخطاء ---
     if (userProfile.wrongQuestionsBank && userProfile.wrongQuestionsBank.length > 0) {
         openModal('force-review-modal');
-        return; // إيقاف الدالة
+        return;
     }
-
-    // فتح النافذة فقط دون تعطيل الأزرار الخلفية
     document.getElementById('marathon-rules-modal').classList.add('active'); 
 });
-
-
 bind('btn-marathon-confirm', 'click', startMarathon);
-
+// التحكم في وظيفة showReviveModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showReviveModal() {
     let modal = document.getElementById('revive-modal');
-    // إزالة النافذة القديمة لضمان تحديث النصوص
     if (modal) modal.remove();
-
     modal = document.createElement('div');
     modal.id = 'revive-modal';
     modal.className = 'modal-overlay';
-    // لاحظ استخدام formatNumberAr لكل الأرقام في الأسعار والكميات
     modal.innerHTML = `
         <div class="modal-box border-2 border-red-500/50">
             <div class="text-center mb-6">
@@ -4164,15 +2538,15 @@ function showReviveModal() {
                 </span>
             </div>
             <div class="space-y-3">
-                <button onclick="window.buyLives(1, 50)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                <button onclick="window.buyLives(REVIVE_PRICES[0].amount, REVIVE_PRICES[0].cost)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
                     <div class="flex items-center gap-2"><span class="material-symbols-rounded text-red-500">favorite</span><span class="text-white font-bold">${formatNumberAr(1)} قلب</span></div>
                     <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(50)} نقطة</span>
                 </button>
-                <button onclick="window.buyLives(2, 90)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                <button onclick="window.buyLives(REVIVE_PRICES[1].amount, REVIVE_PRICES[1].cost)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
                     <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">${formatNumberAr(2)} قلب</span></div>
                     <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(90)} نقطة <span class="text-[10px] text-green-400">(وفر ${formatNumberAr(10)})</span></span>
                 </button>
-                <button onclick="window.buyLives(3, 120)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
+                <button onclick="window.buyLives(REVIVE_PRICES[2].amount, REVIVE_PRICES[2].cost)" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 p-3 rounded-xl flex justify-between items-center group transition">
                     <div class="flex items-center gap-2"><div class="flex"><span class="material-symbols-rounded text-red-500">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span><span class="material-symbols-rounded text-red-500 -mr-2">favorite</span></div><span class="text-white font-bold">${formatNumberAr(3)} قلوب</span></div>
                     <span class="text-amber-400 font-bold text-sm bg-black/20 px-2 py-1 rounded">${formatNumberAr(120)} نقطة <span class="text-[10px] text-green-400">(وفر ${formatNumberAr(30)})</span></span>
                 </button>
@@ -4184,15 +2558,12 @@ function showReviveModal() {
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('active'), 100);
 }
-
-
 window.buyLives = async function(amount, cost) {
     if (userProfile.highScore < cost) {
         toast("رصيدك غير كافٍ للشراء!", "error");
         playSound('lose');
         return;
     }
-    
     try {
         userProfile.highScore -= cost;
         await updateDoc(doc(db, "users", effectiveUserId), { highScore: userProfile.highScore });
@@ -4208,53 +2579,43 @@ window.buyLives = async function(amount, cost) {
         toast("حدث خطأ أثناء الشراء، حاول مرة أخرى", "error");
     }
 };
-
 window.cancelRevive = function() {
     document.getElementById('revive-modal').classList.remove('active');
     endQuiz();
 };
-
-
+// التحكم في وظيفة checkMarathonStatus - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function checkMarathonStatus() {
     const btn = getEl('btn-marathon-start');
     if (marathonInterval) clearInterval(marathonInterval);
-
     if (!userProfile || !userProfile.lastMarathonDate) {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-
 btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="material-symbols-rounded">local_fire_department</span>`;
         return;
     }
-
     const lastPlayed = userProfile.lastMarathonDate.toMillis ? userProfile.lastMarathonDate.toMillis() : new Date(userProfile.lastMarathonDate).getTime();
     const now = Date.now();
     const twentyFourHours = 1 * 60 * 60 * 1000;
     const diff = now - lastPlayed;
-
     if (diff < twentyFourHours) {
         btn.disabled = true;
         btn.classList.add('cursor-not-allowed');
-        
+// التحكم في وظيفة updateTimer - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
         const updateTimer = () => {
             const currentNow = Date.now();
             const timeLeft = twentyFourHours - (currentNow - lastPlayed);
-            
             if (timeLeft <= 0) {
                 clearInterval(marathonInterval);
                 checkMarathonStatus();
                 return;
             }
-
             const h = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const m = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-            // تعريب الساعة
+// التحكم في وظيفة pad - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
             const pad = (n) => n.toString().padStart(2, '0');
             const timeStr = `${pad(h)}:${pad(m)}:${pad(s)}`;
             const arTime = timeStr.replace(/\d/g, d => ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'][d]);
-
             btn.innerHTML = `
                 <span class="text-lg font-mono font-bold text-black" dir="ltr">
                     ${arTime}
@@ -4262,39 +2623,29 @@ btn.innerHTML = `<span class="text-lg">أكمل النور</span> <span class="m
                 <span class="material-symbols-rounded text-black">lock_clock</span>
             `;
         };
-
         updateTimer();
         marathonInterval = setInterval(updateTimer, 1000);
     } else {
         btn.disabled = false;
         btn.classList.remove('cursor-not-allowed');
         btn.innerHTML = `<span class="text-lg">(أكمل النور)</span> <span class="material-symbols-rounded">directions_run</span>`;
-
     }
 }
-
-
+// التحكم في وظيفة checkWhatsNew - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function checkWhatsNew() {
     try {
         const docRef = doc(db, "system", "whats_new");
         const docSnap = await getDoc(docRef);
-
         if (docSnap.exists()) {
             const data = docSnap.data();
-
             if (!data.isActive || !data.message) return;
-
             const serverTime = data.updatedAt ? data.updatedAt.toMillis() : 0;
             const localTime = parseInt(localStorage.getItem('last_seen_news_time') || '0');
-
             if (serverTime > localTime) {
                 const contentEl = getEl('news-content');
                 contentEl.innerHTML = data.message;
- 
-                
                 const modal = getEl('news-modal');
                 modal.classList.add('active');
-
                 getEl('close-news-btn').onclick = () => {
                     localStorage.setItem('last_seen_news_time', serverTime);
                     modal.classList.remove('active');
@@ -4306,73 +2657,56 @@ async function checkWhatsNew() {
         console.error("News fetch error:", e);
     }
 }
-
 bind('btn-force-review-confirm', 'click', () => {
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
     getEl('review-mistakes-btn').click();
 });
-
-
-// --- دالة تحويل الأرقام وتنسيقها ---
+// التحكم في وظيفة formatNumberAr - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function formatNumberAr(num, compact = false) {
     if (num === null || num === undefined || isNaN(num)) return '٠';
-    
     const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    const toAr = (n) => n.toString().replace(/\d/g, d => map[d]).replace(/,/g, '،'); // استبدال الأرقام والفواصل
-
-    // 1. الوضع المختصر (للشريط العلوي والمتصدرين)
+// التحكم في وظيفة toAr - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
+    const toAr = (n) => n.toString().replace(/\d/g, d => map[d]).replace(/,/g, '،');
     if (compact) {
         if (num >= 1000000) {
             return toAr((num / 1000000).toFixed(1)) + " مليون";
         }
         if (num >= 1000) {
-            // هنا نستخدم "ألف" بالهمزة كما طلبت للتمييز عن الرقم 1
             return toAr((num / 1000).toFixed(1)) + " ألف"; 
         }
     }
-    
-    // 2. الوضع العادي (للحقيبة والمتجر والنقاط الحية) - يضيف فواصل الآلاف
     return toAr(Number(num).toLocaleString('en-US'));
 }
-
-
-
+// التحكم في وظيفة sanitizeUserData - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function sanitizeUserData(data) {
     let wasFixed = false;
     const cleanData = { ...data };
-
     if (typeof cleanData.highScore !== 'number' || isNaN(cleanData.highScore)) {
         cleanData.highScore = 0;
         wasFixed = true;
     }
-
     if (!cleanData.stats || typeof cleanData.stats !== 'object') {
         cleanData.stats = {};
         wasFixed = true;
     }
-
     const statFields = [
         'quizzesPlayed', 'totalCorrect', 'totalQuestions', 'bestRoundScore',
         'totalHardQuizzes', 'noHelperQuizzesCount', 'maxStreak', 'fastAnswerCount'
     ];
-
     statFields.forEach(field => {
         if (typeof cleanData.stats[field] !== 'number' || isNaN(cleanData.stats[field])) {
             cleanData.stats[field] = 0;
             wasFixed = true;
         }
     });
-
     if (!cleanData.stats.topicCorrect || typeof cleanData.stats.topicCorrect !== 'object') {
         cleanData.stats.topicCorrect = {};
         wasFixed = true;
     }
-    
     if (!Array.isArray(cleanData.stats.lastPlayedDates)) {
         cleanData.stats.lastPlayedDates = [];
         wasFixed = true;
     }
-
     if (!cleanData.inventory || typeof cleanData.inventory !== 'object') {
         cleanData.inventory = { lives: 0, helpers: { fifty: 0, hint: 0, skip: 0 }, themes: ['default'] };
         wasFixed = true;
@@ -4397,29 +2731,21 @@ function sanitizeUserData(data) {
             wasFixed = true;
         }
     } 
-    
     if (!cleanData.equippedFrame) {
         cleanData.equippedFrame = 'default';
         wasFixed = true;
     }
-
     if (!Array.isArray(cleanData.badges)) { cleanData.badges = ['beginner']; wasFixed = true; }
     if (!Array.isArray(cleanData.favorites)) { cleanData.favorites = []; wasFixed = true; }
     if (!Array.isArray(cleanData.seenQuestions)) { cleanData.seenQuestions = []; wasFixed = true; }
     if (!Array.isArray(cleanData.seenMarathonIds)) { cleanData.seenMarathonIds = []; wasFixed = true; }
     if (!Array.isArray(cleanData.wrongQuestionsBank)) { cleanData.wrongQuestionsBank = []; wasFixed = true; }
-
     return { cleanData, wasFixed };
 }
-
-// --- نظام الإشعارات المحلي ---
 const NOTIF_KEY = 'ahlulbayt_local_notifs_v1';
-
+// التحكم في وظيفة addLocalNotification - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function addLocalNotification(title, body, icon='info') {
-    // 1. جلب القائمة القديمة
     let list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
-    
-    // 2. إنشاء الإشعار الجديد
     const newNotif = {
         id: Date.now(),
         title: title,
@@ -4429,43 +2755,26 @@ function addLocalNotification(title, body, icon='info') {
         date: new Date().toLocaleDateString('ar-EG'),
         read: false
     };
-    
-    // 3. الإضافة في البداية
     list.unshift(newNotif);
-    
-    // 4. الحفاظ على الحد الأقصى (30)
     if (list.length > 30) list = list.slice(0, 30);
-    
-    // 5. الحفظ
     localStorage.setItem(NOTIF_KEY, JSON.stringify(list));
-    
-    // 6. تحديث الواجهة
     updateNotifUI();
-    playSound('click'); // صوت خفيف للتنبيه
+    playSound('click');
 }
-// دالة الاشعارات
+// التحكم في وظيفة updateNotifUI - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateNotifUI(){const list=JSON.parse(localStorage.getItem(NOTIF_KEY)||'[]');const badge=document.getElementById('notif-badge');const container=document.getElementById('notif-list');const unread=list.filter(n=>!n.read).length;if(unread>0){badge.classList.remove('hidden');badge.classList.add('pulse-red')}else{badge.classList.add('hidden');badge.classList.remove('pulse-red')}container.innerHTML='';if(list.length===0){container.innerHTML='<p class="text-center text-slate-500 text-xs py-6">لا توجد إشعارات</p>';return}const tpl=document.getElementById('notif-template');list.forEach(n=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.notif-item');const icon=clone.querySelector('.notif-icon');clone.querySelector('.notif-title').textContent=n.title;clone.querySelector('.notif-body').textContent=n.body;clone.querySelector('.notif-date').textContent=`${n.date} - ${n.time}`;icon.textContent=n.icon;let c='text-slate-400';if(n.icon==='emoji_events')c='text-amber-400';else if(n.icon==='monetization_on')c='text-green-400';else if(n.icon==='lock_reset')c='text-red-400';icon.classList.add(c);if(n.read){item.classList.add('opacity-70','border-transparent')}else{item.classList.add('bg-slate-800/30','border-amber-500')}container.appendChild(clone)})}
-
-
-// فتح/غلق القائمة
 bind('notif-btn', 'click', (e) => {
     e.stopPropagation();
     const dropdown = document.getElementById('notif-dropdown');
     const isHidden = dropdown.classList.contains('hidden');
-    
-    // إغلاق أي نوافذ أخرى
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-    
     if (isHidden) {
         dropdown.classList.remove('hidden');
-        updateNotifUI(); // للتأكد من الرسم
-        
-        // تعليم الكل كمقروء بمجرد الفتح (لإيقاف الوميض)
+        updateNotifUI();
         let list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
         if (list.some(n => !n.read)) {
             list.forEach(n => n.read = true);
             localStorage.setItem(NOTIF_KEY, JSON.stringify(list));
-            // نحدث الواجهة فوراً لإزالة النقطة الحمراء
             document.getElementById('notif-badge').classList.add('hidden');
             document.getElementById('notif-badge').classList.remove('pulse-red');
         }
@@ -4473,8 +2782,6 @@ bind('notif-btn', 'click', (e) => {
         dropdown.classList.add('hidden');
     }
 });
-
-// إغلاق القائمة عند النقر خارجها
 document.addEventListener('click', (e) => {
     const dropdown = document.getElementById('notif-dropdown');
     const btn = document.getElementById('notif-btn');
@@ -4482,43 +2789,26 @@ document.addEventListener('click', (e) => {
         dropdown.classList.add('hidden');
     }
 });
-
 bind('clear-notif-btn', 'click', (e) => {
     e.stopPropagation();
     localStorage.removeItem(NOTIF_KEY);
     updateNotifUI();
 });
-
-// استدعاء التحديث عند بدء التشغيل
 document.addEventListener('DOMContentLoaded', () => {
     updateNotifUI();
 });
-
-// --- دالة حساب التقدم والمستوى (النسخة الشاملة لكل الأوسمة) ---
+// التحكم في وظيفة getBadgeProgress - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function getBadgeProgress(badge) {
     const stats = userProfile.stats || {};
     let currentScore = 0;
-
-    // 1. حساب النقاط الحالية
     if (badge.type === 'topic') {
         if (stats.topicCorrect) {
-            // جلب قائمة المواضيع الفرعية لهذا القسم (إن وجدت)
-            // هذا السطر هو المسؤول عن جعل الوسام يشمل كل مواضيع القسم
             const categorySubTopics = topicsData[badge.topicKey] || [];
-
             Object.keys(stats.topicCorrect).forEach(playedTopic => {
-                // تنظيف النصوص من المسافات لضمان التطابق
                 const pTopic = playedTopic.trim();
                 const bKey = badge.topicKey.trim();
-
-                // الحالة 1: تطابق مباشر (لأوسمة المعصومين المحددة)
-                // مثال: لعب "سيرة الإمام علي" والوسام هو "عاشق الإمام علي"
                 const isDirectMatch = pTopic === bKey || pTopic.includes(bKey) || bKey.includes(pTopic);
-                
-                // الحالة 2: الموضوع الملعوب هو جزء من قائمة هذا التصنيف (لأوسمة التبحر العامة)
-                // مثال: لعب "واقعة كربلاء" والوسام هو "التاريخ"
                 const isSubTopicMatch = categorySubTopics.includes(pTopic);
-
                 if (isDirectMatch || isSubTopicMatch) {
                     currentScore += stats.topicCorrect[playedTopic];
                 }
@@ -4531,44 +2821,33 @@ function getBadgeProgress(badge) {
     } else if (badge.type === 'counter') {
         currentScore = stats[badge.statKey] || 0;
     }
-
-    // 2. تحديد المستوى الحالي
     let activeLevel = badge.levels[0]; 
     let currentTierColor = 'locked';   
     let nextTierLabel = badge.levels[0].label;
-    
-    // معرفة أقصى مستوى تم الوصول إليه
     for (let i = 0; i < badge.levels.length; i++) {
         const level = badge.levels[i];
-        
         if (currentScore >= level.target) {
             if (i === badge.levels.length - 1) {
-                // الوصول للختم النهائي
                 activeLevel = level;
-                currentTierColor = level.color; // سيأخذ legendary أو diamond
+                currentTierColor = level.color;
                 nextTierLabel = 'مكتمل';
             } else {
-                // انتقل للمستوى التالي
                 activeLevel = badge.levels[i + 1];
                 currentTierColor = level.color; 
                 nextTierLabel = badge.levels[i + 1].label;
             }
         } else {
-            // هذا هو المستوى الحالي المستهدف
             activeLevel = level;
             if (i > 0) currentTierColor = badge.levels[i-1].color;
             nextTierLabel = level.label;
             break; 
         }
     }
-
-    // 3. حساب النسبة المئوية
     let percent = 0;
     if (activeLevel.target > 0) {
         percent = Math.floor((currentScore / activeLevel.target) * 100);
     }
     if (percent > 100) percent = 100;
-
     return {
         current: currentScore,
         max: activeLevel.target,
@@ -4578,34 +2857,21 @@ function getBadgeProgress(badge) {
         isMaxed: currentScore >= badge.levels[badge.levels.length-1].target
     };
 }
-
-// 2. دالة الترتيب الذكي (Smart Sorting)
+// التحكم في وظيفة sortBadgesSmartly - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function sortBadgesSmartly() {
     return badgesData.sort((a, b) => {
-        // فحص هل الوسام مختوم بالكامل (الذهبي)
         const progA = getBadgeProgress(a);
         const progB = getBadgeProgress(b);
-        
         const finishedA = progA.isMaxed;
         const finishedB = progB.isMaxed;
-        
-        // القاعدة 1: غير المكتمل يظهر قبل المكتمل (المختوم)
         if (finishedA && !finishedB) return 1;
         if (!finishedA && finishedB) return -1;
-        
-        // القاعدة 2: الأقرب للاكتمال يظهر أولاً
         return progB.percent - progA.percent; 
     });
 }
-
-/* =========================================
-   نظام طابور الجوائز الجديد (New Queue System)
-   ========================================= */
-
-// 1. دالة التحقق من الأوسمة (المعدلة)
+// التحكم في وظيفة checkAndUnlockBadges - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function checkAndUnlockBadges() {
     let newUnlocks = [];
-    
     badgesData.forEach(badge => {
         const progressData = getBadgeProgress(badge);
         badge.levels.forEach(level => {
@@ -4615,56 +2881,43 @@ async function checkAndUnlockBadges() {
             }
         });
     });
-
     if (newUnlocks.length > 0) {
         let totalScoreAdded = 0;
-        
         newUnlocks.forEach(unlock => {
             const r = unlock.level.rewards;
             const bName = unlock.badge.name;
             const lName = unlock.level.label;
-
             userProfile.badges.push(unlock.uniqueId);
-            
             if (r.score) { userProfile.highScore += r.score; totalScoreAdded += r.score; }
             if (r.lives) userProfile.inventory.lives = (userProfile.inventory.lives || 0) + r.lives;
             if (r.hint) userProfile.inventory.helpers.hint = (userProfile.inventory.helpers.hint || 0) + r.hint;
             if (r.fifty) userProfile.inventory.helpers.fifty = (userProfile.inventory.helpers.fifty || 0) + r.fifty;
             if (r.skip) userProfile.inventory.helpers.skip = (userProfile.inventory.helpers.skip || 0) + r.skip;
-
-            // إشعار فوري لكل وسام
             addLocalNotification('إنجاز جديد 🏆', `مبروك! حصلت على وسام "${bName}" - ${lName}`, 'emoji_events');
-
-            // إضافة للطابور
             window.rewardQueue.push(unlock);
         });
-
         await updateDoc(doc(db, "users", effectiveUserId), {
             badges: userProfile.badges,
             highScore: userProfile.highScore,
             inventory: userProfile.inventory
         });
-
         updateProfileUI();
-        processRewardQueue(); // بدء العرض
+        processRewardQueue();
         return true;
     }
     return false;
 }
-
-// 2. دالة معالجة الطابور (الجديدة)
+// التحكم في وظيفة processRewardQueue - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function processRewardQueue() {
     if (window.rewardQueue.length === 0) return;
     const nextReward = window.rewardQueue.shift();
     showRewardModal(nextReward.badge, nextReward.level);
     playSound('applause');
-    // إذا أضفنا دالة الاهتزاز لاحقاً ستعمل هنا
-    
 }
+// التحكم في وظيفة showRewardModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showRewardModal(badge, level) {
     const modal = getEl('reward-modal');
     const box = getEl('reward-content-area');
-    
     let rewardsHtml = '';
     if (level.rewards) {
         if (level.rewards.score) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-amber-400 text-2xl block mb-1">monetization_on</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.score)}</span></div>`;
@@ -4673,17 +2926,14 @@ function showRewardModal(badge, level) {
         if (level.rewards.skip) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-green-400 text-2xl block mb-1">skip_next</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.skip)}</span></div>`;
         if (level.rewards.fifty) rewardsHtml += `<div class="reward-item-box"><span class="material-symbols-rounded text-blue-400 text-2xl block mb-1">percent</span><span class="text-white text-xs font-bold">+${formatNumberAr(level.rewards.fifty)}</span></div>`;
     }
-
     let titleColor = 'text-white';
     let borderColor = 'border-white'; 
     let levelName = level.label;
-
     if(level.color === 'bronze') { titleColor = 'text-red-500'; borderColor = 'border-red-500'; }
     else if(level.color === 'silver') { titleColor = 'text-slate-200'; borderColor = 'border-slate-300'; }
     else if(level.color === 'gold') { titleColor = 'text-amber-400'; borderColor = 'border-amber-400'; }
     else if(level.color === 'diamond') { titleColor = 'text-cyan-400'; borderColor = 'border-cyan-400'; }
     else if(level.color === 'legendary') { titleColor = 'text-red-600 animate-pulse'; borderColor = 'border-red-600'; }
-
     box.innerHTML = `
         <img src="${badge.image}" class="reward-icon-large ${borderColor}" style="border-width: 4px; border-style: solid;">
         <h3 class="text-xl font-bold text-white font-heading mb-1">إنجاز جديد!</h3>
@@ -4693,33 +2943,26 @@ function showRewardModal(badge, level) {
         <div class="text-xs text-slate-500 mb-2">-- الجوائز --</div>
         <div class="reward-items-grid">${rewardsHtml}</div>
     `;
-    
     const claimBtn = modal.querySelector('.btn-gold-action');
     const newBtn = claimBtn.cloneNode(true);
     claimBtn.parentNode.replaceChild(newBtn, claimBtn);
-    
     newBtn.textContent = (window.rewardQueue.length > 0) ? "استلام والتالي >>" : "استلام الجوائز";
-    
     newBtn.onclick = () => {
         modal.classList.remove('active');
         playSound('click');
         setTimeout(() => { processRewardQueue(); }, 300);
     };
-
     launchConfetti();
     modal.classList.add('active'); 
 }
-
+// التحكم في وظيفة showMotivator - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showMotivator() {
-    // البحث عن أوسمة لم تختم بعد
     const candidates = badgesData.filter(b => {
         const prog = getBadgeProgress(b);
-        return !prog.isMaxed && b.type !== 'streak'; // نستثني الستريك لأنه يتصفر
+        return !prog.isMaxed && b.type !== 'streak';
     });
-    
     let bestCandidate = null;
     let highestPercent = 0;
-
     candidates.forEach(b => {
         const prog = getBadgeProgress(b);
         if (prog.percent >= 60 && prog.percent < 100) { 
@@ -4729,68 +2972,47 @@ function showMotivator() {
             }
         }
     });
-
     if (bestCandidate) {
         const prog = getBadgeProgress(bestCandidate);
         const remaining = prog.max - prog.current;
         const msg = `أنت قريب! بقي ${formatNumberAr(remaining)} للحصول على مستوى جديد في "${bestCandidate.name}"`;
-        
         toast(`🚀 ${msg}`, 'success'); 
         playSound('hint');
     }
 }
-
-
-/* =========================================
-   Global Navigation Handlers (Back Button & Click Outside)
-   ========================================= */
-
-    // أولوية 2: نحن داخل اللعبة ولا توجد نوافذ مفتوحة
     if (quizState.active) {
-        window.history.pushState({ view: 'playing' }, "", ""); // منع الرجوع
-
+        window.history.pushState({ view: 'playing' }, "", "");
         window.showConfirm(
             "مغادرة المسابقة",
             "هل تريد الانسحاب؟ سيتم احتساب النقاط والإجابات الصحيحة الحالية.",
             "logout",
             async () => {
                 quizState.active = false; 
-                
-                // نسخ نفس منطق الحفظ الشامل هنا أيضاً
                 if (quizState.score > 0 || quizState.correctCount > 0) {
                     try {
                         const userRef = doc(db, "users", effectiveUserId);
                         const currentTopic = quizState.contextTopic;
                         const safeCorrect = quizState.correctCount || 0;
-                        
                         const updates = {
                             highScore: increment(quizState.score),
                             "stats.quizzesPlayed": increment(1),
-                            "stats.totalCorrect": increment(safeCorrect), // ✅
-                            "stats.totalQuestions": increment(quizState.idx) // ✅
+                            "stats.totalCorrect": increment(safeCorrect),
+                            "stats.totalQuestions": increment(quizState.idx)
                         };
-
                         if (currentTopic && currentTopic !== 'عام' && currentTopic !== 'مراجعة الأخطاء') {
                             updates[`stats.topicCorrect.${currentTopic}`] = increment(safeCorrect);
                         }
-
-                        // الأسبوعي
                         const wKey = getCurrentWeekKey();
                         let newWeekly = userProfile.weeklyStats || { key: wKey, correct: 0 };
                         if (newWeekly.key !== wKey) newWeekly = { key: wKey, correct: 0 };
                         newWeekly.correct += safeCorrect;
                         updates.weeklyStats = newWeekly;
-
-                        // الشهري
                         const mKey = getCurrentMonthKey();
                         let newMonthly = userProfile.monthlyStats || { key: mKey, correct: 0 };
                         if (newMonthly.key !== mKey) newMonthly = { key: mKey, correct: 0 };
                         newMonthly.correct += safeCorrect;
                         updates.monthlyStats = newMonthly;
-
                         await updateDoc(userRef, updates);
-
-                        // تحديث محلي
                         userProfile.highScore = (Number(userProfile.highScore) || 0) + quizState.score;
                         if(userProfile.stats) {
                             userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + safeCorrect;
@@ -4800,80 +3022,55 @@ function showMotivator() {
                         }
                         userProfile.weeklyStats = newWeekly;
                         userProfile.monthlyStats = newMonthly;
-
                         toast(`تم حفظ ${quizState.score} نقطة و ${safeCorrect} إجابة`, "success");
                     } catch (e) { console.error(e); }
                 }
-                
                 navToHome();
             }
         );
     }
-
-// 2. معالجة النقر على الخلفية المعتمة لإغلاق النوافذ
 document.addEventListener('click', (e) => {
     const isOverlay = e.target.classList.contains('modal-overlay');
     const isSideMenuOverlay = (e.target.id === 'side-menu-overlay');
-
     if (isOverlay || isSideMenuOverlay) {
-        // منع إغلاق النوافذ الإجبارية بالنقر خارجها
         if (e.target.id === 'force-review-modal' || e.target.id === 'auth-loading' || e.target.id === 'revive-modal') {
             if(window.playSound) window.playSound('lose');
             const box = e.target.querySelector('.modal-box');
             if(box) { box.classList.add('shake'); setTimeout(()=>box.classList.remove('shake'), 500); }
             return;
         }
-
-        // الإغلاق اليدوي
         if(isOverlay) e.target.classList.remove('active');
         if(isSideMenuOverlay) toggleMenu(false);
     }
 });
-
-/* =========================================
-   Step 3: Haptics & Animations (Magic Touch)
-   ========================================= */
-
-
-// 2. دالة تحريك الأرقام (العداد المتدحرج)
+// التحكم في وظيفة animateValue - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function animateValue(obj, start, end, duration) {
     if(!obj) return;
     if(start === end) { obj.textContent = formatNumberAr(end); return; }
-    
     let startTimestamp = null;
+// التحكم في وظيفة step - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        
-        // معادلة Ease-Out لجعل الحركة ناعمة في النهاية
         const easeOut = 1 - Math.pow(1 - progress, 3);
-        
         const currentVal = Math.floor(progress * (end - start) + start);
-        obj.textContent = formatNumberAr(currentVal); // استخدام دالة التعريب
-        
+        obj.textContent = formatNumberAr(currentVal);
         if (progress < 1) {
             window.requestAnimationFrame(step);
         } else {
-            obj.textContent = formatNumberAr(end); // ضمان الرقم النهائي بدقة
+            obj.textContent = formatNumberAr(end);
         }
     };
     window.requestAnimationFrame(step);
 }
-
-
-/* =========================================
-   Skeleton Loading Logic
-   ========================================= */
+// التحكم في وظيفة renderSkeleton - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderSkeleton(type, count=5) {
     let html = '';
-    
     if (type === 'leaderboard') {
         const container = getEl('leaderboard-list');
         if(!container) return;
-        
         container.innerHTML = '';
-        container.classList.remove('hidden'); // إظهار الحاوية
-        
+        container.classList.remove('hidden');
         for(let i=0; i<count; i++) {
             html += `
             <div class="sk-row skeleton-box">
@@ -4886,135 +3083,81 @@ function renderSkeleton(type, count=5) {
             </div>`;
         }
         container.innerHTML = html;
-        
     } else if (type === 'quiz') {
-        // تنظيف الواجهة القديمة
         getEl('question-text').innerHTML = '<div class="skeleton sk-line long mx-auto mb-2"></div><div class="skeleton sk-line short mx-auto"></div>';
                 const box = getEl('options-container');
-    
-    // تنظيف المحتوى السابق
     box.innerHTML = ''; 
-
-    // --- منطق تبديل شكل الخيارات (قائمة vs شبكة) ---
     if (quizState.mode === 'marathon') {
-        // 1. تفعيل وضع الشبكة
         box.classList.add('options-grid-mode');
-        // 2. هام جداً: إزالة كلاسات التباعد العمودي الخاصة بـ Tailwind
-        // (إذا لم نحذفها، ستخرب شكل الشبكة)
         box.classList.remove('space-y-1', 'space-y-2', 'space-y-3'); 
     } else {
-        // 1. إزالة وضع الشبكة
         box.classList.remove('options-grid-mode');
-        // 2. إعادة كلاس التباعد العمودي للقائمة العادية
         box.classList.add('space-y-1'); 
     }
-
-    
-    box.innerHTML = ''; // تفريغ المحتوى القديم
-
-        
+    box.innerHTML = '';
         for(let i=0; i<4; i++) {
             box.innerHTML += `<div class="skeleton sk-btn"></div>`;
         }
     }
 }
-
-/* =========================================
-   Step 5: Advanced Audio System (Intro & Quiz)
-   ========================================= */
-
-// متغير لتتبع هل تم تشغيل المقدمة أم لا
 let introPlayed = false;
-
-// 1. دالة تشغيل الموسيقى حسب الحالة
+// التحكم في وظيفة manageAudioSystem - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function manageAudioSystem(action) {
-    if (isMuted) return; // إذا كان الصوت مكتوماً لا تفعل شيئاً
-
+    if (isMuted) return;
     const intro = document.getElementById('audio-intro');
     const quizAudio = document.getElementById('audio-quiz');
-
     if (action === 'start_intro') {
-        // تشغيل المقدمة فقط إذا لم تعمل من قبل
         if (!introPlayed && intro) {
             intro.play().catch(e => console.log("Waiting for interaction"));
-            introPlayed = true; // نحدد أنها عملت ولن تتكرر
+            introPlayed = true;
         }
     } 
     else if (action === 'start_quiz') {
-        // عند بدء المسابقة: نوقف المقدمة (إن كانت تعمل) ونشغل حماس المسابقة
         if (intro) { intro.pause(); intro.currentTime = 0; }
         if (quizAudio) quizAudio.play().catch(console.error);
     } 
     else if (action === 'stop_quiz') {
-        // عند الخروج من المسابقة: نوقف صوت المسابقة
         if (quizAudio) { quizAudio.pause(); quizAudio.currentTime = 0; }
     }
 }
-
-// 2. مستمع النقرة الأولى (لتشغيل المقدمة)
+// التحكم في وظيفة firstClickHandler - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 document.addEventListener('click', function firstClickHandler() {
-    // نشغل المقدمة عند أول لمسة في أي مكان
     manageAudioSystem('start_intro');
-    
-    // نحذف هذا المستمع فوراً لكي لا يحاول التشغيل مرة أخرى
     document.removeEventListener('click', firstClickHandler);
 });
-
-
-// 3. تحديث زر كتم الصوت ليتعامل مع الصوتين
 const muteToggleBtn = document.getElementById('mute-toggle');
 if(muteToggleBtn) {
     muteToggleBtn.onchange = () => { 
         isMuted = !muteToggleBtn.checked; 
-        
         const intro = document.getElementById('audio-intro');
         const quizAudio = document.getElementById('audio-quiz');
-
         if(isMuted) {
-            // كتم فوري للجميع
             if(intro) intro.pause();
             if(quizAudio) quizAudio.pause();
         } else {
-            // عند إعادة الصوت:
-            // إذا كنا داخل اللعبة، نشغل صوت المسابقة
             if (quizState.active) {
                 if(quizAudio) quizAudio.play();
             } 
-            // ملاحظة: لا نعيد تشغيل المقدمة إذا تم كتمها ثم إلغاء الكتم، لأنها "مرة واحدة"
         }
     };
 }
-
-/* =========================================
-   Visual Magic: Golden Ripple Effect (إعادة تفعيل)
-   ========================================= */
-
 document.addEventListener('click', (e) => {
-    // إنشاء عنصر النبضة
     const ripple = document.createElement('div');
     ripple.className = 'touch-ripple';
-    
-    // تحديد الموقع بدقة مكان الإصبع
     ripple.style.left = `${e.pageX}px`;
     ripple.style.top = `${e.pageY}px`;
-    
     document.body.appendChild(ripple);
-    
-    // تنظيف العنصر من الذاكرة بعد انتهاء الحركة (0.6 ثانية)
     setTimeout(() => {
         ripple.remove();
     }, 600);
 });
-
+// التحكم في وظيفة typeWriter - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function typeWriter(elementId, text, speed = 25) {
     const element = getEl(elementId);
     if (!element) return;
-
     if (quizState.typeWriterInterval) clearInterval(quizState.typeWriterInterval);
-
     element.textContent = ''; 
     let i = 0;
-
     quizState.typeWriterInterval = setInterval(() => {
         if (i < text.length) {
             element.textContent += text.charAt(i);
@@ -5025,93 +3168,53 @@ function typeWriter(elementId, text, speed = 25) {
         }
     }, speed);
 }
-
+// التحكم في وظيفة showFloatingFeedback - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function showFloatingFeedback(element, text, colorClass) {
     if (!element) return;
-    
-    // 1. تحديد مكان الزر بدقة
     const rect = element.getBoundingClientRect();
-    
-    // 2. إنشاء العنصر
     const el = document.createElement('div');
     el.className = `float-feedback ${colorClass}`;
-    
-    // 3. تحويل الأرقام إلى عربية (٠-٩)
-    // نستخدم replace لاستبدال الأرقام الإنجليزية بالعربية
     el.textContent = text.replace(/\d/g, d => ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'][d]);
-    
-    // 4. ضبط الموقع (منتصف الزر)
-    // نخصم نصف عرض تقريبي للنص ليكون في المنتصف تماماً
     el.style.left = `${rect.left + rect.width / 2 - 20}px`; 
     el.style.top = `${rect.top}px`;
-
     document.body.appendChild(el);
-    
-    // 5. الحذف بعد انتهاء الحركة
     setTimeout(() => el.remove(), 1200);
 }
-
-
-// ==========================================
-// 🎁 نظام المكافأة اليومية
-// ==========================================
-
 window.checkAndShowDailyReward = function() {
     if (!userProfile) return;
-
-    // 1. الحصول على تاريخ اليوم كنص (YYYY-MM-DD)
-    const today = new Date().toLocaleDateString('en-CA'); // en-CA يعطي تنسيق YYYY-MM-DD دائماً
-    
-    // 2. التحقق من آخر تاريخ استلام
+    const today = new Date().toLocaleDateString('en-CA');
     const lastClaimDate = userProfile.lastDailyRewardDate || "";
-
-    // 3. المقارنة: إذا لم يستلم اليوم
     if (lastClaimDate !== today) {
-        // تأخير بسيط لتظهر بعد تحميل الواجهة
         setTimeout(() => {
             const modal = document.getElementById('daily-reward-modal');
             if(modal) {
                 modal.classList.add('active');
-                playSound('streak'); // صوت لطيف عند الظهور
+                playSound('streak');
             }
         }, 1500);
     }
 };
-
 window.claimDailyReward = async function() {
     const today = new Date().toLocaleDateString('en-CA');
     const modal = document.getElementById('daily-reward-modal');
     const btn = modal.querySelector('button');
-
-    // منع النقر المتكرر
     btn.disabled = true;
     btn.textContent = "جاري الاستلام...";
-
     try {
-        // 1. تحديث القيم محلياً
-        userProfile.highScore += 200; // الجائزة: 200 نقطة
-        userProfile.inventory.lives = (userProfile.inventory.lives || 0) + 1; // الجائزة: قلب واحد
+        userProfile.highScore += 200;
+        userProfile.inventory.lives = (userProfile.inventory.lives || 0) + 1;
         userProfile.lastDailyRewardDate = today;
-
-        // 2. الحفظ في السيرفر
         await updateDoc(doc(db, "users", effectiveUserId), {
             highScore: userProfile.highScore,
             "inventory.lives": userProfile.inventory.lives,
             lastDailyRewardDate: today
         });
-
-        // 3. تحديث الواجهة والمؤثرات
         updateProfileUI();
-        playSound('applause'); // صوت تصفيق
-        launchConfetti(); // قصاصات ورقية
-        
-        // إشعار
+        playSound('applause');
+        launchConfetti();
         toast("تم استلام 200 نقطة وقلب إضافي! 🎁");
         addLocalNotification('مكافأة يومية', 'تم استلام الجائزة اليومية', 'card_giftcard');
-
-        // إغلاق النافذة
         modal.classList.remove('active');
-
     } catch (e) {
         console.error("Error claiming reward:", e);
         toast("حدث خطأ في الاتصال", "error");
@@ -5120,12 +3223,10 @@ window.claimDailyReward = async function() {
         btn.textContent = "استلام المكافأة";
     }
 };
-
 bind('btn-update-password', 'click', async () => {
     const newPassInput = getEl('settings-new-password');
     const newPass = newPassInput.value.trim();
     const btn = getEl('btn-update-password');
-
     if (!newPass) {
         toast("الرجاء كتابة كلمة مرور جديدة", "error");
         return;
@@ -5134,15 +3235,13 @@ bind('btn-update-password', 'click', async () => {
         toast("كلمة المرور قصيرة جداً (4 أحرف على الأقل)", "error");
         return;
     }
-
     btn.disabled = true;
     btn.textContent = "...";
-
     try {
         await updateDoc(doc(db, "users", effectiveUserId), { password: newPass });
         addLocalNotification('أمان الحساب 🔐', 'تم تغيير كلمة المرور بنجاح من الإعدادات', 'lock_reset');
         toast("✅ تم تحديث كلمة المرور بنجاح");
-        newPassInput.value = ''; // تفريغ الحقل
+        newPassInput.value = '';
     } catch(e) {
         console.error(e);
         toast("فشل التحديث", "error");
@@ -5151,180 +3250,106 @@ bind('btn-update-password', 'click', async () => {
         btn.textContent = "تحديث";
     }
 });
-
-// ==========================================
-// 📩 نظام التواصل مع المطور (بصيغة بلاغ)
-// ==========================================
-
-// 1. فتح النافذة وتجهيز البيانات
 bind('nav-contact', 'click', () => {
-    toggleMenu(false); // إغلاق القائمة الجانبية
+    toggleMenu(false);
     openModal('contact-modal');
-    
-    // تعبئة اسم المستخدم تلقائياً
     if(userProfile) {
         getEl('contact-username').value = userProfile.username;
     }
-    
-    // تفريغ الحقول القديمة
     getEl('contact-msg-body').value = '';
     getEl('contact-title').value = '';
     getEl('contact-note').value = '';
     getEl('contact-feedback').textContent = '';
 });
-
-// 2. كود الإرسال (حيلة البلاغ)
 bind('btn-send-contact', 'click', async () => {
     const msgBody = getEl('contact-msg-body').value.trim();
     const title = getEl('contact-title').value.trim();
     const note = getEl('contact-note').value.trim();
     const feedback = getEl('contact-feedback');
     const btn = getEl('btn-send-contact');
-
-    // تحقق بسيط
     if (!msgBody || !title) {
         feedback.textContent = "يرجى كتابة نص الرسالة والعنوان";
         feedback.className = "text-center text-xs mt-3 h-4 text-red-400 font-bold";
         return;
     }
-
-    // تعطيل الزر لمنع التكرار
     btn.disabled = true;
     const oldBtnContent = btn.innerHTML;
     btn.innerHTML = '<span class="material-symbols-rounded animate-spin">autorenew</span> جاري الإرسال...';
-
-    // تجهيز البيانات لتشبه "البلاغ" تماماً
-    // هذا ما سيظهر في تطبيق المطور الخاص بك:
     const fakeReportData = {
-        questionId: "CONTACT_MSG",          // لتميزها أنها ليست سؤالاً
-        topic: `📩 رسالة: ${title}`,        // سيظهر في خانة "القسم"
-        questionText: `${msgBody}\n\n📝 ملاحظة إضافية:\n${note || 'لا يوجد'}`, // سيظهر في خانة "نص السؤال"
+        questionId: "CONTACT_MSG",
+        topic: `📩 رسالة: ${title}`,
+        questionText: `${msgBody}\n\n📝 ملاحظة إضافية:\n${note || 'لا يوجد'}`,
         reportedByUserId: effectiveUserId,
         reportedByUsername: userProfile.username,
         timestamp: serverTimestamp()
     };
-
     try {
-        // الإرسال إلى مجموعة البلاغات (reports)
         await setDoc(doc(collection(db, "reports")), fakeReportData);
-        
-        // نجاح
         toast("✅ تم إرسال رسالتك للمطور بنجاح!");
         playSound('win');
-        
-        // إغلاق النافذة
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-
     } catch (e) {
         console.error("Error sending contact msg:", e);
         feedback.textContent = "فشل الإرسال، تأكد من الاتصال بالإنترنت";
         feedback.className = "text-center text-xs mt-3 h-4 text-red-400 font-bold";
     } finally {
-        // إعادة الزر لوضعه الطبيعي
         btn.disabled = false;
         btn.innerHTML = oldBtnContent;
     }
 });
-
-// ==========================================
-// (تمت إزالة نظام الشرح بالذكاء الاصطناعي بالكامل)
-// ==========================================
-// ==========================================
-// 📡 مراقب حالة الاتصال (Online/Offline Monitor)
-// ==========================================
-
+// التحكم في وظيفة updateOnlineStatus - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function updateOnlineStatus() {
     const banner = document.getElementById('offline-banner');
     if (!banner) return;
-
     if (navigator.onLine) {
-        // حالة الاتصال: إخفاء الشريط
         banner.classList.remove('show-offline');
         banner.classList.add('hidden');
     } else {
-        // حالة الانقطاع: إظهار الشريط
         banner.classList.remove('hidden');
-        // تأخير بسيط للسماح للمتصفح بإزالة hidden قبل تفعيل الحركة
         setTimeout(() => {
             banner.classList.add('show-offline');
         }, 10);
-        
-        // تنبيه المستخدم (Toast)
         if(typeof toast === 'function') toast("انقطع الاتصال بالإنترنت ", "error");
     }
 }
-
-// الاستماع للأحداث
 window.addEventListener('online', () => {
     updateOnlineStatus();
     if(typeof toast === 'function') toast("عاد الاتصال! تمت المزامنة ", "success");
 });
 window.addEventListener('offline', updateOnlineStatus);
-
-// التحقق عند بدء التشغيل
 document.addEventListener('DOMContentLoaded', updateOnlineStatus);
-
-
-// --- تفعيل أزرار الشريط السفلي الجديدة (محدث للعمل المباشر) ---
-
-// 1. ربط زر المتصدرين السفلي (تم تحويله لفتح صفحة مستقلة)
 bind('bottom-leaderboard-btn', 'click', () => {
     if(typeof toggleMenu === 'function') toggleMenu(false);
-    
-    // إخفاء جميع الشاشات الرئيسية الأخرى والشريط السفلي
     hide('welcome-area');
     hide('quiz-proper');
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
     hide('achievements-view');
-    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
-    
-    // إظهار صفحة المتصدرين
+    hide('bottom-nav');
     show('leaderboard-view');
-    
-    // استدعاء دالة تحميل البيانات
     loadLeaderboard();
     startLeaderboardResetTimer();
-    
-    // تسجيل المشهد في المتصفح للزر الرجوع
     window.history.pushState({ view: 'leaderboard' }, "", "");
 });
-
-// زر الرجوع من صفحة المتصدرين إلى الرئيسية
 bind('btn-back-leaderboard', 'click', () => {
     hide('leaderboard-view');
     navToHome(); 
 });
-
-// 2. ربط زر الحقيبة السفلي
 bind('bottom-bag-btn', 'click', () => {
     toggleMenu(false);
-    openBag(); // دالة فتح الحقيبة تعمل بشكل مباشر ولا تحتاج تعديل
+    openBag();
 });
-
-// ✅ جعل دوال الاستلام مرئية لملف HTML
 window.claimSingleReward = claimSingleReward;
 window.claimGrandPrize = claimGrandPrize;
-window.buyShopItem = buyShopItem; // إذا كانت غير مفعلة أيضاً
-
-
-
-// ==========================================
-// 🎓 نظام التعلم الذكي (Clean Code Implementation)
-// ==========================================
-
+window.buyShopItem = buyShopItem;
+// التحكم في وظيفة checkContentAvailability - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function checkContentAvailability(topicName) {
-    // 1. إذا كان الموضوع غير محدد أو عام، نرفض فوراً
     if (!topicName || topicName === "عام" || topicName === "random") return null;
-
     const audioId = findContentId(topicName, audioLibrary);
     const pdfId = findContentId(topicName, pdfLibrary);
-
-    // ✅ التصحيح: التحقق من وجود قيمة (سواء كانت رقماً أو نصاً)
     const hasAudio = (audioId !== null && audioId !== undefined && audioId !== "");
     const hasPdf = (pdfId !== null && pdfId !== undefined && pdfId !== "");
-
     if (hasAudio || hasPdf) {
         return { 
             audioId: hasAudio ? audioId : null, 
@@ -5333,61 +3358,44 @@ function checkContentAvailability(topicName) {
     }
     return null;
 }
-
+// التحكم في وظيفة handleLearnClick - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function handleLearnClick(e) {
     e.preventDefault();
-    
     const categorySelect = document.getElementById('category-select');
     const topicSelect = document.getElementById('topic-select');
-    
     const category = categorySelect ? categorySelect.value : "";
     const topicVal = topicSelect ? topicSelect.value : "";
-    
     if (!category || category === 'random' || !topicVal) {
         toast("اختر القسم والموضوع اولا", "error");
         return;
     }
-
     const finalTopic = topicVal; 
-
     const content = checkContentAvailability(finalTopic);
-
     if (content) {
         const modal = document.getElementById('learn-mode-modal');
         if (!modal) {
             console.error("❌ خطأ: نافذة التعلم (ID: learn-mode-modal) غير موجودة في HTML");
             return;
         }
-        
         openLearnModal(finalTopic, content.audioId, content.pdfId);
     } else {
         toast(`عذراً، محتوى "التعلم" لهذا الموضوع قيد التجهيز ⏳`, "info");
     }
 }
-
-/**
- * 3. فتح نافذة خيارات التعلم (محدثة)
- */
+// التحكم في وظيفة openLearnModal - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function openLearnModal(topic, audioId, pdfId) {
     const modal = document.getElementById('learn-mode-modal');
     const titleEl = document.getElementById('learn-topic-title');
     const btnListen = document.getElementById('btn-mode-listen');
     const btnRead = document.getElementById('btn-mode-read');
-
     if (!modal) return;
-
-    // تحديث العنوان
     if (titleEl) titleEl.textContent = topic;
-
-    // إعداد زر الاستماع
     if (btnListen) {
-        // ✅ التصحيح: التحقق المرن (يقبل الصفر والأرقام والنصوص)
         if (audioId !== null && audioId !== undefined) {
             btnListen.onclick = () => {
                 modal.classList.add('hidden'); 
-                modal.classList.remove('active'); // إزالة الكلاس النشط
+                modal.classList.remove('active');
                 modal.style.display = 'none'; 
-                // تحويل الـ ID إلى نص عند تمريره للمشغل لضمان توافق الرابط
                 audioPlayer.playTrack(String(audioId), topic); 
             };
             btnListen.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -5398,8 +3406,6 @@ function openLearnModal(topic, audioId, pdfId) {
             btnListen.disabled = true;
         }
     }
-
-    // إعداد زر القراءة
     if (btnRead) {
         if (pdfId !== null && pdfId !== undefined) {
             btnRead.onclick = () => {
@@ -5416,30 +3422,22 @@ function openLearnModal(topic, audioId, pdfId) {
             btnRead.disabled = true;
         }
     }
-
-    // 🔥 عرض النافذة بالقوة
     modal.classList.remove('hidden');
     modal.classList.add('active');
     modal.style.display = 'flex';
 }
-
+// التحكم في وظيفة handlePdfReward - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 async function handlePdfReward() {
     const btn = document.getElementById('pdf-finish-btn');
-    // جلب معرف الكتاب الحالي من الكلاس
     const bookId = pdfViewer.currentPdfId; 
     const bookTitle = document.getElementById('pdf-topic-title').textContent || "كتاب";
-
     if (!btn || btn.disabled) return;
-    
-    // حماية إضافية: إذا كان العلم (Flag) الذي وضعناه في الخطوة السابقة مفعلاً، نرفض فوراً
     if (pdfViewer.isRewardClaimed) {
         if(window.toast) window.toast("تم استلام المكافأة مسبقاً", "info");
         return;
     }
-
     btn.disabled = true;
     btn.innerHTML = `<span class="material-symbols-rounded animate-spin">refresh</span> جاري التحقق...`;
-
     try {
         if (!effectiveUserId) {
             if(window.toast) window.toast("يجب تسجيل الدخول لاحتساب النقاط", "warning");
@@ -5447,45 +3445,28 @@ async function handlePdfReward() {
             btn.innerHTML = "استلام المكافأة";
             return;
         }
-
-        // 1. الفحص الأخير في السيرفر (The Final Guard)
-        // هذا يمنع الغش لو حاول شخص استدعاء الدالة يدوياً من الكونسول
         const historyRef = doc(db, "users", effectiveUserId, "read_history", bookId);
         const docSnap = await getDoc(historyRef);
-
         if (docSnap.exists()) {
-            // كشف محاولة التكرار
             if(window.toast) window.toast("⚠️ لقد استلمت جائزة هذا الكتاب مسبقاً!", "error");
-            
-            // تحديث حالة الزر فوراً ليظهر كـ "مستلم"
             pdfViewer.checkRewardStatus(bookId);
             return; 
         }
-
-        // 2. إذا وصلنا هنا، فالكتاب جديد ولم يتم استلام جائزته
         const pointsToAdd = 50;
-
-        // تجهيز التحديثات
         const wKey = getCurrentWeekKey();
         let wStats = userProfile.weeklyStats || { key: wKey, correct: 0 };
         if (wStats.key !== wKey) wStats = { key: wKey, correct: 0 };
         wStats.correct += pointsToAdd;
-
         const mKey = getCurrentMonthKey();
         let mStats = userProfile.monthlyStats || { key: mKey, correct: 0 };
         if (mStats.key !== mKey) mStats = { key: mKey, correct: 0 };
         mStats.correct += pointsToAdd;
-
-        // 🔥 أهم خطوة: تسجيل الكتاب في الأرشيف (Create History Record)
-        // نستخدم setDoc لإنشاء الوثيقة بمعرف الكتاب
         await setDoc(historyRef, {
             title: bookTitle,
             claimedAt: serverTimestamp(),
             points: pointsToAdd,
             type: 'book_reward'
         });
-
-        // 3. إضافة النقاط للمستخدم
         await updateDoc(doc(db, "users", effectiveUserId), {
             highScore: increment(pointsToAdd),
             "stats.totalReadings": increment(1),
@@ -5493,30 +3474,19 @@ async function handlePdfReward() {
             weeklyStats: wStats,
             monthlyStats: mStats
         });
-
-        // تحديث البيانات المحلية
         userProfile.highScore = (userProfile.highScore || 0) + pointsToAdd;
         userProfile.stats.totalCorrect = (userProfile.stats.totalCorrect || 0) + pointsToAdd;
         userProfile.weeklyStats = wStats;
         userProfile.monthlyStats = mStats;
-        
-        // نضع علامة أن هذا الكتاب تم استلامه محلياً أيضاً
         pdfViewer.isRewardClaimed = true; 
-
         if (typeof updateProfileUI === 'function') updateProfileUI();
-
         if(window.playSound) window.playSound('win');
         if(window.toast) window.toast(`🎉 ممتاز! أضيفت ${pointsToAdd} نقطه`, "success");
-
-        // تغيير شكل الزر نهائياً
         btn.innerHTML = `<span>تم الاستلام</span><span class="material-symbols-rounded">check_circle</span>`;
         btn.classList.add('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
-        
         setTimeout(() => {
             if(pdfViewer) pdfViewer.close();
-            // لا نعيد تفعيل الزر هنا، لأنه أصبح مستلماً
         }, 1500);
-
     } catch (error) {
         console.error("Reward Error:", error);
         if(window.toast) window.toast("حدث خطأ في الاتصال", "error");
@@ -5524,33 +3494,19 @@ async function handlePdfReward() {
         btn.innerHTML = "حاول مرة أخرى";
     }
 }
-
-// ==========================================
-// 🚀 التشغيل الرئيسي (Main Initialization)
-// هذا الكود يعمل مرة واحدة فقط عند جاهزية الصفحة
-// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     console.log("🚀 جاري تهيئة نظام التعلم الذكي...");
-
-    // 1. ربط زر التعلم
     const learnBtn = document.getElementById('ai-learn-btn');
     if (learnBtn) {
-        // إزالة أي مستمعين سابقين عبر استبدال العنصر (اختياري للنظافة القصوى)
         const newBtn = learnBtn.cloneNode(true);
         learnBtn.parentNode.replaceChild(newBtn, learnBtn);
-        
-        // ربط الحدث الجديد
         newBtn.addEventListener('click', handleLearnClick);
         console.log("✅ زر التعلم جاهز.");
     }
-
-    // 2. ربط زر مكافأة الكتاب
     const rewardBtn = document.getElementById('pdf-finish-btn');
     if (rewardBtn) {
         rewardBtn.onclick = handlePdfReward;
     }
-
-    // 3. ربط أزرار إغلاق النوافذ الجديدة (إن وجدت)
     const closeLearnModalBtn = document.getElementById('close-learn-modal');
     if(closeLearnModalBtn) {
         closeLearnModalBtn.onclick = () => {
@@ -5558,15 +3514,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 });
-// ==========================================
-// 🔔 نظام الإشعارات (تصميم أسود + خط أميري + أرشفة)
-// ==========================================
 window.toast = function(msg, type = 'info', forceSave = false) {
-    // 1. إعداد الألوان
     let borderColor = 'border-slate-600'; 
     let barColor = 'bg-slate-600';
     let iconName = ''; 
-
     if (type === 'success') {
         borderColor = 'border-green-500';
         barColor = 'bg-green-500';
@@ -5581,16 +3532,12 @@ window.toast = function(msg, type = 'info', forceSave = false) {
         iconName = 'monetization_on';
         type = 'gold'; 
     }
-
-    // 2. بناء العنصر
     const box = document.createElement('div');
     box.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] 
                      bg-black text-white px-6 py-3 rounded-sm shadow-2xl 
                      flex flex-col items-center justify-center 
                      min-w-[200px] w-fit max-w-[85vw] 
                      border border-opacity-50 ${borderColor}`;
-    
-    // ✅ هنا التعديل: تطبيق الخط الأميري
     box.innerHTML = `
         <span class="text-base font-bold text-center leading-relaxed tracking-wide break-words w-full" 
               style="font-family: 'Amiri', serif;">
@@ -5598,16 +3545,12 @@ window.toast = function(msg, type = 'info', forceSave = false) {
         </span>
         <div class="absolute bottom-0 left-0 h-[3px] w-full ${barColor} opacity-80" id="toast-progress"></div>
     `;
-
     document.body.appendChild(box);
-
-    // 3. الأنيميشن
     requestAnimationFrame(() => {
         box.animate([
             { transform: 'translate(-50%, 20px)', opacity: 0 },
             { transform: 'translate(-50%, 0)', opacity: 1 }
         ], { duration: 300, easing: 'ease-out', fill: 'forwards' });
-
         const bar = box.querySelector('#toast-progress');
         bar.style.transition = "width 3000ms linear";
         bar.style.width = "100%";
@@ -5615,10 +3558,7 @@ window.toast = function(msg, type = 'info', forceSave = false) {
             bar.style.width = "0%";
         });
     });
-
-    // 4. الأرشفة الذكية
     const isGameplaySpam = (msg.includes('إجابة صحيحة') || msg.includes('إجابة خاطئة')) && !msg.includes('نقاط');
-    
     if (forceSave || type === 'gold' || type === 'error' || (type === 'success' && !isGameplaySpam)) {
         if (typeof addLocalNotification === 'function') {
             addLocalNotification(
@@ -5628,110 +3568,69 @@ window.toast = function(msg, type = 'info', forceSave = false) {
             );
         }
     }
-
-    // 5. الإزالة
     setTimeout(() => {
         const fadeOut = box.animate([
             { transform: 'translate(-50%, 0)', opacity: 1 },
             { transform: 'translate(-50%, 20px)', opacity: 0 }
         ], { duration: 300, easing: 'ease-in', fill: 'forwards' });
-
         fadeOut.onfinish = () => box.remove();
     }, 3000);
 };
+// التحكم في وظيفة renderPdfLibrary - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderPdfLibrary(){const c=document.getElementById('pdf-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('book-item-template');pdfLibrary.forEach(b=>{const clone=tpl.content.cloneNode(true);const root=clone.querySelector('.book-card');const img=clone.querySelector('.book-img');const title=clone.querySelector('.book-title');img.src=b.cover;title.textContent=b.title;root.onclick=()=>{if(window.openPdfViewer)window.openPdfViewer(b.url,b.title);else window.open(b.url,'_blank')};c.appendChild(clone)})}
+// التحكم في وظيفة renderAudioLibrary - قم بتعديل الكود هنا لتغيير سلوك هذه الدالة
 function renderAudioLibrary(){const c=document.getElementById('audio-list-container');if(!c)return;c.innerHTML='';const tpl=document.getElementById('audio-item-template');audioLibrary.forEach((track,idx)=>{const clone=tpl.content.cloneNode(true);const item=clone.querySelector('.audio-item');const title=clone.querySelector('.audio-title');const icon=clone.querySelector('.audio-icon');const wave=clone.querySelector('.audio-wave');title.textContent=track.title;item.id=`audio-track-${idx}`;item.onclick=()=>{document.querySelectorAll('.audio-wave').forEach(w=>w.classList.add('opacity-0'));document.querySelectorAll('.audio-icon').forEach(i=>{i.textContent='play_arrow';i.classList.remove('text-amber-400')});if(window.currentAudioSrc===track.url&&!window.audioPlayer.paused){window.audioPlayer.pause();icon.textContent='play_arrow'}else{if(window.playAudio)window.playAudio(track.url);icon.textContent='pause';icon.classList.add('text-amber-400');wave.classList.remove('opacity-0');window.currentAudioSrc=track.url}};c.appendChild(clone)})}
-
-
-// 1. عند الضغط على الزر في القائمة الجانبية
 bind('nav-achievements', 'click', () => {
-    toggleMenu(false); // إغلاق القائمة الجانبية
-
-    // إخفاء جميع الشاشات الرئيسية الأخرى
+    toggleMenu(false);
     hide('welcome-area');
     hide('quiz-proper');
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
-    
-    // إظهار صفحة الإنجازات
     show('achievements-view');
-    
-    // (اختياري) إضافة حالة للسجل لزر الرجوع في الهاتف
     window.history.pushState({ view: 'achievements' }, "", "");
 });
-
-// 2. زر الرجوع من صفحة الإنجازات إلى الرئيسية
 bind('btn-back-achievements', 'click', () => {
     hide('achievements-view');
-    
-    // العودة للرئيسية باستخدام الدالة الموجودة مسبقاً
     navToHome(); 
 });
-
-// ربط الزر في القائمة (تم نقل المنطق إلى achievements.js)
 bind('nav-achievements', 'click', () => {
     if(typeof toggleMenu === 'function') toggleMenu(false);
-    
     hide('welcome-area');
     hide('quiz-proper');
     hide('results-area');
     hide('login-area');
     hide('auth-loading');
-    hide('bottom-nav'); // إخفاء شريط التنقل السفلي
-    
+    hide('bottom-nav');
     show('achievements-view');
-    // استدعاء الدالة من الملف المستورد مع تمرير ملف المستخدم
     renderAchievementsView(typeof userProfile !== 'undefined' ? userProfile : null);
-    
-    // تسجيل المشهد في المتصفح للزر الرجوع
     window.history.pushState({ view: 'achievements' }, "", "");
 });
-
-
-// تشغيل نظام الإشعارات
 if (window.initNotificationSystem) {
-    // 1. تشغيل الجدولة اليومية (الساعة 9)
     window.initNotificationSystem();
-
-    // 2. إظهار الإشعار الفوري (الترحيب)
     if (window.showWelcomeNotification) {
         window.showWelcomeNotification();
     }
 }
-
-// =========================================================================
-// 🕵️‍♂️ نظام "المنقذ" - لوحة التحكم المخفية (تحديث العدادات + أدوات المطور)
-// =========================================================================
-
 window.CHEAT_MANAGER = {
     clicks: 0,
     timer: null,
-    
-    // دالة مساعدة لربط المستمع بأي عنصر
     attachListener: function(elementId) {
         const btn = document.getElementById(elementId);
         if (!btn) return;
-
         btn.addEventListener('click', (e) => {
             this.clicks++;
             if (this.timer) clearTimeout(this.timer);
             this.timer = setTimeout(() => { this.clicks = 0; }, 1000); 
-
-            // الشرط: 7 نقرات متتالية
             if (this.clicks === 7) { 
                 this.showPanel();
                 this.clicks = 0;
             }
         });
     },
-
-    // 1. كود التهيئة: يراقب زر الإشعارات (للقائمة) وعداد النقاط (للعبة)
     init: function() {
-        this.attachListener('notif-btn');      // في الشاشة الرئيسية
-        this.attachListener('live-score-text'); // داخل اللعبة
-        
-        // ربط العنوان الرئيسي أيضاً كاحتياط
+        this.attachListener('notif-btn');
+        this.attachListener('live-score-text');
         const appTitle = document.querySelector('#welcome-area h1');
         if (appTitle) {
             appTitle.addEventListener('click', () => {
@@ -5742,11 +3641,8 @@ window.CHEAT_MANAGER = {
             });
         }
     },
-
-    // 2. إظهار اللوحة
     showPanel: function() {
         if (document.getElementById('dev-cheat-panel')) return;
-
         const div = document.createElement('div');
         div.id = 'dev-cheat-panel';
         div.style.cssText = `
@@ -5756,7 +3652,6 @@ window.CHEAT_MANAGER = {
             box-shadow: 0 0 50px rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px);
             max-height: 80vh; overflow-y: auto;
         `;
-        
         div.innerHTML = `
             <h3 class="text-red-500 font-bold text-xl mb-4 flex items-center justify-center gap-2">
                 <span class="material-symbols-rounded">admin_panel_settings</span> أدوات المطور
@@ -5776,19 +3671,13 @@ window.CHEAT_MANAGER = {
         document.body.appendChild(div);
         if (typeof playSound === 'function') playSound('win');
     },
-
-    // --- الوظائف ---
-
-    // ✅ دالة تحديث العدادات الجديدة (تقرأ ملفات JSON وتحسب الأسئلة)
     updateSystemCounts: async function() {
         const btn = document.getElementById('btn-update-counts');
         if(btn) {
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-rounded animate-spin">autorenew</span> جاري الحساب...`;
         }
-
         try {
-            // 1. قائمة الملفات التي تحتوي على الأسئلة
             const files = [
                 "infallibles_all.json",
                 "prophets.json",
@@ -5799,48 +3688,29 @@ window.CHEAT_MANAGER = {
                 "history_battles.json",
                 "dua_ziyarat.json"
             ];
-
             const counts = {};
             let totalQuestions = 0;
-
-            // 2. جلب الملفات وتحليلها
             const fetchPromises = files.map(file => 
                 fetch(`./Data/Noor/${file}`)
                     .then(res => res.ok ? res.json() : [])
                     .catch(err => { console.error(`Error loading ${file}`, err); return []; })
             );
-
             const results = await Promise.all(fetchPromises);
-
-            // 3. تجميع الإحصائيات
             results.flat().forEach(q => {
                 if (q && q.topic) {
-                    // تنظيف اسم الموضوع لضمان التطابق
                     const topicName = q.topic.trim();
                     counts[topicName] = (counts[topicName] || 0) + 1;
                     totalQuestions++;
                 }
             });
-
-            // 4. الحفظ في Firestore (system/counts)
-            // هذا المستند هو الذي يستخدمه التطبيق لعرض أشرطة التقدم
             await setDoc(doc(db, "system", "counts"), counts);
-            
-            // 5. تحديث المتغير المحلي فوراً
             dbTopicCounts = counts;
-
-            // تحديث الواجهة إذا لزم الأمر
             if(typeof initDropdowns === 'function') initDropdowns();
-
-            // إشعار النجاح
             const msg = `✅ تم التحديث بنجاح!\nعدد المواضيع: ${Object.keys(counts).length}\nإجمالي الأسئلة: ${totalQuestions}`;
             alert(msg);
             toast("تم تحديث قاعدة البيانات بنجاح", "success");
-            
-            // إغلاق اللوحة
             const panel = document.getElementById('dev-cheat-panel');
             if(panel) panel.remove();
-
         } catch (e) {
             console.error(e);
             alert("❌ حدث خطأ أثناء التحديث: " + e.message);
@@ -5850,7 +3720,6 @@ window.CHEAT_MANAGER = {
             }
         }
     },
-
     revealAnswer: function() {
         if (typeof quizState === 'undefined' || !quizState.active) {
             toast("يجب أن تكون داخل سؤال لتكشف الإجابة!", "error");
@@ -5858,20 +3727,16 @@ window.CHEAT_MANAGER = {
         }
         const q = quizState.questions[quizState.idx];
         const btns = document.querySelectorAll('.option-btn');
-        
         if (btns[q.correctAnswer]) {
             const btn = btns[q.correctAnswer];
             btn.style.border = "2px solid #ef4444";
             btn.style.background = "linear-gradient(to right, #7f1d1d, #450a0a)";
             btn.classList.add('animate-pulse');
-            
             const panel = document.getElementById('dev-cheat-panel');
             if(panel) panel.remove();
-            
             toast("👁️ تم كشف الإجابة", "success");
         }
     },
-
     resetMarathon: async function() {
         if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
         try {
@@ -5881,7 +3746,6 @@ window.CHEAT_MANAGER = {
             toast("🔓 تم تصفير وقت الماراثون!", "success");
         } catch(e) { console.error(e); toast("فشل التصفير", "error"); }
     },
-
     resetDailyQuests: async function() {
         if (typeof effectiveUserId === 'undefined' || !effectiveUserId) return;
         try {
@@ -5894,7 +3758,6 @@ window.CHEAT_MANAGER = {
             toast("📅 تم تصفير المهام", "success");
         } catch(e) { console.error(e); toast("فشل تصفير المهام", "error"); }
     },
-
     completeAllQuests: async function() {
         if (typeof effectiveUserId === 'undefined' || !effectiveUserId || !userProfile.dailyQuests) return;
         try {
@@ -5906,6 +3769,4 @@ window.CHEAT_MANAGER = {
         } catch(e) { console.error(e); toast("فشل الإكمال", "error"); }
     }
 };
-
-// تشغيل النظام
 document.addEventListener('DOMContentLoaded', () => window.CHEAT_MANAGER.init());
