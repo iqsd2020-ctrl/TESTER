@@ -1,3 +1,61 @@
+/* تعريف خط Amiri */
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/Amiri-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 700;
+  src: url('fonts/Amiri-Bold.ttf') format('truetype');
+}
+
+/* تعريف خط Reem Kufi */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/ReemKufi-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-weight: 500;
+  src: url('fonts/ReemKufi-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-weight: 700;
+  src: url('fonts/ReemKufi-Bold.ttf') format('truetype');
+}
+/* تعريف الأيقونات */
+@font-face {
+  font-family: 'Material Symbols Rounded';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/MaterialSymbolsRounded.woff2') format('woff2');
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+}
+
 :root{--font-heading:'Reem Kufi',sans-serif;--font-body:'Amiri',serif;--base-size:16px;--bg-body:radial-gradient(circle at top,#1e293b 0%,#020617 100%);--bg-card:linear-gradient(to bottom right,rgba(23,37,84,0.9),rgba(2,6,23,0.98));--bg-input:rgba(30,41,59,0.6);--bg-side-menu:#0f172a;--text-main:#f8fafc;--text-muted:#94a3b8;--accent-color:#fbbf24;--accent-dark:#b45309;--btn-gradient-start:#FFB800;--btn-gradient-end:#C05800;--accent-contrast:#ffffff;--border-color:rgba(255,255,255,0.1);--card-3d-depth:3px;--card-3d-shadow-spread:0 10px 30px rgba(0,0,0,0.6);--bg-card-gradient:linear-gradient(145deg,rgba(30,41,59,0.9),rgba(15,23,42,0.95));--bg-pattern-image:url("Css.png");--bg-pattern-opacity:0.10;--correct-bg:linear-gradient(135deg,#059669 0%,#047857 100%);--wrong-bg:linear-gradient(135deg,#b91c1c 0%,#991b1b 100%)}
 body{font-family:var(--font-body);font-size:var(--base-size);line-height:1.8;user-select:none;color:var(--text-main);min-height:100vh;min-height:100dvh;overflow-x:hidden;position:relative;overscroll-behavior-y:none !important;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
 html{overscroll-behavior-y:none !important}

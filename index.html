@@ -9,10 +9,6 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#064E3B">
     <script src="tailwind-lib.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
     <link rel="stylesheet" href="style.css?v=4.6">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -1079,42 +1075,42 @@
                         مستلزمات اللعب
                     </h4>
                     <div class="grid grid-cols-2 gap-3">
-                        <button onclick="window.buyShopItem('life', 100)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-red-500/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
+                        <button onclick="window.buyShopItem('life', SHOP_PRICES.LIFE)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-red-500/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
                              <div class="absolute inset-0 bg-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                              <span class="material-symbols-rounded text-red-500 text-3xl mb-2 group-hover:scale-110 transition-transform block">favorite</span>
                              <p class="text-white text-sm font-bold">قلب إضافي</p>
                              <div class="mt-3 inline-flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-600 group-hover:border-red-500/30 transition-colors">
-                                <span class="text-amber-400 font-bold text-xs">100</span>
+                                <span class="text-amber-400 font-bold text-xs">${SHOP_PRICES.LIFE}</span>
                                 <span class="material-symbols-rounded text-amber-400 text-[10px]">monetization_on</span>
                              </div>
                         </button>
 
-                        <button onclick="window.buyShopItem('fifty', 50)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-blue-500/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
+                        <button onclick="window.buyShopItem('fifty', SHOP_PRICES.HELPER_FIFTY)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-blue-500/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
                              <div class="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                              <span class="material-symbols-rounded text-blue-400 text-3xl mb-2 group-hover:scale-110 transition-transform block">percent</span>
                              <p class="text-white text-sm font-bold">50/50</p>
                              <div class="mt-3 inline-flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-600 group-hover:border-blue-500/30 transition-colors">
-                                <span class="text-amber-400 font-bold text-xs">50</span>
+                                <span class="text-amber-400 font-bold text-xs">${SHOP_PRICES.HELPER_FIFTY}</span>
                                 <span class="material-symbols-rounded text-amber-400 text-[10px]">monetization_on</span>
                              </div>
                         </button>
 
-                        <button onclick="window.buyShopItem('hint', 50)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-yellow-400/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
+                        <button onclick="window.buyShopItem('hint', SHOP_PRICES.HELPER_HINT)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-yellow-400/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
                              <div class="absolute inset-0 bg-yellow-400/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                              <span class="material-symbols-rounded text-yellow-400 text-3xl mb-2 group-hover:scale-110 transition-transform block">lightbulb</span>
                              <p class="text-white text-sm font-bold">تلميح</p>
                              <div class="mt-3 inline-flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-600 group-hover:border-yellow-400/30 transition-colors">
-                                <span class="text-amber-400 font-bold text-xs">50</span>
+                                <span class="text-amber-400 font-bold text-xs">${SHOP_PRICES.HELPER_HINT}</span>
                                 <span class="material-symbols-rounded text-amber-400 text-[10px]">monetization_on</span>
                              </div>
                         </button>
 
-                        <button onclick="window.buyShopItem('skip', 50)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-green-400/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
+                        <button onclick="window.buyShopItem('skip', SHOP_PRICES.HELPER_SKIP)" class="group relative bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-green-400/50 hover:bg-slate-700/80 transition-all text-center overflow-hidden">
                              <div class="absolute inset-0 bg-green-400/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                              <span class="material-symbols-rounded text-green-400 text-3xl mb-2 group-hover:scale-110 transition-transform block">skip_next</span>
                              <p class="text-white text-sm font-bold">تخطي</p>
                              <div class="mt-3 inline-flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-600 group-hover:border-green-400/30 transition-colors">
-                                <span class="text-amber-400 font-bold text-xs">50</span>
+                                <span class="text-amber-400 font-bold text-xs">${SHOP_PRICES.HELPER_SKIP}</span>
                                 <span class="material-symbols-rounded text-amber-400 text-[10px]">monetization_on</span>
                              </div>
                         </button>
